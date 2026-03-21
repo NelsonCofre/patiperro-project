@@ -6,6 +6,8 @@ import org.springframework.stereotype.Repository;
 
 import com.patiperro.usuarios.user.model.Usuario;
 
+/*Probando subida */
+
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmail(String email);
