@@ -1,12 +1,9 @@
-package com.patiperro.usuarios.user.model.repository;
+package com.patiperro.usuarios.repository;
 
-import java.util.Optional;
+import com.patiperro.usuarios.model.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import com.patiperro.usuarios.user.model.Usuario;
-
-/*Probando subida */
+import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
