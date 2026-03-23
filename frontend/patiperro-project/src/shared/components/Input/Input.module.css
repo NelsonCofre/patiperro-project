@@ -1,0 +1,25 @@
+.container {
+  margin-bottom: 15px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.inputError {
+  border: 2px solid red;
+}
+
+.errorText {
+  color: red;
+  font-size: 12px;
+}

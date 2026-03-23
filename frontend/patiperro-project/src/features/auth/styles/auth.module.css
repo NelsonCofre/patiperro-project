@@ -1,0 +1,96 @@
+/* Layout principal dividido */
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+/* Lado izquierdo (branding) */
+.left {
+  flex: 1;
+  background: linear-gradient(135deg, #4caf50, #81c784);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.leftContent {
+  text-align: center;
+}
+
+.logo {
+  font-size: 40px;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+/* Lado derecho (formulario) */
+.right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f5f7fa;
+}
+
+/* Card */
+.card {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  width: 350px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Título */
+.title {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Botón */
+.submitButton {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  border: none;
+  background: #4caf50;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.submitButton:hover {
+  transform: scale(1.02);
+  opacity: 0.9;
+}
+
+/* Roles */
+.roleContainer {
+  margin-top: 20px;
+}
+
+.roleButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.roleButton {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  background: #ddd;
+  cursor: pointer;
+}
+
+.activeRole {
+  background: #4caf50;
+  color: white;
+}

@@ -1,0 +1,51 @@
+.container {
+  margin-bottom: 15px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: white;
+  gap: 8px;
+}
+
+/* 🔥 Input base */
+.input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+}
+
+/* Iconos */
+.icon {
+  font-size: 16px;
+}
+
+.eye {
+  cursor: pointer;
+  font-size: 16px;
+}
+
+/* Focus bonito */
+.wrapper:focus-within {
+  border: 1px solid #4caf50;
+}
+
+/* Error */
+.errorInput {
+  border: 1px solid red;
+}
+
+.errorText {
+  color: red;
+  font-size: 12px;
+}
