@@ -4,21 +4,21 @@
       "type": "java",
       "name": "Spring Boot-Application<api-gateway>",
       "request": "launch",
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/api-gateway",
       "mainClass": "com.patiperro.gateway.Application",
       "projectName": "api-gateway",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/../../.env"
     },
     {
       "type": "java",
-      "name": "Spring Boot-Application<usuarios-service>",
+      "name": "Spring Boot-TutoresServiceApplication<tutores-service>",
       "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "mainClass": "com.patiperro.usuarios.Application",
-      "projectName": "usuarios-service",
+      "cwd": "${workspaceFolder}/tutores-service",
+      "mainClass": "com.patiperro.tutores.TutoresServiceApplication",
+      "projectName": "tutores-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/../../.env"
     }
   ]
 }
