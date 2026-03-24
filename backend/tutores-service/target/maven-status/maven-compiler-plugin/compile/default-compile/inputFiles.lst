@@ -11,6 +11,7 @@ C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-s
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\TutoresServiceApplication.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\controller\FotoController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\controller\TutorController.java
+C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\controller\TutorPerfilFotoController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\dto\FotoRequestDTO.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\dto\FotoResponseDTO.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\dto\TutorResponseDTO.java
@@ -21,4 +22,5 @@ C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-s
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\repository\FotoRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\repository\TutorRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\service\FotoService.java
+C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\service\TutorPerfilFotoStorageService.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\tutores-service\src\main\java\com\patiperro\tutores\user\service\TutorService.java

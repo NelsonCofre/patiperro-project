@@ -1,5 +1,7 @@
 import { API_ENDPOINTS } from "../../../config/api";
 
+type ApiErrorBody = { message?: string; mensaje?: string };
+
 export type RegisterTutorPayload = {
   rut: string;
   primerNombre: string;
@@ -26,6 +28,37 @@ export type AuthResponse = {
   mensaje?: string;
   correo?: string;
 };
+
+/**
+ * Sube la imagen de perfil y devuelve la ruta a guardar en registro (relativa al gateway).
+ */
+export async function uploadTutorProfilePhoto(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch(API_ENDPOINTS.auth.tutores.uploadFotoPerfil, {
+    method: "POST",
+    credentials: "include",
+    body
+  });
+
+  let data: { url?: string } & ApiErrorBody | null = null;
+  try {
+    data = (await response.json()) as { url?: string } & ApiErrorBody;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok || !data?.url) {
+    const msg =
+      (data && "message" in data && data.message) ||
+      (data && "mensaje" in data && data.mensaje) ||
+      "No se pudo subir la foto de perfil.";
+    throw new Error(msg);
+  }
+
+  return data.url;
+}
 
 export async function registerTutor(
   payload: RegisterTutorPayload

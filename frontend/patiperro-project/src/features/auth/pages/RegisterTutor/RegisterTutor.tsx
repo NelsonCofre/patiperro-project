@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthInput from "../../components/AuthInput";
-import { registerTutor } from "../../services/authServices";
+import { registerTutor, uploadTutorProfilePhoto } from "../../services/authServices";
 import authStyles from "../../styles/auth.module.css";
 import styles from "./RegisterTutor.module.css";
 
@@ -56,9 +56,6 @@ const STEP_LABELS = [
   { title: "Paso 2", text: "Direccion" },
   { title: "Paso 3", text: "Foto del tutor" }
 ];
-
-const DEFAULT_TUTOR_PHOTO_URL =
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80";
 
 export default function RegisterTutor() {
   const navigate = useNavigate();
@@ -200,7 +197,7 @@ export default function RegisterTutor() {
     setCurrentStep((prev) => prev - 1);
   };
 
-  const buildRegisterPayload = () => ({
+  const buildRegisterPayload = (fotoPerfil: string) => ({
     rut: form.rut.trim(),
     primerNombre: form.primer_nombre.trim(),
     segundoNombre: form.segundo_nombre.trim(),
@@ -210,7 +207,7 @@ export default function RegisterTutor() {
     telefono: form.telefono.trim(),
     correo: form.correo.trim(),
     contrasena: form.contrasena,
-    fotoPerfil: DEFAULT_TUTOR_PHOTO_URL,
+    fotoPerfil,
     biografia: form.biografia.trim(),
     pais: form.pais.trim(),
     region: form.region.trim(),
@@ -219,7 +216,7 @@ export default function RegisterTutor() {
     comuna: form.comuna.trim(),
     numeracion: Number(form.numeracion),
     casaDepartamento: form.casa_departamento.trim(),
-    fotos: []
+    fotos: [] as string[]
   });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -233,10 +230,16 @@ export default function RegisterTutor() {
       return;
     }
 
+    if (!form.foto_perfil) {
+      setSubmitError("Debes seleccionar una foto de perfil.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await registerTutor(buildRegisterPayload());
+      const fotoPath = await uploadTutorProfilePhoto(form.foto_perfil);
+      await registerTutor(buildRegisterPayload(fotoPath));
       navigate("/login/tutor");
     } catch (error) {
       setSubmitError(
@@ -465,8 +468,8 @@ export default function RegisterTutor() {
           ) : null}
 
           <p>
-            Sube una foto clara de perfil para completar el registro y generar una
-            mejor presentacion de tu cuenta.
+            Sube una imagen (jpg, png, gif o webp). Al crear la cuenta se sube al servidor y se
+            guarda la URL en tu perfil.
           </p>
 
           <label className={styles.uploadButton} htmlFor="tutor-photo">

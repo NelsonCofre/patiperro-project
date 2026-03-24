@@ -18,7 +18,6 @@ import java.util.Objects;
 @RestController
 @RequestMapping("/api/auth/tutores")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class AuthController {
 
     // Login / registro de tutor (dueño).

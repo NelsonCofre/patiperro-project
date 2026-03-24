@@ -27,8 +27,8 @@ public class Tutor {
     @Column(name = "id_tutor")
     private Long id;
 
-    // Identificador nacional (formato chileno esperado).
-    @Column(name = "rut", length = 10)
+    // Identificador nacional (p. ej. 12345678-9 o 12.345.678-9; 10 chars no alcanzan con puntos).
+    @Column(name = "rut", length = 20)
     private String rut;
 
     // Primer nombre del tutor.

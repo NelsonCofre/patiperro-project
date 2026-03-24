@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/tutores/{tutorId}/fotos")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class FotoController {
 
     private final FotoService fotoService;

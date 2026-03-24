@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/tutores")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class TutorController {
 
     private final TutorService tutorService;
