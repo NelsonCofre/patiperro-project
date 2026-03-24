@@ -1,51 +1,74 @@
 .container {
-  margin-bottom: 15px;
+  margin-bottom: 18px;
 }
 
 .label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 7px;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .wrapper {
   display: flex;
   align-items: center;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: white;
-  gap: 8px;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d5dfd6;
+  border-radius: 12px;
+  background: #fbfdfb;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
-/* 🔥 Input base */
+.wrapper:hover {
+  border-color: #bfd0c1;
+}
+
+.wrapper:focus-within {
+  border-color: #4caf50;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.12);
+}
+
 .input {
+  flex: 1;
   border: none;
   outline: none;
-  flex: 1;
-  font-size: 14px;
+  color: #1f2937;
+  font-size: 0.95rem;
+  background: transparent;
 }
 
-/* Iconos */
+.input::placeholder {
+  color: #94a3b8;
+}
+
 .icon {
+  color: #64748b;
   font-size: 16px;
 }
 
 .eye {
+  color: #64748b;
   cursor: pointer;
   font-size: 16px;
 }
 
-/* Focus bonito */
-.wrapper:focus-within {
-  border: 1px solid #4caf50;
-}
-
-/* Error */
 .errorInput {
-  border: 1px solid red;
+  border-color: #dc2626;
+  background: #fff8f8;
 }
 
 .errorText {
-  color: red;
+  display: inline-block;
+  margin-top: 6px;
+  color: #dc2626;
   font-size: 12px;
+  font-weight: 600;
 }
