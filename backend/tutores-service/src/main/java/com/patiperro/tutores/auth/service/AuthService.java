@@ -11,6 +11,7 @@ import com.patiperro.tutores.user.repository.DireccionRepository;
 import com.patiperro.tutores.user.repository.FotoRepository;
 import com.patiperro.tutores.user.repository.TutorRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class AuthService {
     private final TutorRepository tutorRepository;
     private final DireccionRepository direccionRepository;
     private final FotoRepository fotoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // Flujo login:
     // 1) Buscar tutor por correo.
@@ -35,7 +37,7 @@ public class AuthService {
         Tutor tutor = tutorRepository.findByCorreo(request.getCorreo())
                 .orElseThrow(InvalidCredentialsException::new);
 
-        if (!tutor.getContrasena().equals(request.getContrasena())) {
+        if (!passwordEncoder.matches(request.getContrasena(), tutor.getContrasena())) {
             throw new InvalidCredentialsException();
         }
 
@@ -73,7 +75,7 @@ public class AuthService {
                 .fechaNacimiento(request.getFechaNacimiento())
                 .telefono(request.getTelefono())
                 .correo(request.getCorreo())
-                .contrasena(request.getContrasena())
+                .contrasena(passwordEncoder.encode(request.getContrasena()))
                 .fotoPerfil(request.getFotoPerfil())
                 .biografia(request.getBiografia())
                 .direccion(direccion)

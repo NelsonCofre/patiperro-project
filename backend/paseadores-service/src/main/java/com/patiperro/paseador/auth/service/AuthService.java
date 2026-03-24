@@ -11,6 +11,7 @@ import com.patiperro.paseador.repository.DireccionRepository;
 import com.patiperro.paseador.repository.FotoRepository;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +26,13 @@ public class AuthService {
     private final PaseadorRepository paseadorRepository;
     private final DireccionRepository direccionRepository;
     private final FotoRepository fotoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginResponseDTO login(LoginRequestDTO request) {
         Paseador paseador = paseadorRepository.findByCorreo(request.getCorreo())
                 .orElseThrow(InvalidCredentialsException::new);
 
-        if (!paseador.getContrasena().equals(request.getContrasena())) {
+        if (!passwordEncoder.matches(request.getContrasena(), paseador.getContrasena())) {
             throw new InvalidCredentialsException();
         }
 
@@ -66,7 +68,7 @@ public class AuthService {
                 .fechaNacimiento(request.getFechaNacimiento())
                 .telefono(request.getTelefono())
                 .correo(request.getCorreo())
-                .contrasena(request.getContrasena())
+                .contrasena(passwordEncoder.encode(request.getContrasena()))
                 .fotoPerfil(request.getFotoPerfil())
                 .biografia(request.getBiografia())
                 .direccion(direccion)

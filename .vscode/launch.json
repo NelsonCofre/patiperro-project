@@ -22,11 +22,11 @@
     },
     {
       "type": "java",
-      "name": "Spring Boot-PaseadorServiceApplication<paseador-service>",
+      "name": "Spring Boot-PaseadorServiceApplication<paseadores-service>",
       "request": "launch",
-      "cwd": "${workspaceFolder}/backend/paseador-service",
+      "cwd": "${workspaceFolder}/backend/paseadores-service",
       "mainClass": "com.patiperro.paseador.PaseadorServiceApplication",
-      "projectName": "paseador-service",
+      "projectName": "paseadores-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }

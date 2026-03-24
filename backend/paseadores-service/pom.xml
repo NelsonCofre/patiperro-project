@@ -9,9 +9,9 @@
 		<relativePath/>
 	</parent>
 	<groupId>com.patiperro</groupId>
-	<artifactId>paseador-service</artifactId>
+	<artifactId>paseadores-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>paseador-service</name>
+	<name>paseadores-service</name>
 
 	<properties>
 		<java.version>21</java.version>
