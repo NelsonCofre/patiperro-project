@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthInput from "../../components/AuthInput";
-import { registerTutor, uploadTutorProfilePhoto } from "../../services/authServices";
+import { registerPaseador } from "../../services/authServices";
 import authStyles from "../../styles/auth.module.css";
-import styles from "./RegisterTutor.module.css";
+import styles from "./RegisterPaseador.module.css";
 
-type TutorRegisterForm = {
+type PaseadorRegisterForm = {
   rut: string;
   primer_nombre: string;
   segundo_nombre: string;
@@ -27,9 +27,9 @@ type TutorRegisterForm = {
   foto_perfil: File | null;
 };
 
-type FormErrors = Partial<Record<keyof TutorRegisterForm, string>>;
+type FormErrors = Partial<Record<keyof PaseadorRegisterForm, string>>;
 
-const INITIAL_FORM: TutorRegisterForm = {
+const INITIAL_FORM: PaseadorRegisterForm = {
   rut: "",
   primer_nombre: "",
   segundo_nombre: "",
@@ -53,14 +53,17 @@ const INITIAL_FORM: TutorRegisterForm = {
 
 const STEP_LABELS = [
   { title: "Paso 1", text: "Acceso" },
-  { title: "Paso 2", text: "Perfil del tutor" },
+  { title: "Paso 2", text: "Perfil del paseador" },
   { title: "Paso 3", text: "Ubicacion y foto" }
 ];
 
-export default function RegisterTutor() {
+const DEFAULT_PASEADOR_PHOTO_URL =
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80";
+
+export default function RegisterPaseador() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [form, setForm] = useState<TutorRegisterForm>(INITIAL_FORM);
+  const [form, setForm] = useState<PaseadorRegisterForm>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [photoPreview, setPhotoPreview] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -109,8 +112,8 @@ export default function RegisterTutor() {
         nextErrors.correo = "Ingresa un correo valido";
       }
 
-      if (form.contrasena.length < 8) {
-        nextErrors.contrasena = "La contrasena debe tener al menos 8 caracteres";
+      if (form.contrasena.length < 6) {
+        nextErrors.contrasena = "La contrasena debe tener al menos 6 caracteres";
       }
 
       if (form.confirmar_contrasena !== form.contrasena) {
@@ -174,7 +177,7 @@ export default function RegisterTutor() {
       }
 
       if (!form.foto_perfil) {
-        nextErrors.foto_perfil = "Debes subir una foto del tutor";
+        nextErrors.foto_perfil = "Debes subir una foto del paseador";
       }
     }
 
@@ -199,17 +202,17 @@ export default function RegisterTutor() {
     setCurrentStep((prev) => prev - 1);
   };
 
-  const buildRegisterPayload = (fotoPerfil: string) => ({
+  const buildRegisterPayload = () => ({
     rut: form.rut.trim(),
     primerNombre: form.primer_nombre.trim(),
     segundoNombre: form.segundo_nombre.trim(),
     apellidoPaterno: form.apellido_paterno.trim(),
     apellidoMaterno: form.apellido_materno.trim(),
     fechaNacimiento: form.fecha_nacimiento,
-    telefono: form.telefono.trim(),
+    telefono: Number(form.telefono),
     correo: form.correo.trim(),
     contrasena: form.contrasena,
-    fotoPerfil,
+    fotoPerfil: DEFAULT_PASEADOR_PHOTO_URL,
     biografia: form.biografia.trim(),
     pais: form.pais.trim(),
     region: form.region.trim(),
@@ -218,7 +221,7 @@ export default function RegisterTutor() {
     comuna: form.comuna.trim(),
     numeracion: Number(form.numeracion),
     casaDepartamento: form.casa_departamento.trim(),
-    fotos: [] as string[]
+    fotos: []
   });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -232,22 +235,16 @@ export default function RegisterTutor() {
       return;
     }
 
-    if (!form.foto_perfil) {
-      setSubmitError("Debes seleccionar una foto de perfil.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const fotoPath = await uploadTutorProfilePhoto(form.foto_perfil);
-      await registerTutor(buildRegisterPayload(fotoPath));
-      navigate("/login/tutor");
+      await registerPaseador(buildRegisterPayload());
+      navigate("/login/paseador");
     } catch (error) {
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Ocurrio un error al registrar al tutor."
+          : "Ocurrio un error al registrar al paseador."
       );
     } finally {
       setIsSubmitting(false);
@@ -467,21 +464,21 @@ export default function RegisterTutor() {
             <img
               className={styles.preview}
               src={photoPreview}
-              alt="Vista previa de la foto del tutor"
+              alt="Vista previa de la foto del paseador"
             />
           ) : null}
 
           <p>
-            Sube una imagen (jpg, png, gif o webp). Al crear la cuenta se sube al servidor y se
-            guarda la URL en tu perfil.
+            Sube una foto clara de perfil para completar el registro y generar una
+            mejor presentacion de tu cuenta.
           </p>
 
-          <label className={styles.uploadButton} htmlFor="tutor-photo">
+          <label className={styles.uploadButton} htmlFor="paseador-photo">
             Seleccionar foto
           </label>
 
           <input
-            id="tutor-photo"
+            id="paseador-photo"
             className={styles.hiddenInput}
             type="file"
             accept="image/*"
@@ -508,7 +505,7 @@ export default function RegisterTutor() {
         <div className={authStyles.leftContent}>
           <h1 className={authStyles.logo}>Patiperro</h1>
           <p className={authStyles.subtitle}>
-            Registro exclusivo para tutores. Completa tus datos para crear tu cuenta.
+            Registro exclusivo para paseadores. Completa tus datos para ofrecer tus servicios.
           </p>
         </div>
       </div>
@@ -516,10 +513,10 @@ export default function RegisterTutor() {
       <div className={authStyles.right}>
         <div className={authStyles.card}>
           <div className={styles.header}>
-            <h2 className={authStyles.title}>Registro de tutor</h2>
+            <h2 className={authStyles.title}>Registro de paseador</h2>
             <p>
-              Completa este flujo de 3 pasos para dejar lista tu cuenta de tutor con
-              informacion personal, direccion y foto de perfil.
+              Completa este flujo de 3 pasos para dejar lista tu cuenta profesional
+              de paseador con perfil, ubicacion y foto.
             </p>
           </div>
 
@@ -582,7 +579,7 @@ export default function RegisterTutor() {
           </form>
 
           <p className={styles.footerText}>
-            Ya tienes cuenta? <Link to="/login/tutor">Inicia sesion</Link>
+            Ya tienes cuenta? <Link to="/login/paseador">Inicia sesion</Link>
           </p>
 
           <p className={styles.stepMeta}>Paso actual: {currentTitle}</p>

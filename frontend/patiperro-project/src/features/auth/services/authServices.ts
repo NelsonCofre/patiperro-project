@@ -24,6 +24,28 @@ export type RegisterTutorPayload = {
   fotos: string[];
 };
 
+export type RegisterPaseadorPayload = {
+  rut: string;
+  primerNombre: string;
+  segundoNombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  fechaNacimiento: string;
+  telefono: number;
+  correo: string;
+  contrasena: string;
+  fotoPerfil: string;
+  biografia: string;
+  pais: string;
+  region: string;
+  ciudad: string;
+  calle: string;
+  comuna: string;
+  numeracion: number;
+  casaDepartamento: string;
+  fotos: string[];
+};
+
 export type AuthResponse = {
   mensaje?: string;
   correo?: string;
@@ -85,6 +107,38 @@ export async function registerTutor(
       (data && "message" in data && data.message) ||
       (data && "mensaje" in data && data.mensaje) ||
       "No se pudo completar el registro del tutor.";
+
+    throw new Error(errorMessage);
+  }
+
+  return (data as AuthResponse) ?? {};
+}
+
+export async function registerPaseador(
+  payload: RegisterPaseadorPayload
+): Promise<AuthResponse> {
+  const response = await fetch(API_ENDPOINTS.auth.paseadores.register, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: "include",
+    body: JSON.stringify(payload)
+  });
+
+  let data: AuthResponse | { message?: string } | null = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      (data && "message" in data && data.message) ||
+      (data && "mensaje" in data && data.mensaje) ||
+      "No se pudo completar el registro del paseador.";
 
     throw new Error(errorMessage);
   }

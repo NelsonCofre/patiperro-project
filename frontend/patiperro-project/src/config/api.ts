@@ -6,6 +6,10 @@ export const API_ENDPOINTS = {
       register: `${API_BASE_URL}/api/auth/tutores/register`,
       login: `${API_BASE_URL}/api/auth/tutores/login`,
       uploadFotoPerfil: `${API_BASE_URL}/api/auth/tutores/upload-foto-perfil`
+    },
+    paseadores: {
+      register: `${API_BASE_URL}/api/paseadores/auth/register`,
+      login: `${API_BASE_URL}/api/paseadores/auth/login`
     }
   }
 };
