@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthInput from "../../components/AuthInput";
-import { registerPaseador } from "../../services/authServices";
+import { registerPaseador, uploadPaseadorProfilePhoto } from "../../services/authServices";
 import authStyles from "../../styles/auth.module.css";
 import styles from "./RegisterPaseador.module.css";
 
@@ -57,8 +57,15 @@ const STEP_LABELS = [
   { title: "Paso 3", text: "Ubicacion y foto" }
 ];
 
-const DEFAULT_PASEADOR_PHOTO_URL =
-  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80";
+/** Backend usa Integer: se envían dígitos (si hay +56, se toman los últimos 9). */
+function telefonoNumericoParaApi(raw: string): number {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 0) {
+    return Number.NaN;
+  }
+  const core = digits.length > 9 ? digits.slice(-9) : digits;
+  return Number.parseInt(core, 10);
+}
 
 export default function RegisterPaseador() {
   const navigate = useNavigate();
@@ -202,17 +209,17 @@ export default function RegisterPaseador() {
     setCurrentStep((prev) => prev - 1);
   };
 
-  const buildRegisterPayload = () => ({
+  const buildRegisterPayload = (fotoPerfil: string) => ({
     rut: form.rut.trim(),
     primerNombre: form.primer_nombre.trim(),
     segundoNombre: form.segundo_nombre.trim(),
     apellidoPaterno: form.apellido_paterno.trim(),
     apellidoMaterno: form.apellido_materno.trim(),
     fechaNacimiento: form.fecha_nacimiento,
-    telefono: Number(form.telefono),
+    telefono: telefonoNumericoParaApi(form.telefono),
     correo: form.correo.trim(),
     contrasena: form.contrasena,
-    fotoPerfil: DEFAULT_PASEADOR_PHOTO_URL,
+    fotoPerfil,
     biografia: form.biografia.trim(),
     pais: form.pais.trim(),
     region: form.region.trim(),
@@ -221,7 +228,7 @@ export default function RegisterPaseador() {
     comuna: form.comuna.trim(),
     numeracion: Number(form.numeracion),
     casaDepartamento: form.casa_departamento.trim(),
-    fotos: []
+    fotos: [] as string[]
   });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -235,10 +242,22 @@ export default function RegisterPaseador() {
       return;
     }
 
+    if (!form.foto_perfil) {
+      setSubmitError("Debes seleccionar una foto de perfil.");
+      return;
+    }
+
+    const telNum = telefonoNumericoParaApi(form.telefono);
+    if (!Number.isFinite(telNum)) {
+      setSubmitError("Revisa el telefono: usa solo numeros (puedes incluir +56).");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await registerPaseador(buildRegisterPayload());
+      const fotoPath = await uploadPaseadorProfilePhoto(form.foto_perfil);
+      await registerPaseador(buildRegisterPayload(fotoPath));
       navigate("/login/paseador");
     } catch (error) {
       setSubmitError(

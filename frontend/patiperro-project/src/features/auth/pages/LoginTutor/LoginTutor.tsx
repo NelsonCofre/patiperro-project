@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
+import { loginTutor } from "../../services/authServices";
 import type { FormErrors } from "../../types/auth.types";
 import styles from "./LoginTutor.module.css";
 
@@ -17,6 +18,10 @@ export default function LoginTutor() {
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(
+    null
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -41,8 +46,9 @@ export default function LoginTutor() {
     return nextErrors;
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setFeedback(null);
 
     const validationErrors = validate();
     setErrors(validationErrors);
@@ -51,14 +57,47 @@ export default function LoginTutor() {
       return;
     }
 
-    console.log("Login tutor listo para conectar:", form);
+    setIsSubmitting(true);
+
+    try {
+      const res = await loginTutor({
+        correo: form.email.trim(),
+        contrasena: form.password
+      });
+      setFeedback({
+        type: "success",
+        text: res.mensaje ?? "Sesion iniciada correctamente."
+      });
+      setForm({ email: "", password: "" });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        text: error instanceof Error ? error.message : "No se pudo iniciar sesion."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <AuthForm title="Iniciar sesion como tutor" onSubmit={handleSubmit} buttonText="Ingresar">
+    <AuthForm
+      title="Iniciar sesion como tutor"
+      onSubmit={handleSubmit}
+      buttonText="Ingresar"
+      isSubmitting={isSubmitting}
+    >
       <div className={styles.header}>
         <p>Accede con tu cuenta de tutor para gestionar reservas y paseos.</p>
       </div>
+
+      {feedback ? (
+        <div
+          className={feedback.type === "success" ? styles.alertSuccess : styles.alertError}
+          role="alert"
+        >
+          {feedback.text}
+        </div>
+      ) : null}
 
       <AuthInput
         label="Correo electronico"

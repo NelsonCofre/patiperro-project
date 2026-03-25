@@ -22,7 +22,7 @@ public class Paseador {
     @Column(name = "id_paseador")
     private Long id;
 
-    @Column(name = "rut", length = 10)
+    @Column(name = "rut", length = 20)
     private String rut;
 
     @Column(name = "primer_nombre", length = 60)

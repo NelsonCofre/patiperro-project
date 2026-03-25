@@ -9,7 +9,8 @@ export const API_ENDPOINTS = {
     },
     paseadores: {
       register: `${API_BASE_URL}/api/paseadores/auth/register`,
-      login: `${API_BASE_URL}/api/paseadores/auth/login`
+      login: `${API_BASE_URL}/api/paseadores/auth/login`,
+      uploadFotoPerfil: `${API_BASE_URL}/api/paseadores/auth/upload-foto-perfil`
     }
   }
 };

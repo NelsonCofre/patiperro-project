@@ -29,6 +29,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/paseadores/health").permitAll()
                         .requestMatchers("/api/paseadores/auth/**").permitAll()
+                        .requestMatchers("/api/paseadores/public/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

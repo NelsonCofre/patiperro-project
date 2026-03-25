@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/health"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"))
                         .permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()

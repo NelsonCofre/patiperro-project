@@ -5,9 +5,10 @@ type Props = {
   onSubmit: (e: React.FormEvent) => void;
   buttonText: string;
   children: React.ReactNode;
+  isSubmitting?: boolean;
 };
 
-export default function AuthForm({ title, onSubmit, buttonText, children }: Props) {
+export default function AuthForm({ title, onSubmit, buttonText, children, isSubmitting }: Props) {
   return (
     <div className={styles.container}>
 
@@ -30,8 +31,12 @@ export default function AuthForm({ title, onSubmit, buttonText, children }: Prop
           <form onSubmit={onSubmit}>
             {children}
 
-            <button className={styles.submitButton} type="submit">
-              {buttonText}
+            <button
+              className={styles.submitButton}
+              type="submit"
+              disabled={!!isSubmitting}
+            >
+              {isSubmitting ? "Ingresando..." : buttonText}
             </button>
           </form>
 

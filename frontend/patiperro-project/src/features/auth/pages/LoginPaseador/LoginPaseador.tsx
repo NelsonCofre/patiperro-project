@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
+import { loginPaseador } from "../../services/authServices";
 import type { FormErrors } from "../../types/auth.types";
 import styles from "./LoginPaseador.module.css";
 
@@ -17,6 +18,10 @@ export default function LoginPaseador() {
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(
+    null
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -41,8 +46,9 @@ export default function LoginPaseador() {
     return nextErrors;
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setFeedback(null);
 
     const validationErrors = validate();
     setErrors(validationErrors);
@@ -51,7 +57,26 @@ export default function LoginPaseador() {
       return;
     }
 
-    console.log("Login paseador listo para conectar:", form);
+    setIsSubmitting(true);
+
+    try {
+      const res = await loginPaseador({
+        correo: form.email.trim(),
+        contrasena: form.password
+      });
+      setFeedback({
+        type: "success",
+        text: res.mensaje ?? "Sesion iniciada correctamente."
+      });
+      setForm({ email: "", password: "" });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        text: error instanceof Error ? error.message : "No se pudo iniciar sesion."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -59,10 +84,20 @@ export default function LoginPaseador() {
       title="Iniciar sesion como paseador"
       onSubmit={handleSubmit}
       buttonText="Ingresar"
+      isSubmitting={isSubmitting}
     >
       <div className={styles.header}>
         <p>Accede con tu cuenta de paseador para gestionar servicios y reservas.</p>
       </div>
+
+      {feedback ? (
+        <div
+          className={feedback.type === "success" ? styles.alertSuccess : styles.alertError}
+          role="alert"
+        >
+          {feedback.text}
+        </div>
+      ) : null}
 
       <AuthInput
         label="Correo electronico"
