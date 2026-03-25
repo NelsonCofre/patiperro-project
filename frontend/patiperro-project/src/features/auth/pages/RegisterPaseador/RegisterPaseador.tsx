@@ -112,8 +112,8 @@ export default function RegisterPaseador() {
         nextErrors.correo = "Ingresa un correo valido";
       }
 
-      if (form.contrasena.length < 6) {
-        nextErrors.contrasena = "La contrasena debe tener al menos 6 caracteres";
+      if (form.contrasena.length < 8) {
+        nextErrors.contrasena = "La contrasena debe tener al menos 8 caracteres";
       }
 
       if (form.confirmar_contrasena !== form.contrasena) {
