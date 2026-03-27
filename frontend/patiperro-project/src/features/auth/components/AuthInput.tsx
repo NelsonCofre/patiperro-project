@@ -6,10 +6,15 @@ type Props = {
   name: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   type?: string;
   placeholder?: string;
   error?: string;
   icon?: string;
+  min?: string;
+  max?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  autoComplete?: string;
 };
 
 export default function AuthInput({
@@ -17,10 +22,15 @@ export default function AuthInput({
   name,
   value,
   onChange,
+  onBlur,
   type = "text",
   placeholder,
   error,
-  icon
+  icon,
+  min,
+  max,
+  inputMode,
+  autoComplete
 }: Props) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -40,9 +50,14 @@ export default function AuthInput({
           name={name}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           type={isPassword && showPassword ? "text" : type}
           placeholder={placeholder}
           className={styles.input}
+          min={min}
+          max={max}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
         />
 
         {/* 👁 PASSWORD */}

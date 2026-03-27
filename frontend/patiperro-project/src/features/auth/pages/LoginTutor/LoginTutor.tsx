@@ -4,6 +4,7 @@ import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
 import { loginTutor } from "../../services/authServices";
 import type { FormErrors } from "../../types/auth.types";
+import { getPasswordSecurityError, isValidEmail } from "../../utils/validators";
 import styles from "./LoginTutor.module.css";
 
 type TutorLoginForm = {
@@ -30,21 +31,43 @@ export default function LoginTutor() {
       ...prev,
       [name]: value
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: undefined
+    }));
+  };
+
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = event.target;
+    const validationErrors = validate();
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: validationErrors[name as keyof FormErrors]
+    }));
   };
 
   const validate = (): FormErrors => {
     const nextErrors: FormErrors = {};
 
-    if (!form.email.includes("@")) {
-      nextErrors.email = "Ingresa un correo valido";
+    if (!isValidEmail(form.email)) {
+      nextErrors.email = "Formato de correo invalido";
     }
 
-    if (form.password.length < 6) {
-      nextErrors.password = "La contrasena debe tener al menos 6 caracteres";
+    const passwordError = getPasswordSecurityError(form.password);
+    if (passwordError) {
+      nextErrors.password = passwordError;
     }
 
     return nextErrors;
   };
+
+  const isSubmitDisabled =
+    isSubmitting ||
+    !form.email.trim() ||
+    !form.password ||
+    Object.keys(validate()).length > 0;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -85,6 +108,7 @@ export default function LoginTutor() {
       onSubmit={handleSubmit}
       buttonText="Ingresar"
       isSubmitting={isSubmitting}
+      isSubmitDisabled={isSubmitDisabled}
     >
       <div className={styles.header}>
         <p>Accede con tu cuenta de tutor para gestionar reservas y paseos.</p>
@@ -104,8 +128,11 @@ export default function LoginTutor() {
         name="email"
         value={form.email}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder="correo@ejemplo.com"
         error={errors.email}
+        inputMode="email"
+        autoComplete="email"
       />
 
       <AuthInput
@@ -114,8 +141,10 @@ export default function LoginTutor() {
         type="password"
         value={form.password}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder="******"
         error={errors.password}
+        autoComplete="current-password"
       />
 
       <p className={styles.helperText}>

@@ -137,6 +137,14 @@
   font-weight: 600;
 }
 
+.fieldHint {
+  grid-column: 1 / -1;
+  margin: -6px 0 12px;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .actions {
   display: flex;
   gap: 12px;
