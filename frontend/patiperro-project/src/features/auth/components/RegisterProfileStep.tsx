@@ -1,3 +1,5 @@
+// Paso 2 del registro multi-step.
+// Reune informacion personal y biografia del usuario.
 import AuthInput from "./AuthInput";
 import type {
   BaseRegisterForm,

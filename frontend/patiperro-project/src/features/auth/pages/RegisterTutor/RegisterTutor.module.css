@@ -1,3 +1,4 @@
+/* Cabecera principal del flujo de registro. */
 .header {
   margin-bottom: 28px;
   text-align: center;
@@ -11,6 +12,7 @@
   line-height: 1.7;
 }
 
+/* Stepper visual para mostrar progreso entre los 3 pasos. */
 .stepper {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -57,6 +59,7 @@
   background: linear-gradient(180deg, #f3faf3 0%, #edf7ee 100%);
 }
 
+/* Contenedor interno del formulario del paso actual. */
 .formShell {
   padding: 22px;
   border: 1px solid #e3ece4;
@@ -71,6 +74,7 @@
   font-weight: 800;
 }
 
+/* Grid base para distribuir los campos del formulario. */
 .fieldsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -81,6 +85,7 @@
   grid-column: 1 / -1;
 }
 
+/* Bloque especial para biografia y ayudas de campos. */
 .textareaContainer {
   margin-bottom: 18px;
 }
@@ -145,6 +150,7 @@
   line-height: 1.5;
 }
 
+/* Acciones del paso y feedback general del submit. */
 .actions {
   display: flex;
   gap: 12px;
@@ -161,6 +167,7 @@
   background: #fef2f2;
 }
 
+/* Botones primario y secundario del flujo. */
 .secondaryButton,
 .primaryButton {
   flex: 1;
@@ -208,6 +215,7 @@
   box-shadow: 0 18px 32px rgba(47, 132, 60, 0.26);
 }
 
+/* Zona visual de carga y vista previa de la foto de perfil. */
 .photoUpload {
   margin-top: 18px;
   padding: 26px 22px;
@@ -262,6 +270,7 @@
   font-size: 0.9rem;
 }
 
+/* Enlaces y metadatos de apoyo al pie del formulario. */
 .footerText {
   margin-top: 18px;
   color: #64748b;
@@ -286,6 +295,7 @@
   font-size: 0.82rem;
 }
 
+/* Adaptacion del registro a pantallas pequenas. */
 @media (max-width: 768px) {
   .stepper {
     grid-template-columns: 1fr;

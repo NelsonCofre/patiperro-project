@@ -1,3 +1,5 @@
+// Paso 3 del registro multi-step.
+// Reune direccion y foto de perfil en un mismo bloque reutilizable.
 import AuthInput from "./AuthInput";
 import type {
   BaseRegisterForm,

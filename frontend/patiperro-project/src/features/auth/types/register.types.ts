@@ -1,3 +1,4 @@
+// Tipo base compartido por los registros de tutor y paseador.
 export type BaseRegisterForm = {
   rut: string;
   primer_nombre: string;

@@ -1,3 +1,5 @@
+// Input base del modulo auth.
+// Reutiliza el mismo comportamiento visual para login y registro.
 import { useState } from "react";
 import styles from "./AuthInput.module.css";
 

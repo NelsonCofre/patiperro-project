@@ -1,3 +1,4 @@
+// Vista de inicio de sesion exclusiva para el rol tutor.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthForm from "../../components/AuthForm";

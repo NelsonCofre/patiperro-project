@@ -1,4 +1,4 @@
-// Importamos React (opcional en versiones nuevas, pero recomendable para claridad)
+// Input generico reutilizable fuera del modulo auth.
 import React from "react";
 
 // Definimos el tipo de las props (lo que el componente recibe)

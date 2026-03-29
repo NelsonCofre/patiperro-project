@@ -1,7 +1,9 @@
+/* Contenedor general de cada campo del formulario. */
 .container {
   margin-bottom: 18px;
 }
 
+/* Etiqueta del campo para mejorar lectura y jerarquia. */
 .label {
   display: block;
   margin-bottom: 7px;
@@ -11,6 +13,7 @@
   letter-spacing: 0.01em;
 }
 
+/* Caja visual del input con iconos y estados de foco. */
 .wrapper {
   display: flex;
   align-items: center;
@@ -36,6 +39,7 @@
   box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.12);
 }
 
+/* Input base reutilizable en login y registro. */
 .input {
   flex: 1;
   border: none;
@@ -49,6 +53,7 @@
   color: #94a3b8;
 }
 
+/* Iconos laterales para campos con ayudas visuales. */
 .icon {
   color: #64748b;
   font-size: 16px;
@@ -60,6 +65,7 @@
   font-size: 16px;
 }
 
+/* Estado de error del input y mensaje de ayuda asociado. */
 .errorInput {
   border-color: #dc2626;
   background: #fff8f8;

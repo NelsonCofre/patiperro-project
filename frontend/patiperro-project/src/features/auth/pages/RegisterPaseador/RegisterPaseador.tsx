@@ -1,3 +1,5 @@
+// Registro del paseador.
+// Comparte la estructura multi-step del tutor, pero con payload y reglas propias.
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import RegisterAccessStep from "../../components/RegisterAccessStep";

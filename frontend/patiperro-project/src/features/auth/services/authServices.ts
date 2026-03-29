@@ -1,3 +1,5 @@
+// Servicios HTTP del modulo auth.
+// Concentran la comunicacion del frontend con login, registro y subida de fotos.
 import { API_ENDPOINTS } from "../../../config/api";
 
 type ApiErrorBody = { message?: string; mensaje?: string };

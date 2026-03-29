@@ -1,3 +1,5 @@
+// Paso 1 del registro multi-step.
+// Agrupa los campos de acceso compartidos entre tutor y paseador.
 import AuthInput from "./AuthInput";
 import type {
   BaseRegisterForm,

@@ -1,3 +1,5 @@
+// Layout compartido de las pantallas de login.
+// Se encarga del branding visual y del contenedor del formulario.
 import styles from "../styles/auth.module.css";
 
 type Props = {

@@ -1,3 +1,4 @@
+// Helpers y reglas de validacion reutilizados por los formularios de auth.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const LETTER_REGEX = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s'-]+$/;
 const PASSWORD_UPPERCASE_REGEX = /[A-Z]/;

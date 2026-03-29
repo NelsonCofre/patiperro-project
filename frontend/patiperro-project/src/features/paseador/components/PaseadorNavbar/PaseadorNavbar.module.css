@@ -1,0 +1,107 @@
+/* Barra superior del dashboard del paseador. */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  padding: 16px 20px;
+  border: 1px solid rgba(126, 170, 129, 0.18);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 34px rgba(31, 41, 55, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+/* Identidad visual del rol dentro del navbar. */
+.brandBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brandEyebrow {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brandTitle {
+  color: #1b3a24;
+  font-size: 1rem;
+}
+
+/* Grupo de enlaces principales del dashboard. */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #456153;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: #f7fbf7;
+  border: 1px solid #dbe7dc;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.link:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  border-color: #bfd8c2;
+  box-shadow: 0 10px 22px rgba(47, 125, 53, 0.08);
+}
+
+.linkActive {
+  color: #ffffff;
+  background: linear-gradient(180deg, #3f9448 0%, #2f7d35 100%);
+  border-color: transparent;
+  box-shadow: 0 14px 24px rgba(47, 125, 53, 0.2);
+}
+
+/* Comportamiento responsive del navbar. */
+@media (max-width: 840px) {
+  .nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .links {
+    width: 100%;
+  }
+
+  .link {
+    flex: 1 1 180px;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .links {
+    flex-direction: column;
+  }
+
+  .link {
+    width: 100%;
+  }
+}

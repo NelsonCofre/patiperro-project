@@ -1,3 +1,5 @@
+// Registro del tutor.
+// Usa un hook compartido para el flujo multi-step y mantiene reglas propias del rol.
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import RegisterAccessStep from "../../components/RegisterAccessStep";

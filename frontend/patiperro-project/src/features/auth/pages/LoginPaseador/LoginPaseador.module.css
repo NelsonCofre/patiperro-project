@@ -1,3 +1,4 @@
+/* Alertas de feedback para errores o mensajes de exito. */
 .alertError,
 .alertSuccess {
   margin-bottom: 16px;
@@ -19,6 +20,7 @@
   border: 1px solid #bbf7d0;
 }
 
+/* Cabecera del login y descripcion corta del flujo. */
 .header {
   margin-bottom: 24px;
   text-align: center;
@@ -30,6 +32,7 @@
   font-size: 14px;
 }
 
+/* Enlaces auxiliares y texto al pie del formulario. */
 .footerText {
   margin-top: 18px;
   text-align: center;

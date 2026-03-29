@@ -1,3 +1,5 @@
+// Hook reutilizable para el registro por pasos.
+// Centraliza estado, errores, validacion por paso y preview de foto.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   BaseRegisterForm,
