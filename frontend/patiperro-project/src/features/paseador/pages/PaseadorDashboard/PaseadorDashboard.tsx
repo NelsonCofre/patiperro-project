@@ -163,7 +163,7 @@ export default function PaseadorDashboard() {
             ))}
           </div>
 
-          <Link to="/dashboard/agenda" className={styles.primaryButton}>
+          <Link to="/paseador/dashboard/agenda" className={styles.primaryButton}>
             Configurar disponibilidad
           </Link>
         </article>

@@ -20,6 +20,15 @@
     linear-gradient(90deg, #edf7ee 0%, #f6faf6 100%);
 }
 
+/* Variante para roles donde el formulario debe quedar a la izquierda. */
+.containerReverse .left {
+  order: 2;
+}
+
+.containerReverse .right {
+  order: 1;
+}
+
 /* Panel visual del proyecto y mensajes de bienvenida. */
 .left {
   position: relative;

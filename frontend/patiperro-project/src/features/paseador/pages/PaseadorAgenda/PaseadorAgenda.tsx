@@ -85,7 +85,7 @@ export default function PaseadorAgenda() {
             Agregar bloques horarios
           </button>
 
-          <Link to="/dashboard" className={styles.secondaryLink}>
+          <Link to="/paseador/dashboard" className={styles.secondaryLink}>
             Volver al dashboard
           </Link>
         </aside>

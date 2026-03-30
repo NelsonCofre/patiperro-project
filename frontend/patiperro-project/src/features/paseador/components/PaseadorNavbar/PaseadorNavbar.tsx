@@ -4,9 +4,9 @@ import { NavLink } from "react-router-dom";
 import styles from "./PaseadorNavbar.module.css";
 
 const NAV_ITEMS = [
-  { label: "Inicio", to: "/dashboard" },
-  { label: "Configurar mi Servicio", to: "/dashboard/configuracion" },
-  { label: "Mi Agenda", to: "/dashboard/agenda" }
+  { label: "Inicio", to: "/paseador/dashboard" },
+  { label: "Configurar mi Servicio", to: "/paseador/dashboard/configuracion" },
+  { label: "Mi Agenda", to: "/paseador/dashboard/agenda" }
 ];
 
 export default function PaseadorNavbar() {
