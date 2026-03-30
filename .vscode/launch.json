@@ -2,6 +2,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "MascotasServiceApplication",
+      "request": "launch",
+      "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
+      "projectName": "mascotas-service"
+    },
+    {
+      "type": "java",
       "name": "Spring Boot-TutoresServiceApplication<tutores-service>",
       "request": "launch",
       "cwd": "${workspaceFolder}/backend/tutores-service",
