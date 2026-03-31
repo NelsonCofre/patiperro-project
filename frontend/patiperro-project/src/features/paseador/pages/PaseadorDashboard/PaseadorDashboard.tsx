@@ -122,9 +122,12 @@ export default function PaseadorDashboard() {
           </div>
 
           <div className={styles.actionRow}>
-            <button type="button" className={styles.primaryButton}>
+            <Link
+              to="/paseador/dashboard/configuracion"
+              className={styles.primaryButton}
+            >
               Configurar mi Servicio
-            </button>
+            </Link>
             <button type="button" className={styles.secondaryButton}>
               Editar Perfil de Paseador
             </button>

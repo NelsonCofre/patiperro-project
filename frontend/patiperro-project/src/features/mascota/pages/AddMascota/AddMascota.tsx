@@ -5,10 +5,12 @@ import type {
   FocusEvent,
   FormEvent
 } from "react";
+import { useState } from "react";
 import TutorNavbar from "../../../tutor/components/TutorNavbar/TutorNavbar";
 import { useMascotaForm } from "../../hooks/useMascotaForm";
 import type { MascotaForm } from "../../types/mascota.types";
 import {
+  getMascotaAgeLabel,
   getTodayDate,
   keepDecimalWeight,
   keepOnlyDigits
@@ -37,13 +39,12 @@ const INITIAL_FORM: MascotaForm = {
   foto: null
 };
 
-const ESPECIES = ["Perro", "Gato", "Otro"];
-const RAZAS = ["Mestizo", "Labrador", "Poodle", "Pastor Aleman", "Beagle", "Otra"];
 const SEXOS = ["Macho", "Hembra"];
-const TAMANOS = ["Pequeno", "Mediano", "Grande"];
 const ESTERILIZADO_OPTIONS = ["Si", "No"];
 
 export default function AddMascota() {
+  const [successMessage, setSuccessMessage] = useState("");
+
   const {
     currentStep,
     form,
@@ -63,6 +64,8 @@ export default function AddMascota() {
   } = useMascotaForm({
     initialForm: INITIAL_FORM
   });
+
+  const mascotaAge = getMascotaAgeLabel(form.fecha_nacimiento);
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -89,6 +92,7 @@ export default function AddMascota() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSuccessMessage("");
 
     const validationErrors = validateStep(currentStep);
     if (Object.keys(validationErrors).length > 0) {
@@ -101,12 +105,31 @@ export default function AddMascota() {
 
     window.setTimeout(() => {
       setIsSubmitting(false);
-      window.alert("La ficha de mascota quedo lista en frontend.");
+      setSuccessMessage(
+        "Mascota registrada exitosamente. La ficha quedo lista en frontend y esta preparada para conectarse al backend."
+      );
     }, 600);
   };
 
   return (
     <main className={styles.page}>
+      {successMessage ? (
+        <div className={styles.toastOverlay}>
+          <div className={styles.toastCard} role="dialog" aria-modal="true">
+            <span className={styles.toastEyebrow}>Registro exitoso</span>
+            <h2 className={styles.toastTitle}>Mascota registrada exitosamente</h2>
+            <p className={styles.toastText}>{successMessage}</p>
+            <button
+              type="button"
+              className={styles.toastCloseButton}
+              onClick={() => setSuccessMessage("")}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <TutorNavbar />
 
       <section className={styles.shell}>
@@ -163,15 +186,16 @@ export default function AddMascota() {
                     value={form.especie}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
+                    disabled
                   >
-                    <option value="">Selecciona una especie</option>
-                    {ESPECIES.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">Disponible pronto</option>
                   </select>
                   {errors.especie ? <small>{errors.especie}</small> : null}
+                  {!errors.especie ? (
+                    <p className={styles.fieldHint}>
+                      Este campo se cargara desde backend cuando exista el endpoint de especies.
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className={styles.field}>
@@ -181,15 +205,16 @@ export default function AddMascota() {
                     value={form.raza}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
+                    disabled
                   >
-                    <option value="">Selecciona una raza</option>
-                    {RAZAS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">Disponible pronto</option>
                   </select>
                   {errors.raza ? <small>{errors.raza}</small> : null}
+                  {!errors.raza ? (
+                    <p className={styles.fieldHint}>
+                      Este campo se cargara desde backend cuando exista el endpoint de razas.
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className={styles.field}>
@@ -223,6 +248,9 @@ export default function AddMascota() {
                   {errors.fecha_nacimiento ? (
                     <small>{errors.fecha_nacimiento}</small>
                   ) : null}
+                  {mascotaAge ? (
+                    <p className={styles.fieldHint}>Edad estimada: {mascotaAge}</p>
+                  ) : null}
                 </label>
               </div>
             </>
@@ -244,6 +272,9 @@ export default function AddMascota() {
                     inputMode="decimal"
                   />
                   {errors.peso ? <small>{errors.peso}</small> : null}
+                  {!errors.peso ? (
+                    <p className={styles.fieldHint}>Ingresa un numero mayor a 0 kg.</p>
+                  ) : null}
                 </label>
 
                 <label className={styles.field}>
@@ -253,15 +284,16 @@ export default function AddMascota() {
                     value={form.tamano}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
+                    disabled
                   >
-                    <option value="">Selecciona un tamano</option>
-                    {TAMANOS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">Disponible pronto</option>
                   </select>
                   {errors.tamano ? <small>{errors.tamano}</small> : null}
+                  {!errors.tamano ? (
+                    <p className={styles.fieldHint}>
+                      Este campo se cargara desde backend cuando exista el endpoint de tamanos.
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className={`${styles.field} ${styles.fullWidth}`}>
@@ -289,6 +321,9 @@ export default function AddMascota() {
                     placeholder="Describe a tu mascota y su personalidad general"
                   />
                   {errors.descripcion ? <small>{errors.descripcion}</small> : null}
+                  {!errors.descripcion ? (
+                    <p className={styles.fieldHint}>Campo opcional.</p>
+                  ) : null}
                 </label>
 
                 <label className={`${styles.field} ${styles.fullWidth}`}>
@@ -303,6 +338,9 @@ export default function AddMascota() {
                   />
                   {errors.cuidados_especiales ? (
                     <small>{errors.cuidados_especiales}</small>
+                  ) : null}
+                  {!errors.cuidados_especiales ? (
+                    <p className={styles.fieldHint}>Campo opcional.</p>
                   ) : null}
                 </label>
 
@@ -385,7 +423,6 @@ export default function AddMascota() {
           ) : null}
 
           {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
-
           <div className={styles.actions}>
             {currentStep > 0 ? (
               <button

@@ -5,6 +5,7 @@ import RegisterPaseador from "../features/auth/pages/RegisterPaseador/RegisterPa
 import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
+import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
 
@@ -20,6 +21,10 @@ export default function AppRoutes() {
       <Route path="/register/tutor" element={<RegisterTutor />} />
       {/* Primeras rutas del espacio del paseador. */}
       <Route path="/paseador/dashboard" element={<PaseadorDashboard />} />
+      <Route
+        path="/paseador/dashboard/configuracion"
+        element={<PaseadorConfiguracion />}
+      />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
       {/* Primeras rutas del espacio del tutor. */}
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />
