@@ -318,7 +318,7 @@ export default function RegisterPaseador() {
   };
 
   return (
-    <div className={authStyles.container}>
+    <div className={`${authStyles.container} ${authStyles.containerReverse}`}>
       <div className={authStyles.left}>
         <div className={authStyles.leftContent}>
           <h1 className={authStyles.logo}>Patiperro</h1>

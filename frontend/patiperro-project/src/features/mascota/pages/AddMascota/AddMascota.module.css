@@ -1,0 +1,345 @@
+/* Fondo general del flujo para crear mascota. */
+.page {
+  min-height: 100vh;
+  padding: 40px 28px 56px;
+  background:
+    radial-gradient(circle at top left, rgba(145, 197, 125, 0.2), transparent 26%),
+    linear-gradient(180deg, #f4fbf4 0%, #eef6ee 48%, #f8fbf8 100%);
+}
+
+/* Contenedor principal del formulario por pasos. */
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid rgba(126, 170, 129, 0.16);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 24px 56px rgba(31, 41, 55, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.header {
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #2f7d35;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #163020;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+}
+
+.description {
+  max-width: 680px;
+  margin: 14px auto 0;
+  color: #586673;
+  line-height: 1.75;
+}
+
+/* Stepper para guiar el avance de la ficha. */
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.stepItem {
+  padding: 14px 12px;
+  border: 1px solid #dae7db;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f9fcf9 0%, #f4f8f4 100%);
+  color: #64748b;
+  text-align: center;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.stepItem strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #1f2937;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.stepItem span {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.stepActive {
+  border-color: #4caf50;
+  background: linear-gradient(180deg, #ebf8ec 0%, #def1e0 100%);
+  box-shadow: 0 10px 22px rgba(76, 175, 80, 0.12);
+  transform: translateY(-1px);
+}
+
+.stepDone {
+  border-color: #9ccc9f;
+  background: linear-gradient(180deg, #f3faf3 0%, #edf7ee 100%);
+}
+
+/* Contenedor del contenido del paso actual. */
+.formShell {
+  padding: 24px;
+  border: 1px solid #e3ece4;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fcf9 100%);
+}
+
+.sectionTitle {
+  margin: 0 0 18px;
+  color: #1f2937;
+  font-size: 1.12rem;
+  font-weight: 800;
+}
+
+.fieldsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field span {
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #d5dfd6;
+  border-radius: 12px;
+  color: #1f2937;
+  font: inherit;
+  background: #fbfdfb;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.field textarea {
+  min-height: 116px;
+  resize: vertical;
+}
+
+.field input:hover,
+.field select:hover,
+.field textarea:hover {
+  border-color: #bfd0c1;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #4caf50;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.12);
+}
+
+.field small {
+  color: #b91c1c;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+/* Bloque de carga y vista previa de foto. */
+.photoUpload {
+  padding: 26px 22px;
+  border: 2px dashed #b7d7bb;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top, rgba(230, 245, 231, 0.72), transparent 32%),
+    linear-gradient(180deg, #f7fbf7 0%, #eef7ef 100%);
+  text-align: center;
+}
+
+.preview {
+  width: 168px;
+  height: 168px;
+  margin: 0 auto 18px;
+  border-radius: 22px;
+  object-fit: cover;
+  border: 5px solid #ffffff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 240px);
+  min-height: 168px;
+  margin: 0 auto 18px;
+  padding: 18px;
+  border-radius: 22px;
+  color: #64748b;
+  line-height: 1.6;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #dbe7dc;
+}
+
+.photoText {
+  margin: 8px auto 16px;
+  max-width: 360px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.uploadButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 12px;
+  color: #2f7d35;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #c9dccb;
+  box-shadow: 0 8px 18px rgba(47, 125, 53, 0.08);
+}
+
+.uploadButton:hover {
+  background: #f8fbf8;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.fileName {
+  margin-top: 14px;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.photoError {
+  display: inline-block;
+  margin-top: 10px;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Acciones del formulario y feedback general. */
+.submitError {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  background: #fef2f2;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.primaryButton {
+  border: none;
+  color: #ffffff;
+  background: linear-gradient(180deg, #46a04b 0%, #2f843c 100%);
+  box-shadow: 0 14px 28px rgba(47, 132, 60, 0.2);
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 30px rgba(47, 132, 60, 0.24);
+}
+
+.secondaryButton {
+  border: 1px solid #d3ddd4;
+  color: #475569;
+  background: #ffffff;
+}
+
+.secondaryButton:hover {
+  transform: translateY(-1px);
+  background: #f9fbf9;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Ajustes responsive del formulario de mascota. */
+@media (max-width: 820px) {
+  .stepper,
+  .fieldsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 24px 16px 40px;
+  }
+
+  .shell,
+  .formShell {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}
