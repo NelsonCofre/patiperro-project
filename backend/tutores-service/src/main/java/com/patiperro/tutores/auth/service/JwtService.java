@@ -19,12 +19,19 @@ public class JwtService {
     @Value("${jwt.expiration-ms}")
     private long expirationMs;
 
-    public String generateToken(String subject) {
+    public static final String CLAIM_TUTOR_ID = "tutorId";
+
+    /**
+     * JWT para tutor: subject = correo; claim {@value #CLAIM_TUTOR_ID} = id en BD (tutor.id_tutor).
+     * Otros microservicios con la misma clave pueden validar el token y leer el id sin llamar a tutores.
+     */
+    public String generateToken(String correo, Long idTutor) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .subject(subject)
+                .subject(correo)
+                .claim(CLAIM_TUTOR_ID, idTutor)
                 .issuedAt(now)
                 .expiration(expiration)
                 .signWith(getSigningKey())
@@ -48,12 +55,27 @@ public class JwtService {
     }
 
     public String extractSubject(String token) {
-        Claims claims = Jwts.parser()
+        return parseClaims(token).getSubject();
+    }
+
+    public Long extractTutorId(String token) {
+        Claims claims = parseClaims(token);
+        Object raw = claims.get(CLAIM_TUTOR_ID);
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number n) {
+            return n.longValue();
+        }
+        return null;
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return claims.getSubject();
     }
 
     private SecretKey getSigningKey() {

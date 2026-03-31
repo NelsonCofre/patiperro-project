@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,8 +22,9 @@ public class Configuracion {
     @Column(name = "id_configuracion")
     private Long id;
 
-    @Column(name = "radio_cobertura")
-    private Integer radioCobertura;
+    /** Kilómetros de cobertura; admite decimales, p.ej. 0.2 km. */
+    @Column(name = "radio_cobertura", precision = 8, scale = 2)
+    private BigDecimal radioCobertura;
 
     @OneToOne(optional = false)
     @JoinColumn(name = "paseador_id_paseador", nullable = false, unique = true)

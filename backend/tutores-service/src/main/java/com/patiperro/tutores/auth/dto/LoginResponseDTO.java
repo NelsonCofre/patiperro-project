@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 public class LoginResponseDTO {
     private String message;
     private String correo;
-
-   
+    /** PK en tutores-service (tabla tutor.id_tutor); también va en el JWT como claim tutorId. */
+    private Long idTutor;
 }

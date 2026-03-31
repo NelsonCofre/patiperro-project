@@ -23,15 +23,15 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Seguridad con JWT:
-        // - /api/auth/tutores/** publico para login/register.
-        // - El resto requiere Bearer token valido.
+        // Seguridad estricta:
+        // - solo login/register de tutores son publicos.
+        // - el resto requiere JWT valido.
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/tutores/**").permitAll()
-                        .requestMatchers("/api/tutores/public/**").permitAll()
+                        .requestMatchers("/api/auth/tutores/register").permitAll()
+                        .requestMatchers("/api/auth/tutores/login").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

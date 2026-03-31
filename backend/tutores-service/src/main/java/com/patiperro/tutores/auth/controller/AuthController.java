@@ -30,7 +30,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO request) {
         LoginResponseDTO response = authService.login(request);
-        String token = jwtService.generateToken(Objects.requireNonNull(response.getCorreo()));
+        String token = jwtService.generateToken(
+                Objects.requireNonNull(response.getCorreo()),
+                Objects.requireNonNull(response.getIdTutor()));
 
         ResponseCookie cookie = ResponseCookie.from("access_token", Objects.requireNonNull(token))
                 .httpOnly(true)

@@ -25,9 +25,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Seguridad del gateway:
-        // - /api/auth/tutores/** y /api/paseadores/auth/** publicos.
-        // - resto de /api/** requiere Bearer token valido.
+        // Seguridad estricta:
+        // - solo login/register de tutores y paseadores son publicos.
+        // - resto de /api/** requiere JWT valido.
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -37,11 +37,10 @@ public class SecurityConfig {
                 // no coincidir -> la peticion cae en /api/** authenticated() y responde 403.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/**"),
-                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/**"),
-                                PathPatternRequestMatcher.pathPattern("/api/paseadores/health"),
-                                PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"),
-                                PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"))
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/register"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/login"))
                         .permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()
                         .anyRequest().permitAll())

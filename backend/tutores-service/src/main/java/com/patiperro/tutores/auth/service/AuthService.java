@@ -41,7 +41,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        return new LoginResponseDTO("Login exitoso", tutor.getCorreo());
+        return new LoginResponseDTO("Login exitoso", tutor.getCorreo(), tutor.getId());
     }
 
     // Registro en una sola transaccion: direccion y fotos se persisten de forma explicita
@@ -91,7 +91,7 @@ public class AuthService {
             fotoRepository.save(Foto.builder().url(url).tutor(tutor).build());
         }
 
-        return new LoginResponseDTO("Registro exitoso", tutor.getCorreo());
+        return new LoginResponseDTO("Registro exitoso", tutor.getCorreo(), tutor.getId());
     }
 
     private Set<String> collectGaleriaUrls(RegisterRequestDTO request) {

@@ -13,6 +13,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "Solicitud inválida";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg));
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<Map<String, String>> handleForbidden(ForbiddenOperationException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "No autorizado";
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", msg));
+    }
+
     // Este método captura los errores de @Valid (como el peso < 0 o fecha futura)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {

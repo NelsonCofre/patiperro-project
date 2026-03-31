@@ -1,6 +1,7 @@
 package com.patiperro.mascota.config;
 
-import com.patiperro.mascota.auth.service.JwtService;
+import com.patiperro.mascota.security.JwtService;
+import com.patiperro.mascota.security.TutorPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -30,15 +31,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         String token = extractToken(request);
-        
-        if (token == null || !jwtService.isTokenValid(token)) {
+        if (token == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (!jwtService.isTokenValid(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         String subject = jwtService.extractSubject(token);
+        Long tutorId = jwtService.extractTutorId(token);
+        TutorPrincipal principal = new TutorPrincipal(subject, tutorId);
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                subject, null, Collections.emptyList()
+                principal,
+                null,
+                Collections.emptyList()
         );
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -49,7 +58,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if ("access_token".equals(cookie.getName()) && cookie.getValue() != null) {
+                if ("access_token".equals(cookie.getName())
+                        && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
                     return cookie.getValue();
                 }
             }
