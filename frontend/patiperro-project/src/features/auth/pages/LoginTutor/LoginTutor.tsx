@@ -1,6 +1,6 @@
 // Vista de inicio de sesion exclusiva para el rol tutor.
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
 import { loginTutor } from "../../services/authServices";
@@ -14,6 +14,7 @@ type TutorLoginForm = {
 };
 
 export default function LoginTutor() {
+  const navigate = useNavigate();
   const [form, setForm] = useState<TutorLoginForm>({
     email: "",
     password: ""
@@ -84,15 +85,11 @@ export default function LoginTutor() {
     setIsSubmitting(true);
 
     try {
-      const res = await loginTutor({
+      await loginTutor({
         correo: form.email.trim(),
         contrasena: form.password
       });
-      setFeedback({
-        type: "success",
-        text: res.mensaje ?? "Sesion iniciada correctamente."
-      });
-      setForm({ email: "", password: "" });
+      navigate("/tutor/dashboard", { replace: true });
     } catch (error) {
       setFeedback({
         type: "error",

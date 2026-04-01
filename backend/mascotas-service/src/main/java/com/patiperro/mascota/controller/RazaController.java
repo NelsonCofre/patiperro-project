@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,9 +25,13 @@ public class RazaController {
 
     private final RazaService razaService;
 
+    /**
+     * {@code ?especieId=} filtra razas de esa especie; sin parámetro devuelve
+     * todas.
+     */
     @GetMapping
-    public List<Raza> obtenerTodas() {
-        return razaService.listarTodas();
+    public List<Raza> obtener(@RequestParam(name = "especieId", required = false) Long especieId) {
+        return razaService.listarPorEspecieOpcional(especieId);
     }
 
     @PostMapping

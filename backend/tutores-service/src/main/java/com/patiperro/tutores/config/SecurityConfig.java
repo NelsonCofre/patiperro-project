@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 @Configuration
 @RequiredArgsConstructor
@@ -30,11 +31,13 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/tutores/register").permitAll()
-                        .requestMatchers("/api/auth/tutores/login").permitAll()
-                        .requestMatchers("/api/auth/tutores/logout").permitAll()
-                        .requestMatchers("/api/auth/tutores/upload-foto-perfil").permitAll()
-                        .requestMatchers("/api/tutores/public/**").permitAll()
+                        .requestMatchers(
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/logout"),
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/auth/**"),
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"))
+                        .permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

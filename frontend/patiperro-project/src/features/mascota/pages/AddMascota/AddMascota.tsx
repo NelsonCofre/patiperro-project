@@ -5,9 +5,21 @@ import type {
   FocusEvent,
   FormEvent
 } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { uploadTutorProfilePhoto } from "../../../auth/services/authServices";
 import TutorNavbar from "../../../tutor/components/TutorNavbar/TutorNavbar";
 import { useMascotaForm } from "../../hooks/useMascotaForm";
+import {
+  buildCreateMascotaPayload,
+  createMascota,
+  fetchEspecies,
+  fetchRazas,
+  fetchTamanos,
+  type EspecieDTO,
+  type RazaDTO,
+  type TamanoDTO
+} from "../../services/mascotaService";
 import type { MascotaForm } from "../../types/mascota.types";
 import {
   getMascotaAgeLabel,
@@ -43,7 +55,13 @@ const SEXOS = ["Macho", "Hembra"];
 const ESTERILIZADO_OPTIONS = ["Si", "No"];
 
 export default function AddMascota() {
+  const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
+  const [especies, setEspecies] = useState<EspecieDTO[]>([]);
+  const [razas, setRazas] = useState<RazaDTO[]>([]);
+  const [tamanos, setTamanos] = useState<TamanoDTO[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
 
   const {
     currentStep,
@@ -54,16 +72,61 @@ export default function AddMascota() {
     isSubmitting,
     setSubmitError,
     setIsSubmitting,
+    setErrors,
     setFieldValue,
     handleBlur,
     handlePhotoChange,
-    validateStep,
+    validateEntireForm,
     handleNextStep,
     handlePrevStep,
+    resetForm,
     isCurrentStepDisabled
   } = useMascotaForm({
     initialForm: INITIAL_FORM
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    Promise.all([fetchEspecies(), fetchTamanos()])
+      .then(([esp, tam]) => {
+        if (!cancelled) {
+          setEspecies(esp);
+          setTamanos(tam);
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setCatalogError(e instanceof Error ? e.message : "No se pudieron cargar los catálogos.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const id = Number(form.especie);
+    if (!Number.isFinite(id) || id <= 0) {
+      setRazas([]);
+      return;
+    }
+    let cancelled = false;
+    fetchRazas(id)
+      .then((list) => {
+        if (!cancelled) setRazas(list);
+      })
+      .catch(() => {
+        if (!cancelled) setRazas([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.especie]);
 
   const mascotaAge = getMascotaAgeLabel(form.fecha_nacimiento);
 
@@ -72,6 +135,12 @@ export default function AddMascota() {
   ) => {
     const { name } = event.target;
     let { value } = event.target;
+
+    if (name === "especie") {
+      setFieldValue("especie", value as never);
+      setFieldValue("raza", "" as never);
+      return;
+    }
 
     if (name === "peso") {
       value = keepDecimalWeight(value);
@@ -90,25 +159,38 @@ export default function AddMascota() {
     handleBlur(event);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSuccessMessage("");
 
-    const validationErrors = validateStep(currentStep);
+    const validationErrors = validateEntireForm();
     if (Object.keys(validationErrors).length > 0) {
-      setSubmitError("Revisa los campos antes de guardar la mascota.");
+      setErrors(validationErrors);
+      setSubmitError("Revisa los campos de todos los pasos antes de guardar.");
       return;
     }
 
     setSubmitError("");
     setIsSubmitting(true);
 
-    window.setTimeout(() => {
+    try {
+      let fotoPerfilPath: string | undefined;
+      if (form.foto) {
+        fotoPerfilPath = await uploadTutorProfilePhoto(form.foto);
+      }
+      const payload = buildCreateMascotaPayload(form, fotoPerfilPath);
+      await createMascota(payload);
+      resetForm();
+      setSuccessMessage("Tu mascota quedó registrada en el sistema.");
+    } catch (err) {
+      let msg = err instanceof Error ? err.message : "No se pudo guardar la mascota.";
+      if (err instanceof Error && /401|403|sesi|autentic/i.test(msg)) {
+        msg += " Si perdiste la sesión, vuelve a iniciar sesión como tutor.";
+      }
+      setSubmitError(msg);
+    } finally {
       setIsSubmitting(false);
-      setSuccessMessage(
-        "Mascota registrada exitosamente. La ficha quedo lista en frontend y esta preparada para conectarse al backend."
-      );
-    }, 600);
+    }
   };
 
   return (
@@ -122,9 +204,12 @@ export default function AddMascota() {
             <button
               type="button"
               className={styles.toastCloseButton}
-              onClick={() => setSuccessMessage("")}
+              onClick={() => {
+                setSuccessMessage("");
+                navigate("/tutor/dashboard", { replace: true });
+              }}
             >
-              Cerrar
+              Ir al panel
             </button>
           </div>
         </div>
@@ -161,6 +246,13 @@ export default function AddMascota() {
           })}
         </div>
 
+        {catalogError ? (
+          <p className={styles.submitError} role="alert">
+            {catalogError} Asegúrate de estar logueado como tutor y de que el servicio de mascotas
+            esté disponible.
+          </p>
+        ) : null}
+
         <form className={styles.formShell} onSubmit={handleSubmit}>
           {currentStep === 0 ? (
             <>
@@ -186,16 +278,18 @@ export default function AddMascota() {
                     value={form.especie}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
-                    disabled
+                    disabled={catalogLoading || !!catalogError}
                   >
-                    <option value="">Disponible pronto</option>
+                    <option value="">
+                      {catalogLoading ? "Cargando..." : "Selecciona la especie"}
+                    </option>
+                    {especies.map((e) => (
+                      <option key={e.idEspecie} value={String(e.idEspecie)}>
+                        {e.nombre}
+                      </option>
+                    ))}
                   </select>
                   {errors.especie ? <small>{errors.especie}</small> : null}
-                  {!errors.especie ? (
-                    <p className={styles.fieldHint}>
-                      Este campo se cargara desde backend cuando exista el endpoint de especies.
-                    </p>
-                  ) : null}
                 </label>
 
                 <label className={styles.field}>
@@ -205,16 +299,27 @@ export default function AddMascota() {
                     value={form.raza}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
-                    disabled
+                    disabled={
+                      catalogLoading ||
+                      !!catalogError ||
+                      !form.especie ||
+                      razas.length === 0
+                    }
                   >
-                    <option value="">Disponible pronto</option>
+                    <option value="">
+                      {!form.especie
+                        ? "Primero elige especie"
+                        : razas.length === 0
+                          ? "Sin razas para esta especie"
+                          : "Selecciona la raza"}
+                    </option>
+                    {razas.map((r) => (
+                      <option key={r.idRaza} value={String(r.idRaza)}>
+                        {r.nombre}
+                      </option>
+                    ))}
                   </select>
                   {errors.raza ? <small>{errors.raza}</small> : null}
-                  {!errors.raza ? (
-                    <p className={styles.fieldHint}>
-                      Este campo se cargara desde backend cuando exista el endpoint de razas.
-                    </p>
-                  ) : null}
                 </label>
 
                 <label className={styles.field}>
@@ -284,16 +389,19 @@ export default function AddMascota() {
                     value={form.tamano}
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
-                    disabled
+                    disabled={catalogLoading || !!catalogError}
                   >
-                    <option value="">Disponible pronto</option>
+                    <option value="">
+                      {catalogLoading ? "Cargando..." : "Selecciona el tamaño"}
+                    </option>
+                    {tamanos.map((t) => (
+                      <option key={t.idTamano} value={String(t.idTamano)}>
+                        {t.nombre}
+                        {t.descripcion ? ` — ${t.descripcion}` : ""}
+                      </option>
+                    ))}
                   </select>
                   {errors.tamano ? <small>{errors.tamano}</small> : null}
-                  {!errors.tamano ? (
-                    <p className={styles.fieldHint}>
-                      Este campo se cargara desde backend cuando exista el endpoint de tamanos.
-                    </p>
-                  ) : null}
                 </label>
 
                 <label className={`${styles.field} ${styles.fullWidth}`}>

@@ -73,6 +73,10 @@ public class Mascota {
     @Column(name = "numero_chip", length = 50)
     private String numeroChip;
 
+    /** Ruta o URL del avatar (independiente de la galería {@link #fotos}). */
+    @Column(name = "foto_perfil", length = 150)
+    private String fotoPerfil;
+
     @NotNull(message = "La especie es obligatoria")
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "especie_id_especie", nullable = false)
@@ -90,5 +94,5 @@ public class Mascota {
 
     @OneToMany(mappedBy = "mascota", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
-    private List<MascotaFoto> mascotaFotos = new ArrayList<>();
+    private List<Foto> fotos = new ArrayList<>();
 }

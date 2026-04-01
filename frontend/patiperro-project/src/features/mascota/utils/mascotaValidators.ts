@@ -62,6 +62,9 @@ export function validateMascotaField(
   const stringValue = typeof value === "string" ? value.trim() : "";
 
   if (name === "nombre" && !stringValue) return "El nombre es obligatorio";
+  if (name === "especie" && !stringValue) return "Selecciona la especie";
+  if (name === "raza" && !stringValue) return "Selecciona la raza";
+  if (name === "tamano" && !stringValue) return "Selecciona el tamaño";
   if (name === "sexo" && !stringValue) return "Selecciona el sexo";
   if (name === "fecha_nacimiento") {
     if (!stringValue) {

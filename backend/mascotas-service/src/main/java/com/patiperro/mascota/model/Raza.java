@@ -1,13 +1,17 @@
 package com.patiperro.mascota.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -15,7 +19,6 @@ import lombok.NoArgsConstructor;
 @Table(name = "raza")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Raza {
 
     @Id
@@ -26,4 +29,10 @@ public class Raza {
     @NotBlank(message = "El nombre de la raza es obligatorio")
     @Column(nullable = false, length = 60)
     private String nombre;
+
+    @NotNull(message = "La especie es obligatoria")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "especie_id_especie", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Especie especie;
 }

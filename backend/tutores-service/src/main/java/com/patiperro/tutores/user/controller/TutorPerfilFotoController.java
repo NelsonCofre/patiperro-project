@@ -22,9 +22,9 @@ public class TutorPerfilFotoController {
     private final TutorPerfilFotoStorageService storageService;
 
     /**
-     * Ruta relativa (desde el gateway) para guardar en tutor.foto_perfil; el front antepone API_BASE_URL al mostrar.
+     * Misma convención que paseadores: bajo /api/tutores/** para que el gateway (8080) lo enrute sin ruta extra.
      */
-    @PostMapping(value = "/api/auth/tutores/upload-foto-perfil", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/api/tutores/auth/upload-foto-perfil", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
         try {
             String filename = storageService.save(file);

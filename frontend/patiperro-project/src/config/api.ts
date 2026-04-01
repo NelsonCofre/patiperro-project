@@ -7,7 +7,7 @@ export const API_ENDPOINTS = {
     tutores: {
       register: `${API_BASE_URL}/api/auth/tutores/register`,
       login: `${API_BASE_URL}/api/auth/tutores/login`,
-      uploadFotoPerfil: `${API_BASE_URL}/api/auth/tutores/upload-foto-perfil`
+      uploadFotoPerfil: `${API_BASE_URL}/api/tutores/auth/upload-foto-perfil`
     },
     paseadores: {
       register: `${API_BASE_URL}/api/paseadores/auth/register`,
@@ -18,6 +18,16 @@ export const API_ENDPOINTS = {
       /** Configuración del paseador autenticado (JWT en cookie vía gateway). */
       meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`
     }
+  },
+  /** Mascotas (JWT tutor en cookie vía gateway). */
+  mascotas: {
+    base: `${API_BASE_URL}/api/mascotas`,
+    especies: `${API_BASE_URL}/api/mascotas/especies`,
+    razas: (especieId?: number) =>
+      especieId != null
+        ? `${API_BASE_URL}/api/mascotas/razas?especieId=${especieId}`
+        : `${API_BASE_URL}/api/mascotas/razas`,
+    tamanos: `${API_BASE_URL}/api/mascotas/tamanos`
   }
 };
 

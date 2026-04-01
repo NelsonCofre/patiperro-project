@@ -3,11 +3,9 @@ package com.patiperro.mascota.service;
 import com.patiperro.mascota.exception.ForbiddenOperationException;
 import com.patiperro.mascota.model.Foto;
 import com.patiperro.mascota.model.Mascota;
-import com.patiperro.mascota.model.MascotaFoto;
-import com.patiperro.mascota.model.MascotaFotoId;
+import com.patiperro.mascota.model.Raza;
 import com.patiperro.mascota.repository.EspecieRepository;
 import com.patiperro.mascota.repository.FotoRepository;
-import com.patiperro.mascota.repository.MascotaFotoRepository;
 import com.patiperro.mascota.repository.MascotaRepository;
 import com.patiperro.mascota.repository.RazaRepository;
 import com.patiperro.mascota.repository.TamanoRepository;
@@ -16,7 +14,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -28,13 +25,12 @@ public class MascotaService {
     private final RazaRepository razaRepository;
     private final TamanoRepository tamanoRepository;
     private final FotoRepository fotoRepository;
-    private final MascotaFotoRepository mascotaFotoRepository;
 
     @Transactional
     public Mascota registrarMascota(@NonNull Mascota mascota, @NonNull Long idTutorSesion) {
         mascota.setIdMascota(null);
         mascota.setIdTutor(idTutorSesion);
-        mascota.getMascotaFotos().clear();
+        mascota.getFotos().clear();
         enlazarCatalogo(mascota);
         return mascotaRepository.save(mascota);
     }
@@ -71,6 +67,7 @@ public class MascotaService {
         existente.setCuidadosEspeciales(body.getCuidadosEspeciales());
         existente.setEsterilizado(body.getEsterilizado());
         existente.setNumeroChip(body.getNumeroChip());
+        existente.setFotoPerfil(body.getFotoPerfil());
         enlazarCatalogoParaActualizar(existente, body);
         return mascotaRepository.save(existente);
     }
@@ -80,48 +77,41 @@ public class MascotaService {
         Mascota m = mascotaRepository.findPerfilById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(m, idTutorSesion);
-        List<MascotaFoto> links = new ArrayList<>(m.getMascotaFotos());
-        List<Long> fotoIds = links.stream().map(l -> l.getFoto().getIdFoto()).distinct().toList();
-        mascotaFotoRepository.deleteAll(links);
-        for (Long fotoId : fotoIds) {
-            if (mascotaFotoRepository.countByFoto_IdFoto(fotoId) == 0) {
-                fotoRepository.deleteById(fotoId);
-            }
-        }
         mascotaRepository.delete(m);
     }
 
     @Transactional
-    public MascotaFoto agregarFoto(Long idMascota, String url, @NonNull Long idTutorSesion) {
-        Mascota mascota = mascotaRepository.findById(idMascota)
+    public Foto agregarFoto(Long idMascota, String url, @NonNull Long idTutorSesion) {
+        Mascota mascota = mascotaRepository.findPerfilById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(mascota, idTutorSesion);
-        Foto foto = fotoRepository.save(new Foto(null, url));
-        MascotaFoto link = new MascotaFoto();
-        link.setMascota(mascota);
-        link.setFoto(foto);
-        return mascotaFotoRepository.save(link);
+        Foto foto = new Foto();
+        foto.setUrl(url);
+        foto.setMascota(mascota);
+        mascota.getFotos().add(foto);
+        mascotaRepository.save(mascota);
+        return foto;
     }
 
-    public List<MascotaFoto> listarFotos(Long idMascota, @NonNull Long idTutorSesion) {
+    public List<Foto> listarFotos(Long idMascota, @NonNull Long idTutorSesion) {
         Mascota m = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(m, idTutorSesion);
-        return mascotaFotoRepository.findByMascota_IdMascota(idMascota);
+        return fotoRepository.findByMascota_IdMascota(idMascota);
     }
 
     @Transactional
     public void quitarFoto(Long idMascota, Long idFoto, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findById(idMascota)
+        Mascota m = mascotaRepository.findPerfilById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(m, idTutorSesion);
-        MascotaFotoId id = new MascotaFotoId(idFoto, idMascota);
-        MascotaFoto link = mascotaFotoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Foto no asociada a la mascota"));
-        mascotaFotoRepository.delete(link);
-        if (mascotaFotoRepository.countByFoto_IdFoto(idFoto) == 0) {
-            fotoRepository.deleteById(idFoto);
+        Foto foto = fotoRepository.findById(idFoto)
+                .orElseThrow(() -> new IllegalArgumentException("Foto no encontrada"));
+        if (!foto.getMascota().getIdMascota().equals(idMascota)) {
+            throw new IllegalArgumentException("Foto no asociada a la mascota");
         }
+        m.getFotos().remove(foto);
+        mascotaRepository.save(m);
     }
 
     private void asegurarPropietario(Mascota m, Long idTutorSesion) {
@@ -131,15 +121,27 @@ public class MascotaService {
     }
 
     private void enlazarCatalogo(Mascota m) {
+        asegurarRazaPerteneceAEspecie(m.getEspecie().getIdEspecie(), m.getRaza().getIdRaza());
         m.setEspecie(especieRepository.getReferenceById(idRequerido(m.getEspecie().getIdEspecie())));
         m.setRaza(razaRepository.getReferenceById(idRequerido(m.getRaza().getIdRaza())));
         m.setTamano(tamanoRepository.getReferenceById(idRequerido(m.getTamano().getIdTamano())));
     }
 
     private void enlazarCatalogoParaActualizar(Mascota destino, Mascota body) {
+        asegurarRazaPerteneceAEspecie(body.getEspecie().getIdEspecie(), body.getRaza().getIdRaza());
         destino.setEspecie(especieRepository.getReferenceById(idRequerido(body.getEspecie().getIdEspecie())));
         destino.setRaza(razaRepository.getReferenceById(idRequerido(body.getRaza().getIdRaza())));
         destino.setTamano(tamanoRepository.getReferenceById(idRequerido(body.getTamano().getIdTamano())));
+    }
+
+    private void asegurarRazaPerteneceAEspecie(Long idEspecieMascota, Long idRaza) {
+        Long idEsp = idRequerido(idEspecieMascota);
+        Long idR = idRequerido(idRaza);
+        Raza raza = razaRepository.findById(idR)
+                .orElseThrow(() -> new IllegalArgumentException("Raza no encontrada"));
+        if (!raza.getEspecie().getIdEspecie().equals(idEsp)) {
+            throw new IllegalArgumentException("La raza no pertenece a la especie indicada");
+        }
     }
 
     private Long idRequerido(Long id) {

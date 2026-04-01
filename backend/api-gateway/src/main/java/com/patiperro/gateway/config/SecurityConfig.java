@@ -42,7 +42,8 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/logout"),
-                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/upload-foto-perfil"),
+                                // Registro: multipart sin JWT; PathPattern por prefijo por si el matcher exacto falla.
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/auth/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/login"),

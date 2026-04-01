@@ -13,10 +13,10 @@ import java.util.Optional;
 @Repository
 public interface MascotaRepository extends JpaRepository<Mascota, Long> {
 
-    @EntityGraph(attributePaths = {"especie", "raza", "tamano"})
+    @EntityGraph(attributePaths = {"especie", "raza", "raza.especie", "tamano"})
     List<Mascota> findByIdTutor(Long idTutor);
 
-    @EntityGraph(attributePaths = {"especie", "raza", "tamano", "mascotaFotos", "mascotaFotos.foto"})
+    @EntityGraph(attributePaths = {"especie", "raza", "raza.especie", "tamano", "fotos"})
     @Query("SELECT m FROM Mascota m WHERE m.idMascota = :id")
     Optional<Mascota> findPerfilById(@Param("id") Long id);
 }

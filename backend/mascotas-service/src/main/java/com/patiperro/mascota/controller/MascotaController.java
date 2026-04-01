@@ -1,8 +1,8 @@
 package com.patiperro.mascota.controller;
 
 import com.patiperro.mascota.dto.FotoUrlRequest;
+import com.patiperro.mascota.model.Foto;
 import com.patiperro.mascota.model.Mascota;
-import com.patiperro.mascota.model.MascotaFoto;
 import com.patiperro.mascota.security.TutorSecurity;
 import com.patiperro.mascota.service.MascotaService;
 import jakarta.validation.Valid;
@@ -68,7 +68,7 @@ public class MascotaController {
     }
 
     @PostMapping("/{id}/fotos")
-    public ResponseEntity<MascotaFoto> agregarFoto(
+    public ResponseEntity<Foto> agregarFoto(
             @PathVariable Long id,
             @Valid @RequestBody FotoUrlRequest request) {
         long idTutor = TutorSecurity.requireTutor().tutorId();
@@ -76,7 +76,7 @@ public class MascotaController {
     }
 
     @GetMapping("/{id}/fotos")
-    public List<MascotaFoto> listarFotos(@PathVariable Long id) {
+    public List<Foto> listarFotos(@PathVariable Long id) {
         long idTutor = TutorSecurity.requireTutor().tutorId();
         return mascotaService.listarFotos(id, idTutor);
     }

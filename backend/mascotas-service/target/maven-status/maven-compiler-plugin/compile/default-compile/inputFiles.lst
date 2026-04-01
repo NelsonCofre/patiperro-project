@@ -11,13 +11,10 @@ C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\Especie.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\Foto.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\Mascota.java
-C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\MascotaFoto.java
-C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\MascotaFotoId.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\Raza.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\model\Tamano.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\EspecieRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\FotoRepository.java
-C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\MascotaFotoRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\MascotaRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\RazaRepository.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\repository\TamanoRepository.java

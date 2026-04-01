@@ -132,6 +132,20 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
     setCurrentStep((prev) => prev - 1);
   };
 
+  const validateEntireForm = useCallback((): MascotaFormErrors => {
+    const e0 = validateStep(0);
+    const e1 = validateStep(1);
+    const e2 = validateStep(2);
+    return { ...e0, ...e1, ...e2 };
+  }, [validateStep]);
+
+  const resetForm = useCallback(() => {
+    setForm(initialForm);
+    setCurrentStep(0);
+    setErrors({});
+    setSubmitError("");
+  }, [initialForm]);
+
   return {
     currentStep,
     form,
@@ -141,12 +155,15 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
     isSubmitting,
     setSubmitError,
     setIsSubmitting,
+    setErrors,
     setFieldValue,
     handleBlur,
     handlePhotoChange,
     validateStep,
+    validateEntireForm,
     handleNextStep,
     handlePrevStep,
+    resetForm,
     isCurrentStepDisabled
   };
 }
