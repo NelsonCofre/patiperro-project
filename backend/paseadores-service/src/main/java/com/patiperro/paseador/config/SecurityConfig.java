@@ -29,6 +29,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/paseadores/auth/register").permitAll()
                         .requestMatchers("/api/paseadores/auth/login").permitAll()
+                        .requestMatchers("/api/paseadores/auth/logout").permitAll()
+                        .requestMatchers("/api/paseadores/auth/upload-foto-perfil").permitAll()
+                        .requestMatchers("/api/paseadores/public/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

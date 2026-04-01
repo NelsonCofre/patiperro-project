@@ -11,6 +11,8 @@ export type TarifaPaseadorFormItem = {
 };
 
 export type TarifasForm = {
+  /** Kilómetros (decimal como texto para el input). Obligatorio en API. */
+  radioCoberturaKm: string;
   tarifas: TarifaPaseadorFormItem[];
 };
 

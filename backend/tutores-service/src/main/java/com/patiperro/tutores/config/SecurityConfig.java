@@ -32,6 +32,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/tutores/register").permitAll()
                         .requestMatchers("/api/auth/tutores/login").permitAll()
+                        .requestMatchers("/api/auth/tutores/logout").permitAll()
+                        .requestMatchers("/api/auth/tutores/upload-foto-perfil").permitAll()
+                        .requestMatchers("/api/tutores/public/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

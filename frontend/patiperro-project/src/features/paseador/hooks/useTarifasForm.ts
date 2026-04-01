@@ -1,40 +1,106 @@
-// Hook del formulario de tarifas del paseador.
-// Maneja tarifas por tamano usando una estructura cercana al modelo tarifa_paseador.
-import { useMemo, useState } from "react";
+// Formulario de configuración de servicio (radio + tarifas) con carga y guardado vía API.
+// GET /public/tamanos sin exigir sesión; GET/PUT /me/configuracion con credentials (JWT).
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  fetchPublicTamanos,
+  getMyConfiguracion,
+  putMyConfiguracion,
+  type ConfiguracionPaseadorDTO,
+  type TamanoPublicDTO
+} from "../services/paseadorConfigService";
 import type { TarifasErrors, TarifasForm } from "../types/tarifas.types";
 import {
-  buildTarifaPaseadorPayload,
+  buildUpsertConfiguracionBody,
   updateTarifaItem,
-  validateTarifaValue,
-  validateTarifasForm
+  validateConfigForm,
+  validateTarifaValue
 } from "../utils/tarifasValidators";
 
-type UseTarifasFormParams = {
-  initialForm: TarifasForm;
-};
+function buildFormFromApi(
+  tamanos: TamanoPublicDTO[],
+  config: ConfiguracionPaseadorDTO
+): TarifasForm {
+  const byTamano = new Map(config.tarifas.map((x) => [x.tamanoId, x]));
+  const radio =
+    config.radioCoberturaKm != null && !Number.isNaN(Number(config.radioCoberturaKm))
+      ? String(config.radioCoberturaKm)
+      : "";
 
-export function useTarifasForm({ initialForm }: UseTarifasFormParams) {
-  const [form, setForm] = useState<TarifasForm>(initialForm);
+  return {
+    radioCoberturaKm: radio,
+    tarifas: tamanos.map((t) => {
+      const ex = byTamano.get(t.id);
+      return {
+        tarifaId: null,
+        configuracionId: config.configuracionId,
+        tamanoId: t.id,
+        tamanoNombre: t.nombre,
+        descripcion: t.descripcion ?? "",
+        enabled: ex != null,
+        precioBase: ex ? String(ex.precioPorHora) : ""
+      };
+    })
+  };
+}
+
+const EMPTY_FORM: TarifasForm = { radioCoberturaKm: "", tarifas: [] };
+
+export function useTarifasForm() {
+  const [form, setForm] = useState<TarifasForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<TarifasErrors>({});
+  const [radioError, setRadioError] = useState<string | undefined>(undefined);
   const [successMessage, setSuccessMessage] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready">("loading");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validate = (nextForm: TarifasForm = form) => {
-    const nextErrors = validateTarifasForm(nextForm);
-    const cleaned = Object.fromEntries(
-      Object.entries(nextErrors).filter(([, value]) => Boolean(value))
-    ) as TarifasErrors;
+  const load = useCallback(async () => {
+    setLoadStatus("loading");
+    setLoadError(null);
+    try {
+      const tamanos = await fetchPublicTamanos();
+      if (tamanos.length === 0) {
+        setForm(EMPTY_FORM);
+        setLoadError(
+          "No hay tamaños en el catálogo. Pobla la tabla tamano en la base de datos del paseadores-service y vuelve a cargar esta página."
+        );
+        setLoadStatus("ready");
+        return;
+      }
+      const config = await getMyConfiguracion();
+      setForm(buildFormFromApi(tamanos, config));
+    } catch (e) {
+      setForm(EMPTY_FORM);
+      setLoadError(e instanceof Error ? e.message : "No se pudo cargar la configuración.");
+    } finally {
+      setLoadStatus("ready");
+    }
+  }, []);
 
-    return cleaned;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const validate = (nextForm: TarifasForm = form) => {
+    const { radio, tarifas } = validateConfigForm(nextForm);
+    const cleaned = Object.fromEntries(
+      Object.entries(tarifas).filter(([, value]) => Boolean(value))
+    ) as TarifasErrors;
+    return { radio, tarifas: cleaned };
   };
 
   const updateFieldError = (tamanoId: number, enabled: boolean, precioBase: string) => {
     const nextError = validateTarifaValue(enabled, precioBase);
-
     setErrors((prev) => ({
       ...prev,
       [tamanoId]: nextError
     }));
+  };
+
+  const updateRadio = (value: string) => {
+    setForm((prev) => ({ ...prev, radioCoberturaKm: value }));
+    setRadioError(undefined);
   };
 
   const updatePrice = (tamanoId: number, nextPrice: string) => {
@@ -43,17 +109,11 @@ export function useTarifasForm({ initialForm }: UseTarifasFormParams) {
         ...item,
         precioBase: nextPrice
       }));
-
       const updatedItem = nextTarifas.find((item) => item.tamanoId === tamanoId);
-
       if (updatedItem) {
         updateFieldError(tamanoId, updatedItem.enabled, updatedItem.precioBase);
       }
-
-      return {
-        ...prev,
-        tarifas: nextTarifas
-      };
+      return { ...prev, tarifas: nextTarifas };
     });
   };
 
@@ -64,61 +124,75 @@ export function useTarifasForm({ initialForm }: UseTarifasFormParams) {
         enabled,
         precioBase: enabled ? item.precioBase : ""
       }));
-
       const updatedItem = nextTarifas.find((item) => item.tamanoId === tamanoId);
-
       if (updatedItem) {
         updateFieldError(tamanoId, updatedItem.enabled, updatedItem.precioBase);
       }
-
-      return {
-        ...prev,
-        tarifas: nextTarifas
-      };
+      return { ...prev, tarifas: nextTarifas };
     });
   };
 
   const handleFieldBlur = (tamanoId: number) => {
     const currentItem = form.tarifas.find((item) => item.tamanoId === tamanoId);
-
-    if (!currentItem) {
-      return;
-    }
-
+    if (!currentItem) return;
     updateFieldError(tamanoId, currentItem.enabled, currentItem.precioBase);
   };
 
+  const handleRadioBlur = () => {
+    const { radio } = validateConfigForm(form);
+    setRadioError(radio);
+  };
+
   const currentValidation = useMemo(() => validate(form), [form]);
-  const isSubmitDisabled = isSubmitting || Object.keys(currentValidation).length > 0;
+  const isSubmitDisabled =
+    loadStatus !== "ready" ||
+    Boolean(loadError) ||
+    form.tarifas.length === 0 ||
+    isSubmitting ||
+    Boolean(currentValidation.radio) ||
+    Object.keys(currentValidation.tarifas).length > 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const validationErrors = validate(form);
-    setErrors(validationErrors);
+    setErrors(validationErrors.tarifas);
+    setRadioError(validationErrors.radio);
     setSuccessMessage("");
+    setSubmitError(null);
 
-    if (Object.keys(validationErrors).length > 0) {
+    if (validationErrors.radio || Object.keys(validationErrors.tarifas).length > 0) {
       return;
     }
 
     setIsSubmitting(true);
-
-    window.setTimeout(() => {
-      buildTarifaPaseadorPayload(form);
+    try {
+      const body = buildUpsertConfiguracionBody(form);
+      await putMyConfiguracion(body);
+      setSuccessMessage("Configuración guardada correctamente.");
+      await load();
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Error al guardar.");
+    } finally {
       setIsSubmitting(false);
-      setSuccessMessage("Tarifas actualizadas correctamente");
-    }, 600);
+    }
   };
 
   return {
     form,
     errors,
+    radioError,
     successMessage,
+    loadError,
+    submitError,
+    loadStatus,
     isSubmitting,
     isSubmitDisabled,
     setSuccessMessage,
+    reload: load,
+    updateRadio,
     updatePrice,
     toggleTarifa,
     handleFieldBlur,
+    handleRadioBlur,
     handleSubmit
   };
 }

@@ -26,7 +26,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // Seguridad estricta:
-        // - solo login/register de tutores y paseadores son publicos.
+        // - login/register tutores y paseadores publicos.
+        // - subida de foto perfil paseador ANTES de tener cuenta (flujo registro en el front).
+        // - recursos bajo /api/paseadores/public/ (fotos servidas, catalogo tamanos) sin JWT.
         // - resto de /api/** requiere JWT valido.
         http
                 .csrf(csrf -> csrf.disable())
@@ -39,8 +41,14 @@ public class SecurityConfig {
                         .requestMatchers(
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/logout"),
+                                PathPatternRequestMatcher.pathPattern("/api/auth/tutores/upload-foto-perfil"),
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/register"),
-                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/login"))
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/login"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/logout"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/upload-foto-perfil"),
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"))
                         .permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()
                         .anyRequest().permitAll())

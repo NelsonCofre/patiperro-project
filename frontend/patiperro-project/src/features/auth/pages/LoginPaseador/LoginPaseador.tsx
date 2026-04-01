@@ -1,6 +1,6 @@
 // Vista de inicio de sesion exclusiva para el rol paseador.
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
 import { loginPaseador } from "../../services/authServices";
@@ -14,6 +14,7 @@ type PaseadorLoginForm = {
 };
 
 export default function LoginPaseador() {
+  const navigate = useNavigate();
   const [form, setForm] = useState<PaseadorLoginForm>({
     email: "",
     password: ""
@@ -84,15 +85,11 @@ export default function LoginPaseador() {
     setIsSubmitting(true);
 
     try {
-      const res = await loginPaseador({
+      await loginPaseador({
         correo: form.email.trim(),
         contrasena: form.password
       });
-      setFeedback({
-        type: "success",
-        text: res.mensaje ?? "Sesion iniciada correctamente."
-      });
-      setForm({ email: "", password: "" });
+      navigate("/paseador/dashboard", { replace: true });
     } catch (error) {
       setFeedback({
         type: "error",

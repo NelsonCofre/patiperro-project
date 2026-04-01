@@ -12,7 +12,11 @@ export const API_ENDPOINTS = {
     paseadores: {
       register: `${API_BASE_URL}/api/paseadores/auth/register`,
       login: `${API_BASE_URL}/api/paseadores/auth/login`,
-      uploadFotoPerfil: `${API_BASE_URL}/api/paseadores/auth/upload-foto-perfil`
+      uploadFotoPerfil: `${API_BASE_URL}/api/paseadores/auth/upload-foto-perfil`,
+      /** Catálogo público (sin JWT). */
+      publicTamanos: `${API_BASE_URL}/api/paseadores/public/tamanos`,
+      /** Configuración del paseador autenticado (JWT en cookie vía gateway). */
+      meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`
     }
   }
 };
