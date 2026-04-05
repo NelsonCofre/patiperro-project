@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -27,6 +28,7 @@ public class Especie {
     private Long idEspecie;
 
     @NotBlank(message = "El nombre de la especie es obligatorio")
+    @Size(min = 2, max = 60, message = "El nombre debe tener entre 2 y 60 caracteres") // El tamaño es entre 2 y 60 incluyendolos //
     @Column(nullable = false, length = 60)
     private String nombre;
 

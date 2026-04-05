@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,6 +25,7 @@ public class Tamano {
     private Long idTamano;
 
     @NotBlank(message = "El nombre del tamaño es obligatorio")
+    @Size(min = 2, max = 30, message = "El nombre debe tener entre 2 y 30 caracteres") // El tamaño es entre 2 y 30 incluyendolos //
     @Column(nullable = false, length = 30)
     private String nombre;
 
