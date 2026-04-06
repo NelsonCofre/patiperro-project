@@ -4,11 +4,7 @@ import com.patiperro.mascota.exception.ForbiddenOperationException;
 import com.patiperro.mascota.model.Foto;
 import com.patiperro.mascota.model.Mascota;
 import com.patiperro.mascota.model.Raza;
-import com.patiperro.mascota.repository.EspecieRepository;
-import com.patiperro.mascota.repository.FotoRepository;
-import com.patiperro.mascota.repository.MascotaRepository;
-import com.patiperro.mascota.repository.RazaRepository;
-import com.patiperro.mascota.repository.TamanoRepository;
+import com.patiperro.mascota.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -26,38 +22,48 @@ public class MascotaService {
     private final TamanoRepository tamanoRepository;
     private final FotoRepository fotoRepository;
 
+    // =========================================================================
+    // GESTIÓN DE REGISTRO Y LISTADO (Vigilancia de Propiedad)
+    // =========================================================================
+
     @Transactional
     public Mascota registrarMascota(@NonNull Mascota mascota, @NonNull Long idTutorSesion) {
-        mascota.setIdMascota(null);
-        mascota.setIdTutor(idTutorSesion);
-        mascota.getFotos().clear();
-        enlazarCatalogo(mascota);
+        mascota.setIdMascota(null); // Vigilancia: Evita que el usuario fuerce un ID existente //
+        mascota.setIdTutor(idTutorSesion); // Seguridad: Vincula la mascota al tutor logueado automáticamente //
+        mascota.getFotos().clear(); // Integridad: El registro inicial no debe traer fotos previas //
+        enlazarCatalogo(mascota); // Validación: Cruza datos con las tablas maestras //
         return mascotaRepository.save(mascota);
     }
 
     public List<Mascota> listarPorTutorAutorizado(Long idTutorEnUrl, @NonNull Long idTutorSesion) {
-        if (!idTutorEnUrl.equals(idTutorSesion)) {
+        if (!idTutorEnUrl.equals(idTutorSesion)) { // Bloqueo de seguridad: Evita ver mascotas de otros tutores //
             throw new ForbiddenOperationException("Solo puede consultar sus propias mascotas");
         }
         return mascotaRepository.findByIdTutor(idTutorSesion);
     }
 
     public List<Mascota> listarMisMascotas(@NonNull Long idTutorSesion) {
-        return mascotaRepository.findByIdTutor(idTutorSesion);
+        return mascotaRepository.findByIdTutor(idTutorSesion); // Recuperada: Obtiene la lista directa de la sesión //
     }
 
     public Mascota obtenerPerfil(Long idMascota, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findPerfilById(idMascota)
+        Mascota m = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(m, idTutorSesion);
+        asegurarPropietario(m, idTutorSesion); // Vigilancia: Valida que el solicitante sea el dueño real //
         return m;
     }
+
+    // =========================================================================
+    // ACTUALIZACIÓN Y ELIMINACIÓN (CRUD Avanzado y Selectivo)
+    // =========================================================================
 
     @Transactional
     public Mascota actualizarMascota(Long idMascota, @NonNull Mascota body, @NonNull Long idTutorSesion) {
         Mascota existente = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(existente, idTutorSesion);
+        asegurarPropietario(existente, idTutorSesion); // Vigilancia de integridad //
+
+        // Mapeo selectivo: El backend controla qué campos pueden ser modificados //
         existente.setNombre(body.getNombre());
         existente.setPeso(body.getPeso());
         existente.setFechaNacimiento(body.getFechaNacimiento());
@@ -68,60 +74,64 @@ public class MascotaService {
         existente.setEsterilizado(body.getEsterilizado());
         existente.setNumeroChip(body.getNumeroChip());
         existente.setFotoPerfil(body.getFotoPerfil());
-        enlazarCatalogoParaActualizar(existente, body);
+
+        enlazarCatalogoParaActualizar(existente, body); // Re-validación de integridad de catálogos //
         return mascotaRepository.save(existente);
     }
 
     @Transactional
     public void eliminarMascota(Long idMascota, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findPerfilById(idMascota)
+        Mascota m = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(m, idTutorSesion);
+        asegurarPropietario(m, idTutorSesion); // Vigilancia previa al borrado físico //
         mascotaRepository.delete(m);
     }
 
+    // =========================================================================
+    // GESTIÓN DE GALERÍA DE FOTOS
+    // =========================================================================
+
     @Transactional
     public Foto agregarFoto(Long idMascota, String url, @NonNull Long idTutorSesion) {
-        Mascota mascota = mascotaRepository.findPerfilById(idMascota)
-                .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(mascota, idTutorSesion);
+        Mascota mascota = obtenerPerfil(idMascota, idTutorSesion);
         Foto foto = new Foto();
         foto.setUrl(url);
         foto.setMascota(mascota);
-        mascota.getFotos().add(foto);
+        mascota.getFotos().add(foto); // Relación bidireccional gestionada por el service //
         mascotaRepository.save(mascota);
         return foto;
     }
 
     public List<Foto> listarFotos(Long idMascota, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findById(idMascota)
-                .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(m, idTutorSesion);
+        obtenerPerfil(idMascota, idTutorSesion); // Validación de permiso de lectura //
         return fotoRepository.findByMascota_IdMascota(idMascota);
     }
 
     @Transactional
     public void quitarFoto(Long idMascota, Long idFoto, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findPerfilById(idMascota)
-                .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(m, idTutorSesion);
+        Mascota m = obtenerPerfil(idMascota, idTutorSesion);
         Foto foto = fotoRepository.findById(idFoto)
                 .orElseThrow(() -> new IllegalArgumentException("Foto no encontrada"));
-        if (!foto.getMascota().getIdMascota().equals(idMascota)) {
+        if (!foto.getMascota().getIdMascota().equals(idMascota)) { // Vigilancia: Evita borrar fotos de otro perro //
             throw new IllegalArgumentException("Foto no asociada a la mascota");
         }
         m.getFotos().remove(foto);
         mascotaRepository.save(m);
     }
 
+    // =========================================================================
+    // MÉTODOS DE VIGILANCIA Y APOYO TÉCNICO
+    // =========================================================================
+
     private void asegurarPropietario(Mascota m, Long idTutorSesion) {
-        if (!m.getIdTutor().equals(idTutorSesion)) {
-            throw new ForbiddenOperationException("No puede gestionar mascotas de otro tutor");
+        if (!m.getIdTutor().equals(idTutorSesion)) { // Bloqueo de seguridad preventivo //
+            throw new ForbiddenOperationException("Acceso denegado: No tiene permisos sobre esta mascota");
         }
     }
 
     private void enlazarCatalogo(Mascota m) {
         asegurarRazaPerteneceAEspecie(m.getEspecie().getIdEspecie(), m.getRaza().getIdRaza());
+        // Uso de idRequerido para validación de presencia //
         m.setEspecie(especieRepository.getReferenceById(idRequerido(m.getEspecie().getIdEspecie())));
         m.setRaza(razaRepository.getReferenceById(idRequerido(m.getRaza().getIdRaza())));
         m.setTamano(tamanoRepository.getReferenceById(idRequerido(m.getTamano().getIdTamano())));
@@ -134,18 +144,16 @@ public class MascotaService {
         destino.setTamano(tamanoRepository.getReferenceById(idRequerido(body.getTamano().getIdTamano())));
     }
 
-    private void asegurarRazaPerteneceAEspecie(Long idEspecieMascota, Long idRaza) {
-        Long idEsp = idRequerido(idEspecieMascota);
-        Long idR = idRequerido(idRaza);
-        Raza raza = razaRepository.findById(idR)
+    private void asegurarRazaPerteneceAEspecie(Long idEspecie, Long idRaza) {
+        Raza raza = razaRepository.findById(idRequerido(idRaza))
                 .orElseThrow(() -> new IllegalArgumentException("Raza no encontrada"));
-        if (!raza.getEspecie().getIdEspecie().equals(idEsp)) {
-            throw new IllegalArgumentException("La raza no pertenece a la especie indicada");
+        if (!raza.getEspecie().getIdEspecie().equals(idEspecie)) { // Validación de lógica de negocio cruzada //
+            throw new IllegalArgumentException("Inconsistencia: La raza no pertenece a la especie");
         }
     }
 
     private Long idRequerido(Long id) {
-        if (id == null) {
+        if (id == null) { // Recuperada: Valida que los identificadores obligatorios no sean nulos //
             throw new IllegalArgumentException("Identificador de catálogo obligatorio");
         }
         return id;
