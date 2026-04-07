@@ -2,6 +2,23 @@
   "configurations": [
     {
       "type": "java",
+      "name": "ReservaServiceApplication",
+      "request": "launch",
+      "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
+      "projectName": ""
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-ReservaServiceApplication<reserva-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend/reserva-service",
+      "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
+      "projectName": "reserva-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
       "name": "MascotasServiceApplication",
       "request": "launch",
       "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
@@ -34,6 +51,16 @@
       "cwd": "${workspaceFolder}/backend/paseadores-service",
       "mainClass": "com.patiperro.paseador.PaseadorServiceApplication",
       "projectName": "paseadores-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-AgendaServiceApplication<agenda-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend/agenda-service",
+      "mainClass": "com.patiperro.agenda.AgendaServiceApplication",
+      "projectName": "agenda-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }

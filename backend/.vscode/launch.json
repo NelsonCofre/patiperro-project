@@ -19,6 +19,26 @@
       "projectName": "tutores-service",
       "args": "",
       "envFile": "${workspaceFolder}/../../.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-ReservaServiceApplication<reserva-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
+      "projectName": "reserva-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-AgendaServiceApplication<agenda-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.agenda.AgendaServiceApplication",
+      "projectName": "agenda-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
     }
   ]
 }
