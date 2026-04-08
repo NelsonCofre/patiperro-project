@@ -1,21 +1,14 @@
-<<<<<<< HEAD
-// Vista inicial de disponibilidad del paseador.
-// Carga bloques reales del microservicio agenda (grid semanal sigue siendo maqueta visual).
+// Vista principal de agenda del paseador.
+// Línea de tiempo + modal (hook local) y resumen de bloques persistidos en el backend.
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
+import { usePaseadorAgenda } from "../../hooks/usePaseadorAgenda";
 import {
   fetchBloquesPorUsuario,
   readStoredPaseadorId,
   type AgendaBloqueDTO
 } from "../../services/agendaService";
-=======
-// Vista principal de agenda del paseador.
-// Muestra una linea de tiempo por dia, el modal de agregar bloque y toasts visuales.
-import { Link } from "react-router-dom";
-import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
-import { usePaseadorAgenda } from "../../hooks/usePaseadorAgenda";
->>>>>>> 01b8498db2c68bc1048bf1abb209142248d1ab13
 import styles from "./PaseadorAgenda.module.css";
 
 const TIMELINE_START_MINUTES = 7 * 60;
@@ -33,53 +26,6 @@ function getBlockStyle(startMinutes: number, endMinutes: number) {
 }
 
 export default function PaseadorAgenda() {
-<<<<<<< HEAD
-  const [bloques, setBloques] = useState<AgendaBloqueDTO[] | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelado = false;
-    const id = readStoredPaseadorId();
-    if (id == null) {
-      setCargando(false);
-      setError(
-        "No hay id de paseador en sesión. Cierra sesión y vuelve a iniciar sesión para sincronizar la agenda."
-      );
-      setBloques([]);
-      return;
-    }
-    (async () => {
-      try {
-        setCargando(true);
-        setError(null);
-        const lista = await fetchBloquesPorUsuario(id);
-        if (!cancelado) {
-          setBloques(lista);
-        }
-      } catch (e) {
-        if (!cancelado) {
-          setError(e instanceof Error ? e.message : "No se pudo cargar la agenda.");
-          setBloques([]);
-        }
-      } finally {
-        if (!cancelado) {
-          setCargando(false);
-        }
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  const textoEstadoAgenda = () => {
-    if (cargando) return "Cargando…";
-    if (error) return error;
-    if (!bloques || bloques.length === 0) return "Sin bloques configurados";
-    return `${bloques.length} bloque${bloques.length === 1 ? "" : "s"} en el sistema`;
-  };
-=======
   const {
     days,
     hourSlots,
@@ -101,7 +47,54 @@ export default function PaseadorAgenda() {
     handleEditBlock,
     handleDeleteBlock
   } = usePaseadorAgenda();
->>>>>>> 01b8498db2c68bc1048bf1abb209142248d1ab13
+
+  const [apiBloques, setApiBloques] = useState<AgendaBloqueDTO[] | null>(null);
+  const [apiCargando, setApiCargando] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    const id = readStoredPaseadorId();
+    if (id == null) {
+      setApiCargando(false);
+      setApiError(
+        "No hay id de paseador en sesión. Vuelve a iniciar sesión para sincronizar la agenda."
+      );
+      setApiBloques([]);
+      return;
+    }
+    (async () => {
+      try {
+        setApiCargando(true);
+        setApiError(null);
+        const lista = await fetchBloquesPorUsuario(id);
+        if (!cancelado) {
+          setApiBloques(lista);
+        }
+      } catch (e) {
+        if (!cancelado) {
+          setApiError(e instanceof Error ? e.message : "No se pudo cargar la agenda del servidor.");
+          setApiBloques([]);
+        }
+      } finally {
+        if (!cancelado) {
+          setApiCargando(false);
+        }
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const textoEstadoServidor = () => {
+    if (apiCargando) return "Cargando datos del servidor…";
+    if (apiError) return apiError;
+    if (!apiBloques || apiBloques.length === 0) {
+      return "Sin bloques registrados aún en el backend.";
+    }
+    return `${apiBloques.length} bloque${apiBloques.length === 1 ? "" : "s"} guardados en el servidor`;
+  };
 
   return (
     <main className={styles.page}>
@@ -120,11 +113,7 @@ export default function PaseadorAgenda() {
             <strong>{toast.title}</strong>
             <p>{toast.message}</p>
           </div>
-          <button
-            type="button"
-            className={styles.toastCloseButton}
-            onClick={dismissToast}
-          >
+          <button type="button" className={styles.toastCloseButton} onClick={dismissToast}>
             Cerrar
           </button>
         </div>
@@ -180,11 +169,7 @@ export default function PaseadorAgenda() {
             </div>
 
             <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.modalSecondaryButton}
-                onClick={closeAddModal}
-              >
+              <button type="button" className={styles.modalSecondaryButton} onClick={closeAddModal}>
                 Cancelar
               </button>
               <button
@@ -221,20 +206,15 @@ export default function PaseadorAgenda() {
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className={styles.infoCard}>
-          <span className={styles.infoLabel}>Estado de agenda</span>
-          <strong>{textoEstadoAgenda()}</strong>
-=======
         <div className={styles.heroBadge}>
-          <span className={styles.heroBadgeLabel}>Resumen actual</span>
-          <strong>{allBlocks.length} bloques visibles</strong>
+          <span className={styles.heroBadgeLabel}>Estado en servidor</span>
+          <strong>{textoEstadoServidor()}</strong>
           <p className={styles.heroBadgeText}>
+            Vista local de prueba: {allBlocks.length} bloque(s).
             {selectedDayBlocks.length > 0
-              ? `${selectedDay} tiene ${selectedDayBlocks.length} bloque(s) visibles en la agenda.`
-              : `${selectedDay} todavia no muestra bloques en la vista actual.`}
+              ? ` ${selectedDay}: ${selectedDayBlocks.length} visible(s) en la linea de tiempo.`
+              : ` ${selectedDay}: sin bloques locales en este dia.`}
           </p>
->>>>>>> 01b8498db2c68bc1048bf1abb209142248d1ab13
         </div>
       </section>
 
@@ -249,14 +229,9 @@ export default function PaseadorAgenda() {
           </div>
 
           <p className={styles.supportText}>
-<<<<<<< HEAD
-            Esta vista deja preparada la estructura de tu disponibilidad. Los
-            bloques guardados en el backend se reflejan en el resumen superior; el
-            calendario de ejemplo no esta aun enlazado franja a franja con la API.
-=======
-            Esta agenda ya permite probar la creacion local de bloques y deja listas
-            las notificaciones visuales para conflictos y restricciones del servicio.
->>>>>>> 01b8498db2c68bc1048bf1abb209142248d1ab13
+            Los bloques de la linea de tiempo son de demostracion en el navegador; el resumen superior
+            refleja lo guardado en el microservicio de agenda. Integrar alta/baja real reutilizando el
+            modal se puede hacer en una siguiente iteracion.
           </p>
 
           <div className={styles.dayTabs} role="tablist" aria-label="Dias de agenda">
