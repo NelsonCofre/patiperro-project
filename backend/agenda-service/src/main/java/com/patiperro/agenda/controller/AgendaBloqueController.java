@@ -2,6 +2,8 @@ package com.patiperro.agenda.controller;
 
 import com.patiperro.agenda.dto.AgendaBloqueRequestDTO;
 import com.patiperro.agenda.dto.AgendaBloqueResponseDTO;
+import com.patiperro.agenda.dto.AgendaBloqueSerieMensualRequestDTO;
+import com.patiperro.agenda.dto.AgendaBloqueSerieMensualResponseDTO;
 import com.patiperro.agenda.service.AgendaBloqueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,16 @@ public class AgendaBloqueController {
     @PostMapping
     public ResponseEntity<AgendaBloqueResponseDTO> crear(@Valid @RequestBody AgendaBloqueRequestDTO body) {
         return new ResponseEntity<>(service.crear(body), HttpStatus.CREATED);
+    }
+
+    /**
+     * Misma franja horaria en todas las ocurrencias del día de la semana de {@code fechaSemilla}
+     * dentro de ese mes; omite fechas pasadas y solapes.
+     */
+    @PostMapping("/serie-mes")
+    public ResponseEntity<AgendaBloqueSerieMensualResponseDTO> crearSerieMensual(
+            @Valid @RequestBody AgendaBloqueSerieMensualRequestDTO body) {
+        return new ResponseEntity<>(service.crearSerieMensualEnMes(body), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")

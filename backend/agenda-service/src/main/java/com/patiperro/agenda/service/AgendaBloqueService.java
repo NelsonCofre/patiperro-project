@@ -2,6 +2,8 @@ package com.patiperro.agenda.service;
 
 import com.patiperro.agenda.dto.AgendaBloqueRequestDTO;
 import com.patiperro.agenda.dto.AgendaBloqueResponseDTO;
+import com.patiperro.agenda.dto.AgendaBloqueSerieMensualRequestDTO;
+import com.patiperro.agenda.dto.AgendaBloqueSerieMensualResponseDTO;
 import com.patiperro.agenda.dto.AgendaDtoMapper;
 import com.patiperro.agenda.model.AgendaBloque;
 import com.patiperro.agenda.model.AgendaBloqueoDia;
@@ -15,8 +17,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -100,6 +109,129 @@ public class AgendaBloqueService {
             throw new IllegalStateException("No se pueden eliminar bloques que están reservados");
         }
         agendaBloqueRepository.deleteById(id);
+    }
+
+    /**
+     * Crea bloques en todas las fechas del mismo mes que {@code fechaSemilla}, mismo día de la semana,
+     * con las mismas horas. Omite fechas anteriores a hoy (servidor) y fechas con solape horario
+     * para ese usuario.
+     */
+    @Transactional
+    public AgendaBloqueSerieMensualResponseDTO crearSerieMensualEnMes(AgendaBloqueSerieMensualRequestDTO dto) {
+        LocalDate fechaSem = dto.getFechaSemilla();
+        if (!fechaSem.equals(dto.getHoraInicio().toLocalDate())
+                || !fechaSem.equals(dto.getHoraFinal().toLocalDate())) {
+            throw new IllegalArgumentException(
+                    "fechaSemilla debe coincidir con las fechas en horaInicio y horaFinal");
+        }
+        LocalTime tInicio = dto.getHoraInicio().toLocalTime();
+        LocalTime tFin = dto.getHoraFinal().toLocalTime();
+        if (!tFin.isAfter(tInicio)) {
+            throw new IllegalArgumentException("hora_final debe ser posterior a hora_inicio");
+        }
+        EstadoBloque estado = resolverEstado(dto.getEstadoBloque().getIdEstado());
+        if (esEstadoReservado(estado)) {
+            throw new IllegalArgumentException("No se puede crear una serie en estado reservado");
+        }
+
+        LocalDate hoy = LocalDate.now();
+        YearMonth ym = YearMonth.from(fechaSem);
+        LocalDate primerDia = ym.atDay(1);
+        LocalDate ultimoDia = ym.atEndOfMonth();
+        DayOfWeek diaObjetivo = fechaSem.getDayOfWeek();
+
+        List<DiaSemana> catalogoDias = diaSemanaRepository.findAll();
+        DiaSemana diaSemana = resolverDiaJava(catalogoDias, diaObjetivo);
+
+        List<AgendaBloque> relevantes = new ArrayList<>(
+                agendaBloqueRepository.findByIdUsuarioAndFechaBetweenOrderByFechaAscHoraInicioAsc(
+                        dto.getIdUsuario(), primerDia, ultimoDia));
+
+        int omitidosPasado = 0;
+        int omitidosSolape = 0;
+        List<AgendaBloqueResponseDTO> creados = new ArrayList<>();
+
+        for (LocalDate fecha = primerDia; !fecha.isAfter(ultimoDia); fecha = fecha.plusDays(1)) {
+            if (fecha.getDayOfWeek() != diaObjetivo) {
+                continue;
+            }
+            if (fecha.isBefore(hoy)) {
+                omitidosPasado++;
+                continue;
+            }
+            LocalDateTime hi = LocalDateTime.of(fecha, tInicio);
+            LocalDateTime hf = LocalDateTime.of(fecha, tFin);
+            if (haySolapeHorario(relevantes, fecha, hi, hf)) {
+                omitidosSolape++;
+                continue;
+            }
+            AgendaBloque nuevo = new AgendaBloque();
+            nuevo.setIdAgenda(null);
+            nuevo.setIdUsuario(dto.getIdUsuario());
+            nuevo.setHoraInicio(hi);
+            nuevo.setHoraFinal(hf);
+            nuevo.setFecha(fecha);
+            nuevo.setEstadoBloque(estado);
+            nuevo.setDiaSemana(diaSemana);
+            AgendaBloque guardado = agendaBloqueRepository.save(nuevo);
+            relevantes.add(guardado);
+            creados.add(AgendaDtoMapper.toBloqueResponse(guardado));
+        }
+
+        return AgendaBloqueSerieMensualResponseDTO.builder()
+                .creados(creados.size())
+                .omitidosPasado(omitidosPasado)
+                .omitidosSolape(omitidosSolape)
+                .bloques(creados)
+                .build();
+    }
+
+    private static boolean haySolapeHorario(
+            List<AgendaBloque> bloques,
+            LocalDate fecha,
+            LocalDateTime inicio,
+            LocalDateTime fin) {
+        for (AgendaBloque b : bloques) {
+            if (!b.getFecha().equals(fecha)) {
+                continue;
+            }
+            LocalDateTime bi = b.getHoraInicio();
+            LocalDateTime bf = b.getHoraFinal();
+            if (inicio.isBefore(bf) && fin.isAfter(bi)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private DiaSemana resolverDiaJava(List<DiaSemana> catalogo, DayOfWeek dia) {
+        String esperado = nombreDiaSemanaEsperado(dia);
+        String clave = normalizarNombreDia(esperado);
+        return catalogo.stream()
+                .filter(ds -> normalizarNombreDia(ds.getNombre()).equals(clave))
+                .findFirst()
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Catálogo dia_semana incompleto: falta " + esperado));
+    }
+
+    private static String nombreDiaSemanaEsperado(DayOfWeek d) {
+        return switch (d) {
+            case MONDAY -> "Lunes";
+            case TUESDAY -> "Martes";
+            case WEDNESDAY -> "Miercoles";
+            case THURSDAY -> "Jueves";
+            case FRIDAY -> "Viernes";
+            case SATURDAY -> "Sabado";
+            case SUNDAY -> "Domingo";
+        };
+    }
+
+    private static String normalizarNombreDia(String nombre) {
+        if (nombre == null) {
+            return "";
+        }
+        String n = Normalizer.normalize(nombre.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
+        return n.replaceAll("\\p{M}+", "");
     }
 
     private boolean esEstadoReservado(EstadoBloque estadoBloque) {

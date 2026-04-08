@@ -578,6 +578,83 @@
   font-weight: 700;
 }
 
+/* Opción tipo chip / interruptor compacto (sin checkbox nativo grande). */
+.repeatWeekdayToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid #d5e5d8;
+  border-radius: 16px;
+  cursor: pointer;
+  background: linear-gradient(180deg, #fbfcfb 0%, #f3f8f4 100%);
+  color: #3d5247;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  font-weight: 600;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.repeatWeekdayToggle:hover {
+  border-color: #9bc4a1;
+  box-shadow: 0 8px 20px rgba(47, 125, 53, 0.08);
+}
+
+.repeatWeekdayToggleOn {
+  border-color: #64a46d;
+  background: linear-gradient(180deg, #edf8ee 0%, #dff1e1 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.repeatWeekdayToggleKnob {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: #cbd5d1;
+  position: relative;
+  transition: background 160ms ease;
+}
+
+.repeatWeekdayToggleKnob::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+  transition: transform 160ms ease;
+}
+
+.repeatWeekdayToggleOn .repeatWeekdayToggleKnob {
+  background: linear-gradient(180deg, #4caf50 0%, #2f7d35 100%);
+}
+
+.repeatWeekdayToggleOn .repeatWeekdayToggleKnob::after {
+  transform: translateX(16px);
+}
+
+.repeatWeekdayToggleLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.repeatWeekdayName {
+  color: #163020;
+  font-weight: 800;
+  text-transform: lowercase;
+}
+
 .modalActions {
   display: flex;
   justify-content: flex-end;

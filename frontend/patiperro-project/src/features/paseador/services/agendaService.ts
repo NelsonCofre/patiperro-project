@@ -31,6 +31,22 @@ export type AgendaBloqueCuerpo = {
   diaSemana: { idDia: number };
 };
 
+/** POST /api/agenda/bloques/serie-mes — mismo día de la semana en todo el mes de fechaSemilla. */
+export type AgendaBloqueSerieMensualCuerpo = {
+  idUsuario: number;
+  fechaSemilla: string;
+  horaInicio: string;
+  horaFinal: string;
+  estadoBloque: { idEstado: number };
+};
+
+export type AgendaBloqueSerieMensualRespuesta = {
+  creados: number;
+  omitidosPasado: number;
+  omitidosSolape: number;
+  bloques: AgendaBloqueDTO[];
+};
+
 export type AgendaBloqueoDiaDTO = {
   idBloqueo: number;
   idUsuario: number;
@@ -146,6 +162,23 @@ export async function fetchBloquesOferta(
     throw new Error("Respuesta inválida (bloques oferta).");
   }
   return data as AgendaBloqueDTO[];
+}
+
+export async function crearSerieMensualBloques(
+  body: AgendaBloqueSerieMensualCuerpo
+): Promise<AgendaBloqueSerieMensualRespuesta> {
+  const res = await fetch(API_ENDPOINTS.agenda.bloquesSerieMes, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body)
+  });
+  const data = await parseJson(res);
+  await guardarSesionRequerida(res, data);
+  if (!res.ok) {
+    throw new Error(readErrorMessage(data, "No se pudo crear la serie de bloques."));
+  }
+  return data as AgendaBloqueSerieMensualRespuesta;
 }
 
 export async function crearBloque(body: AgendaBloqueCuerpo): Promise<AgendaBloqueDTO> {

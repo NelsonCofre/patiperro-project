@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import { usePaseadorAgendaApi } from "../../hooks/usePaseadorAgendaApi";
-import { MAX_WEEKS_AHEAD } from "../../utils/agendaWeekUtils";
+import { MAX_WEEKS_AHEAD, weekdayLabelFromISODate } from "../../utils/agendaWeekUtils";
 import styles from "./PaseadorAgenda.module.css";
 
 const TIMELINE_START_MINUTES = 7 * 60;
@@ -45,6 +45,8 @@ export default function PaseadorAgenda() {
     formErrors,
     isAddDisabled,
     addBlockDisabledReason,
+    repeatMismoDiaEnMes,
+    setRepeatMismoDiaEnMes,
     saving,
     toast,
     openAddModal,
@@ -58,6 +60,11 @@ export default function PaseadorAgenda() {
     catalogLoading,
     catalogError
   } = usePaseadorAgendaApi();
+
+  const nombreDiaMesRepetir =
+    form.fecha && form.fecha.length >= 10
+      ? weekdayLabelFromISODate(form.fecha).toLowerCase()
+      : selectedDayLabel.toLowerCase();
 
   return (
     <main className={styles.page}>
@@ -124,6 +131,24 @@ export default function PaseadorAgenda() {
                 />
                 {formErrors.endTime ? <small>{formErrors.endTime}</small> : null}
               </label>
+
+              <div className={styles.modalField}>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={repeatMismoDiaEnMes}
+                  className={`${styles.repeatWeekdayToggle} ${
+                    repeatMismoDiaEnMes ? styles.repeatWeekdayToggleOn : ""
+                  }`}
+                  onClick={() => setRepeatMismoDiaEnMes((v) => !v)}
+                >
+                  <span className={styles.repeatWeekdayToggleKnob} aria-hidden />
+                  <span className={styles.repeatWeekdayToggleLabel}>
+                    Repetir este mismo día para los siguientes{" "}
+                    <strong className={styles.repeatWeekdayName}>{nombreDiaMesRepetir}</strong> del mes.
+                  </span>
+                </button>
+              </div>
             </div>
 
             {addBlockDisabledReason ? (
@@ -142,7 +167,7 @@ export default function PaseadorAgenda() {
                 onClick={() => void handleAddBlock()}
                 disabled={isAddDisabled}
               >
-                {saving ? "Guardando…" : "Guardar en servidor"}
+                {saving ? "Guardando…" : repeatMismoDiaEnMes ? "Guardar serie del mes" : "Guardar en servidor"}
               </button>
             </div>
           </div>

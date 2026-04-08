@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgendaToast } from "../types/agenda.types";
 import {
   crearBloque,
+  crearSerieMensualBloques,
   eliminarBloque,
   fetchBloquesPorUsuario,
   fetchDiasSemana,
@@ -189,6 +190,8 @@ export function usePaseadorAgendaApi() {
   const [formErrors, setFormErrors] = useState<AgendaApiFormErrors>({});
   const [toast, setToast] = useState<AgendaToast | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Repetir la misma franja en todos los [día de la semana] restantes del mes (servidor omite pasado y solapes). */
+  const [repeatMismoDiaEnMes, setRepeatMismoDiaEnMes] = useState(false);
 
   const weekDays = useMemo(() => buildWeekDays(weekMonday), [weekMonday]);
 
@@ -322,6 +325,7 @@ export function usePaseadorAgendaApi() {
   };
 
   const openAddModal = () => {
+    setRepeatMismoDiaEnMes(false);
     setForm({
       fecha: selectedISODate,
       startTime: "10:00",
@@ -367,41 +371,61 @@ export function usePaseadorAgendaApi() {
       });
       return;
     }
-    const idDia = findDiaId(diasSemana, form.fecha);
-    if (idDia == null) {
-      showToast({
-        type: "error",
-        title: "Catálogo",
-        message: "No se pudo asignar el día de la semana. Revisa días-semana en el servidor."
-      });
-      return;
-    }
-    if (overlapsApiBlocks(bloques, form.fecha, form.startTime, form.endTime)) {
-      showToast({
-        type: "error",
-        title: "Conflicto de horario",
-        message: "Ya tienes un bloque que se superpone en esa fecha."
-      });
-      return;
+    let idDiaParaUnSolo: number | null = null;
+    if (!repeatMismoDiaEnMes) {
+      idDiaParaUnSolo = findDiaId(diasSemana, form.fecha);
+      if (idDiaParaUnSolo == null) {
+        showToast({
+          type: "error",
+          title: "Catálogo",
+          message: "No se pudo asignar el día de la semana. Revisa días-semana en el servidor."
+        });
+        return;
+      }
+      if (overlapsApiBlocks(bloques, form.fecha, form.startTime, form.endTime)) {
+        showToast({
+          type: "error",
+          title: "Conflicto de horario",
+          message: "Ya tienes un bloque que se superpone en esa fecha."
+        });
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      await crearBloque({
-        idUsuario: paseadorId,
-        fecha: form.fecha,
-        horaInicio: `${form.fecha}T${form.startTime}:00`,
-        horaFinal: `${form.fecha}T${form.endTime}:00`,
-        estadoBloque: { idEstado: idEstadoDisponible },
-        diaSemana: { idDia }
-      });
-      await refreshBloques();
-      closeAddModal();
-      showToast({
-        type: "success",
-        title: "Bloque creado",
-        message: "El bloque quedó guardado en el servidor."
-      });
+      if (repeatMismoDiaEnMes) {
+        const res = await crearSerieMensualBloques({
+          idUsuario: paseadorId,
+          fechaSemilla: form.fecha,
+          horaInicio: `${form.fecha}T${form.startTime}:00`,
+          horaFinal: `${form.fecha}T${form.endTime}:00`,
+          estadoBloque: { idEstado: idEstadoDisponible }
+        });
+        await refreshBloques();
+        closeAddModal();
+        showToast({
+          type: "success",
+          title: "Serie mensual",
+          message: `Creados: ${res.creados}. Omitidos (fecha pasada): ${res.omitidosPasado}. Omitidos (solape): ${res.omitidosSolape}.`
+        });
+      } else {
+        await crearBloque({
+          idUsuario: paseadorId,
+          fecha: form.fecha,
+          horaInicio: `${form.fecha}T${form.startTime}:00`,
+          horaFinal: `${form.fecha}T${form.endTime}:00`,
+          estadoBloque: { idEstado: idEstadoDisponible },
+          diaSemana: { idDia: idDiaParaUnSolo as number }
+        });
+        await refreshBloques();
+        closeAddModal();
+        showToast({
+          type: "success",
+          title: "Bloque creado",
+          message: "El bloque quedó guardado en el servidor."
+        });
+      }
     } catch (e) {
       showToast({
         type: "error",
@@ -470,6 +494,8 @@ export function usePaseadorAgendaApi() {
     formErrors,
     isAddDisabled,
     addBlockDisabledReason,
+    repeatMismoDiaEnMes,
+    setRepeatMismoDiaEnMes,
     saving,
     toast,
     openAddModal,
