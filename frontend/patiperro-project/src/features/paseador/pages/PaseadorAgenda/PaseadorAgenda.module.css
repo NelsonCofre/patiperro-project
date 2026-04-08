@@ -626,6 +626,77 @@
   transform: translateY(-1px);
 }
 
+/* Navegacion semanal (semana actual y siguientes). */
+.weekNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid #d7e5d8;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf6 100%);
+}
+
+.weekNavControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weekNavButton {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #cfe0d1;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #355145;
+  cursor: pointer;
+  background: #ffffff;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.weekNavButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #86b38b;
+}
+
+.weekNavButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.weekNavLabel {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #163020;
+}
+
+.weekNavHint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.dayTabToday {
+  box-shadow: 0 0 0 2px rgba(47, 125, 53, 0.35);
+}
+
+.dayTabDate {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
 /* Ajustes responsive de la pagina de agenda. */
 @media (max-width: 1080px) {
   .dayTabs {

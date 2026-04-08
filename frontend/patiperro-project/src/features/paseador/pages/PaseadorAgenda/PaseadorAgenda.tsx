@@ -1,14 +1,8 @@
-// Vista principal de agenda del paseador.
-// Línea de tiempo + modal (hook local) y resumen de bloques persistidos en el backend.
-import { useEffect, useState } from "react";
+// Vista de agenda con calendario semanal (actual + siguientes) e integración API agenda-bloque.
 import { Link } from "react-router-dom";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
-import { usePaseadorAgenda } from "../../hooks/usePaseadorAgenda";
-import {
-  fetchBloquesPorUsuario,
-  readStoredPaseadorId,
-  type AgendaBloqueDTO
-} from "../../services/agendaService";
+import { usePaseadorAgendaApi } from "../../hooks/usePaseadorAgendaApi";
+import { MAX_WEEKS_AHEAD } from "../../utils/agendaWeekUtils";
 import styles from "./PaseadorAgenda.module.css";
 
 const TIMELINE_START_MINUTES = 7 * 60;
@@ -25,18 +19,33 @@ function getBlockStyle(startMinutes: number, endMinutes: number) {
   };
 }
 
+function formatWeekRangeLabel(weekDays: { date: Date }[]): string {
+  if (weekDays.length === 0) return "";
+  const first = weekDays[0].date;
+  const last = weekDays[6].date;
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+  return `${first.toLocaleDateString("es-CL", opts)} – ${last.toLocaleDateString("es-CL", opts)}`;
+}
+
 export default function PaseadorAgenda() {
   const {
-    days,
+    weekDays,
+    goPrevWeek,
+    goNextWeek,
+    canGoPrevWeek,
+    canGoNextWeek,
+    selectedISODate,
+    setSelectedISODate,
+    selectedDayLabel,
     hourSlots,
     allBlocks,
-    selectedDay,
-    setSelectedDay,
     selectedDayBlocks,
     isAddModalOpen,
     form,
     formErrors,
     isAddDisabled,
+    addBlockDisabledReason,
+    saving,
     toast,
     openAddModal,
     closeAddModal,
@@ -44,57 +53,11 @@ export default function PaseadorAgenda() {
     updateFormField,
     handleFieldBlur,
     handleAddBlock,
-    handleEditBlock,
-    handleDeleteBlock
-  } = usePaseadorAgenda();
-
-  const [apiBloques, setApiBloques] = useState<AgendaBloqueDTO[] | null>(null);
-  const [apiCargando, setApiCargando] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelado = false;
-    const id = readStoredPaseadorId();
-    if (id == null) {
-      setApiCargando(false);
-      setApiError(
-        "No hay id de paseador en sesión. Vuelve a iniciar sesión para sincronizar la agenda."
-      );
-      setApiBloques([]);
-      return;
-    }
-    (async () => {
-      try {
-        setApiCargando(true);
-        setApiError(null);
-        const lista = await fetchBloquesPorUsuario(id);
-        if (!cancelado) {
-          setApiBloques(lista);
-        }
-      } catch (e) {
-        if (!cancelado) {
-          setApiError(e instanceof Error ? e.message : "No se pudo cargar la agenda del servidor.");
-          setApiBloques([]);
-        }
-      } finally {
-        if (!cancelado) {
-          setApiCargando(false);
-        }
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  const textoEstadoServidor = () => {
-    if (apiCargando) return "Cargando datos del servidor…";
-    if (apiError) return apiError;
-    if (!apiBloques || apiBloques.length === 0) {
-      return "Sin bloques registrados aún en el backend.";
-    }
-    return `${apiBloques.length} bloque${apiBloques.length === 1 ? "" : "s"} guardados en el servidor`;
-  };
+    handleDeleteBlock,
+    textoEstadoServidor,
+    catalogLoading,
+    catalogError
+  } = usePaseadorAgendaApi();
 
   return (
     <main className={styles.page}>
@@ -123,26 +86,21 @@ export default function PaseadorAgenda() {
         <div className={styles.modalOverlay}>
           <div className={styles.modalCard} role="dialog" aria-modal="true">
             <span className={styles.modalEyebrow}>Agregar bloque</span>
-            <h2 className={styles.modalTitle}>Define una franja de disponibilidad</h2>
+            <h2 className={styles.modalTitle}>Franja de disponibilidad</h2>
             <p className={styles.modalText}>
-              Selecciona el dia y el rango horario que quieres mostrar como disponible.
+              Se guarda en el servidor como agenda-bloque (fecha, horario y catálogos día/estado).
             </p>
 
             <div className={styles.modalFields}>
               <label className={styles.modalField}>
-                <span>Dia</span>
-                <select
-                  value={form.day}
-                  onChange={(event) => updateFormField("day", event.target.value as typeof form.day)}
-                  onBlur={() => handleFieldBlur("day")}
-                >
-                  {days.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.day ? <small>{formErrors.day}</small> : null}
+                <span>Fecha</span>
+                <input
+                  type="date"
+                  value={form.fecha}
+                  onChange={(event) => updateFormField("fecha", event.target.value)}
+                  onBlur={() => handleFieldBlur("fecha")}
+                />
+                {formErrors.fecha ? <small>{formErrors.fecha}</small> : null}
               </label>
 
               <label className={styles.modalField}>
@@ -157,7 +115,7 @@ export default function PaseadorAgenda() {
               </label>
 
               <label className={styles.modalField}>
-                <span>Hora de termino</span>
+                <span>Hora de término</span>
                 <input
                   type="time"
                   value={form.endTime}
@@ -168,6 +126,12 @@ export default function PaseadorAgenda() {
               </label>
             </div>
 
+            {addBlockDisabledReason ? (
+              <p className={styles.modalText} style={{ color: "#b45309", marginTop: 12 }}>
+                {addBlockDisabledReason}
+              </p>
+            ) : null}
+
             <div className={styles.modalActions}>
               <button type="button" className={styles.modalSecondaryButton} onClick={closeAddModal}>
                 Cancelar
@@ -175,10 +139,10 @@ export default function PaseadorAgenda() {
               <button
                 type="button"
                 className={styles.modalPrimaryButton}
-                onClick={handleAddBlock}
+                onClick={() => void handleAddBlock()}
                 disabled={isAddDisabled}
               >
-                Agregar bloque
+                {saving ? "Guardando…" : "Guardar en servidor"}
               </button>
             </div>
           </div>
@@ -190,18 +154,16 @@ export default function PaseadorAgenda() {
       <section className={styles.hero}>
         <div className={styles.heroContent}>
           <p className={styles.eyebrow}>Mi Agenda</p>
-          <h1 className={styles.title}>Visualiza tu disponibilidad por dia y hora</h1>
+          <h1 className={styles.title}>Calendario semanal y disponibilidad</h1>
           <p className={styles.description}>
-            Esta vista te permite revisar tus bloques semanales de forma intuitiva
-            y deja preparada la agenda para crear, detectar conflictos y comunicar
-            restricciones desde el frontend.
+            Navega la semana en curso y las próximas semanas. Cada bloque se sincroniza con el
+            microservicio de agenda.
           </p>
 
           <div className={styles.heroRibbon}>
-            <span className={styles.heroRibbonTag}>Agenda operativa</span>
+            <span className={styles.heroRibbonTag}>Integrado</span>
             <p>
-              Ya puedes agregar bloques, verlos en la linea de tiempo y recibir
-              feedback visual cuando el horario se cruza o cuando un bloque esta reservado.
+              Los bloques se crean y eliminan vía API. Los reservados no se pueden borrar desde aquí.
             </p>
           </div>
         </div>
@@ -210,10 +172,11 @@ export default function PaseadorAgenda() {
           <span className={styles.heroBadgeLabel}>Estado en servidor</span>
           <strong>{textoEstadoServidor()}</strong>
           <p className={styles.heroBadgeText}>
-            Vista local de prueba: {allBlocks.length} bloque(s).
-            {selectedDayBlocks.length > 0
-              ? ` ${selectedDay}: ${selectedDayBlocks.length} visible(s) en la linea de tiempo.`
-              : ` ${selectedDay}: sin bloques locales en este dia.`}
+            {catalogLoading
+              ? "Cargando catálogos (días y estados)…"
+              : catalogError
+                ? catalogError
+                : `${allBlocks.length} bloque(s) totales · Día seleccionado: ${selectedDayLabel} (${selectedISODate})`}
           </p>
         </div>
       </section>
@@ -222,29 +185,58 @@ export default function PaseadorAgenda() {
         <article className={styles.mainCard}>
           <div className={styles.sectionHeader}>
             <div>
-              <p className={styles.cardEyebrow}>Agenda semanal</p>
-              <h2>Selecciona un dia para ver su linea de tiempo</h2>
+              <p className={styles.cardEyebrow}>Calendario</p>
+              <h2>Semana visible y línea de tiempo del día</h2>
             </div>
-            <span className={styles.emptyChip}>Vista inicial</span>
+            <span className={styles.emptyChip}>Lunes a domingo</span>
+          </div>
+
+          <div className={styles.weekNav}>
+            <div className={styles.weekNavControls}>
+              <button
+                type="button"
+                className={styles.weekNavButton}
+                onClick={goPrevWeek}
+                disabled={!canGoPrevWeek}
+              >
+                Semana anterior
+              </button>
+              <button
+                type="button"
+                className={styles.weekNavButton}
+                onClick={goNextWeek}
+                disabled={!canGoNextWeek}
+              >
+                Semana siguiente
+              </button>
+            </div>
+            <div>
+              <p className={styles.weekNavLabel}>{formatWeekRangeLabel(weekDays)}</p>
+              <p className={styles.weekNavHint}>
+                Solo semanas actuales y futuras (hasta {MAX_WEEKS_AHEAD} semanas adelante).
+              </p>
+            </div>
           </div>
 
           <p className={styles.supportText}>
-            Los bloques de la linea de tiempo son de demostracion en el navegador; el resumen superior
-            refleja lo guardado en el microservicio de agenda. Integrar alta/baja real reutilizando el
-            modal se puede hacer en una siguiente iteracion.
+            Pulsa un día de la semana mostrada para ver sus franjas. Las horas cargadas coinciden con
+            los bloques devueltos por el backend para esa fecha.
           </p>
 
-          <div className={styles.dayTabs} role="tablist" aria-label="Dias de agenda">
-            {days.map((day) => (
+          <div className={styles.dayTabs} role="tablist" aria-label="Días de la semana visible">
+            {weekDays.map((cell) => (
               <button
-                key={day}
+                key={cell.iso}
                 type="button"
                 role="tab"
-                aria-selected={selectedDay === day}
-                className={`${styles.dayTab} ${selectedDay === day ? styles.dayTabActive : ""}`}
-                onClick={() => setSelectedDay(day)}
+                aria-selected={selectedISODate === cell.iso}
+                className={`${styles.dayTab} ${selectedISODate === cell.iso ? styles.dayTabActive : ""} ${
+                  cell.isToday ? styles.dayTabToday : ""
+                }`}
+                onClick={() => setSelectedISODate(cell.iso)}
               >
-                {day}
+                <span>{cell.weekdayShort}</span>
+                <span className={styles.dayTabDate}>{cell.dayNum}</span>
               </button>
             ))}
           </div>
@@ -252,13 +244,15 @@ export default function PaseadorAgenda() {
           <div className={styles.timelineSection}>
             <div className={styles.timelineHeader}>
               <div>
-                <p className={styles.cardEyebrow}>Dia seleccionado</p>
-                <h3>{selectedDay}</h3>
+                <p className={styles.cardEyebrow}>Día seleccionado</p>
+                <h3>
+                  {selectedDayLabel} · {selectedISODate}
+                </h3>
               </div>
               <span className={styles.timelineMeta}>
                 {selectedDayBlocks.length > 0
-                  ? `${selectedDayBlocks.length} bloque(s) visibles`
-                  : "Sin bloques todavia"}
+                  ? `${selectedDayBlocks.length} bloque(s)`
+                  : "Sin bloques este día"}
               </span>
             </div>
 
@@ -287,9 +281,7 @@ export default function PaseadorAgenda() {
                     >
                       <div className={styles.blockHeader}>
                         <strong>{block.title}</strong>
-                        <span>
-                          {block.status === "booked" ? "Reservado" : "Disponible"}
-                        </span>
+                        <span>{block.status === "booked" ? "Reservado" : "Disponible"}</span>
                       </div>
                       <p>{`${block.startTime} - ${block.endTime}`}</p>
                       <small>{block.durationLabel}</small>
@@ -297,14 +289,8 @@ export default function PaseadorAgenda() {
                         <button
                           type="button"
                           className={styles.blockActionButton}
-                          onClick={() => handleEditBlock(block.id)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.blockActionButton}
-                          onClick={() => handleDeleteBlock(block.id)}
+                          onClick={() => void handleDeleteBlock(block.idAgenda)}
+                          disabled={saving || block.status === "booked"}
                         >
                           Eliminar
                         </button>
@@ -313,11 +299,8 @@ export default function PaseadorAgenda() {
                   ))
                 ) : (
                   <div className={styles.emptyTimeline}>
-                    <strong>{selectedDay} esta libre por completo</strong>
-                    <p>
-                      Cuando empieces a agregar bloques, apareceran aqui sobre la
-                      linea de tiempo por hora.
-                    </p>
+                    <strong>Sin bloques este día</strong>
+                    <p>Crea uno con el botón del panel lateral (fecha sugerida: día seleccionado).</p>
                   </div>
                 )}
               </div>
@@ -326,32 +309,30 @@ export default function PaseadorAgenda() {
         </article>
 
         <aside className={styles.sideCard}>
-          <p className={styles.cardEyebrow}>Acciones y pruebas</p>
-          <h2>Agenda lista para la siguiente integracion</h2>
+          <p className={styles.cardEyebrow}>Acciones</p>
+          <h2>Gestionar disponibilidad</h2>
           <p className={styles.supportText}>
-            Desde aqui ya puedes abrir el modal, agregar bloques locales y ver
-            los mensajes visuales cuando el horario se cruza con otro o el bloque
-            no se puede modificar porque esta reservado.
+            El alta envía POST a /api/agenda/bloques con estado &quot;disponible&quot; inferido del
+            catálogo. La baja usa DELETE cuando el bloque no está reservado.
           </p>
 
           <div className={styles.summaryStack}>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Bloques visibles</span>
+              <span className={styles.summaryLabel}>Bloques totales</span>
               <strong>{allBlocks.length}</strong>
             </div>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Dia activo</span>
-              <strong>{selectedDay}</strong>
+              <span className={styles.summaryLabel}>Día activo</span>
+              <strong>{selectedDayLabel}</strong>
             </div>
           </div>
 
           <button type="button" className={styles.primaryButton} onClick={openAddModal}>
-            Agregar bloque
+            Nuevo bloque (API)
           </button>
 
           <p className={styles.helperText}>
-            Prueba tambien creando un bloque que se cruce con otro existente para
-            ver el toast de conflicto.
+            La fecha inicial del formulario es la del día seleccionado en el calendario.
           </p>
 
           <Link to="/paseador/dashboard" className={styles.secondaryLink}>
