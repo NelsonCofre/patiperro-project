@@ -4,22 +4,28 @@ import com.patiperro.agenda.dto.AgendaBloqueRequestDTO;
 import com.patiperro.agenda.dto.AgendaBloqueResponseDTO;
 import com.patiperro.agenda.dto.AgendaDtoMapper;
 import com.patiperro.agenda.model.AgendaBloque;
+import com.patiperro.agenda.model.AgendaBloqueoDia;
 import com.patiperro.agenda.model.DiaSemana;
 import com.patiperro.agenda.model.EstadoBloque;
 import com.patiperro.agenda.repository.AgendaBloqueRepository;
+import com.patiperro.agenda.repository.AgendaBloqueoDiaRepository;
 import com.patiperro.agenda.repository.DiaSemanaRepository;
 import com.patiperro.agenda.repository.EstadoBloqueRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AgendaBloqueService {
 
     private final AgendaBloqueRepository agendaBloqueRepository;
+    private final AgendaBloqueoDiaRepository agendaBloqueoDiaRepository;
     private final EstadoBloqueRepository estadoBloqueRepository;
     private final DiaSemanaRepository diaSemanaRepository;
 
@@ -31,6 +37,27 @@ public class AgendaBloqueService {
 
     public List<AgendaBloqueResponseDTO> listarPorUsuario(Integer idUsuario) {
         return agendaBloqueRepository.findByIdUsuario(idUsuario).stream()
+                .map(AgendaDtoMapper::toBloqueResponse)
+                .toList();
+    }
+
+    /**
+     * Bloques horarios del paseador en el rango, excluyendo fechas con bloqueo de día personal
+     * ({@code agenda_bloqueo_dia}). Pensado para búsqueda de tutores y oferta efectiva.
+     */
+    public List<AgendaBloqueResponseDTO> listarBloquesOfertables(Integer idUsuario, LocalDate desde, LocalDate hasta) {
+        if (desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("La fecha 'desde' no puede ser posterior a 'hasta'");
+        }
+        Set<LocalDate> diasBloqueadosPersonal = agendaBloqueoDiaRepository
+                .findByIdUsuarioAndFechaBetweenOrderByFechaAsc(idUsuario, desde, hasta)
+                .stream()
+                .map(AgendaBloqueoDia::getFecha)
+                .collect(Collectors.toSet());
+        return agendaBloqueRepository
+                .findByIdUsuarioAndFechaBetweenOrderByFechaAscHoraInicioAsc(idUsuario, desde, hasta)
+                .stream()
+                .filter(b -> !diasBloqueadosPersonal.contains(b.getFecha()))
                 .map(AgendaDtoMapper::toBloqueResponse)
                 .toList();
     }
@@ -68,10 +95,18 @@ public class AgendaBloqueService {
 
     @Transactional
     public void eliminar(Integer id) {
-        if (!agendaBloqueRepository.existsById(id)) {
-            throw new IllegalArgumentException("Bloque de agenda no encontrado");
+        AgendaBloque bloque = obtenerEntidad(id);
+        if (esEstadoReservado(bloque.getEstadoBloque())) {
+            throw new IllegalStateException("No se pueden eliminar bloques que están reservados");
         }
         agendaBloqueRepository.deleteById(id);
+    }
+
+    private boolean esEstadoReservado(EstadoBloque estadoBloque) {
+        if (estadoBloque == null || estadoBloque.getNombre() == null) {
+            return false;
+        }
+        return "reservado".equalsIgnoreCase(estadoBloque.getNombre().trim());
     }
 
     private AgendaBloque obtenerEntidad(Integer id) {

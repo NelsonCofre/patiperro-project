@@ -16,9 +16,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         String msg = ex.getMessage() != null ? ex.getMessage() : "Solicitud inválida";
-        boolean notFound = msg.contains("no encontrado");
+        boolean notFound = msg.contains("no encontrado") || msg.contains("no encontrada");
         return ResponseEntity.status(notFound ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST)
                 .body(Map.of("message", msg));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "Operación no permitida en el estado actual";
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", msg));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

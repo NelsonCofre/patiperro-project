@@ -1,6 +1,9 @@
 // Base comun del backend/gateway consumido por el frontend.
 export const API_BASE_URL = "http://localhost:8080";
 
+/** Tras login paseador se guarda idPaseador para llamadas /api/agenda/bloques/usuario/{id}. */
+export const PASEADOR_ID_SESSION_KEY = "patiperro_paseador_id";
+
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
   auth: {
@@ -28,6 +31,23 @@ export const API_ENDPOINTS = {
         ? `${API_BASE_URL}/api/mascotas/razas?especieId=${especieId}`
         : `${API_BASE_URL}/api/mascotas/razas`,
     tamanos: `${API_BASE_URL}/api/mascotas/tamanos`
+  },
+  /** Agenda (JWT en cookie vía gateway; mismo access_token que paseador/tutor). */
+  agenda: {
+    estadosBloque: `${API_BASE_URL}/api/agenda/estados-bloque`,
+    diasSemana: `${API_BASE_URL}/api/agenda/dias-semana`,
+    bloques: `${API_BASE_URL}/api/agenda/bloques`,
+    bloquesPorUsuario: (idUsuario: number) =>
+      `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}`,
+    bloquesOferta: (idUsuario: number, desde: string, hasta: string) =>
+      `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}/oferta?desde=${desde}&hasta=${hasta}`,
+    bloque: (idBloque: number) => `${API_BASE_URL}/api/agenda/bloques/${idBloque}`,
+    bloqueosDia: `${API_BASE_URL}/api/agenda/bloqueos-dia`,
+    bloqueosDiaPorUsuario: (idUsuario: number) =>
+      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}`,
+    bloqueosDiaPorUsuarioRango: (idUsuario: number, desde: string, hasta: string) =>
+      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}/rango?desde=${desde}&hasta=${hasta}`,
+    bloqueoDia: (id: number) => `${API_BASE_URL}/api/agenda/bloqueos-dia/${id}`
   }
 };
 

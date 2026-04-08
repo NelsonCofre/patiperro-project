@@ -1,6 +1,6 @@
 // Servicios HTTP del modulo auth.
 // Concentran la comunicacion del frontend con login, registro y subida de fotos.
-import { API_ENDPOINTS } from "../../../config/api";
+import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY } from "../../../config/api";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -64,6 +64,8 @@ export type RegisterPaseadorPayload = {
 export type AuthResponse = {
   mensaje?: string;
   correo?: string;
+  /** Login/registro paseador: id numérico para /api/agenda/bloques/usuario/{id}. */
+  idPaseador?: number;
 };
 
 /**
@@ -171,10 +173,13 @@ export async function registerPaseador(
     throw new Error(readApiErrorMessage(data, "No se pudo completar el registro del paseador."));
   }
 
-  const body = data as AuthResponse & { message?: string };
+  const body = data as AuthResponse & { message?: string; idPaseador?: number };
+  const idPaseador =
+    typeof body.idPaseador === "number" && Number.isFinite(body.idPaseador) ? body.idPaseador : undefined;
   return {
     mensaje: body.mensaje ?? body.message,
-    correo: body.correo
+    correo: body.correo,
+    idPaseador
   };
 }
 
@@ -227,9 +232,9 @@ export async function loginPaseador(credentials: {
     })
   });
 
-  let data: (AuthResponse & { message?: string }) | null = null;
+  let data: (AuthResponse & { message?: string; idPaseador?: number }) | null = null;
   try {
-    data = (await response.json()) as AuthResponse & { message?: string };
+    data = (await response.json()) as AuthResponse & { message?: string; idPaseador?: number };
   } catch {
     data = null;
   }
@@ -238,8 +243,17 @@ export async function loginPaseador(credentials: {
     throw new Error(readApiErrorMessage(data, "Correo o contraseña incorrectos."));
   }
 
+  const idPaseador =
+    data && typeof data.idPaseador === "number" && Number.isFinite(data.idPaseador)
+      ? data.idPaseador
+      : undefined;
+  if (idPaseador != null) {
+    sessionStorage.setItem(PASEADOR_ID_SESSION_KEY, String(idPaseador));
+  }
+
   return {
     mensaje: data?.mensaje ?? data?.message,
-    correo: data?.correo
+    correo: data?.correo,
+    idPaseador
   };
 }

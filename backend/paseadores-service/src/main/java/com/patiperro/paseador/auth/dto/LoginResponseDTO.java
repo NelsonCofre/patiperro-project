@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class LoginResponseDTO {
     private String message;
     private String correo;
+    /** PK en paseadores-service (tabla paseador.id_paseador); el front la usa para /api/agenda/bloques/usuario/{id}. */
+    private Long idPaseador;
 }

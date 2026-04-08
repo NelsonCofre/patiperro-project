@@ -39,6 +39,16 @@
       "projectName": "agenda-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-PaseadorServiceApplication<paseadores-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.paseador.PaseadorServiceApplication",
+      "projectName": "paseadores-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
     }
   ]
 }

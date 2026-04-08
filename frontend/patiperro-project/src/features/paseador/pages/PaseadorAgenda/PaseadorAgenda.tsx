@@ -1,7 +1,13 @@
 // Vista inicial de disponibilidad del paseador.
-// Funciona como base visual antes de implementar la logica real de bloques horarios.
+// Carga bloques reales del microservicio agenda (grid semanal sigue siendo maqueta visual).
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
+import {
+  fetchBloquesPorUsuario,
+  readStoredPaseadorId,
+  type AgendaBloqueDTO
+} from "../../services/agendaService";
 import styles from "./PaseadorAgenda.module.css";
 
 const DAYS = [
@@ -17,6 +23,52 @@ const DAYS = [
 const TIME_SLOTS = ["08:00 - 11:00", "12:00 - 15:00", "16:00 - 19:00"];
 
 export default function PaseadorAgenda() {
+  const [bloques, setBloques] = useState<AgendaBloqueDTO[] | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    const id = readStoredPaseadorId();
+    if (id == null) {
+      setCargando(false);
+      setError(
+        "No hay id de paseador en sesión. Cierra sesión y vuelve a iniciar sesión para sincronizar la agenda."
+      );
+      setBloques([]);
+      return;
+    }
+    (async () => {
+      try {
+        setCargando(true);
+        setError(null);
+        const lista = await fetchBloquesPorUsuario(id);
+        if (!cancelado) {
+          setBloques(lista);
+        }
+      } catch (e) {
+        if (!cancelado) {
+          setError(e instanceof Error ? e.message : "No se pudo cargar la agenda.");
+          setBloques([]);
+        }
+      } finally {
+        if (!cancelado) {
+          setCargando(false);
+        }
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const textoEstadoAgenda = () => {
+    if (cargando) return "Cargando…";
+    if (error) return error;
+    if (!bloques || bloques.length === 0) return "Sin bloques configurados";
+    return `${bloques.length} bloque${bloques.length === 1 ? "" : "s"} en el sistema`;
+  };
+
   return (
     <main className={styles.page}>
       <PaseadorNavbar />
@@ -33,7 +85,7 @@ export default function PaseadorAgenda() {
 
         <div className={styles.infoCard}>
           <span className={styles.infoLabel}>Estado de agenda</span>
-          <strong>Sin bloques configurados</strong>
+          <strong>{textoEstadoAgenda()}</strong>
         </div>
       </section>
 
@@ -48,9 +100,9 @@ export default function PaseadorAgenda() {
           </div>
 
           <p className={styles.supportText}>
-            Esta vista deja preparada la estructura de tu disponibilidad. Mas
-            adelante aqui podras marcar horarios reales y guardarlos en la
-            plataforma.
+            Esta vista deja preparada la estructura de tu disponibilidad. Los
+            bloques guardados en el backend se reflejan en el resumen superior; el
+            calendario de ejemplo no esta aun enlazado franja a franja con la API.
           </p>
 
           <div className={styles.calendarGrid}>
