@@ -71,6 +71,23 @@ public class AgendaBloqueService {
                 .toList();
     }
 
+    /**
+     * Paseadores ({@code id_usuario}) con bloque en estado disponible que solapa la franja indicada.
+     * Valida coherencia de fecha y orden de la franja antes de consultar la base de datos.
+     */
+    public List<Integer> buscarIdUsuariosDisponiblesEnFranja(
+            LocalDate fecha,
+            LocalDateTime inicioBuscado,
+            LocalDateTime finBuscado,
+            Integer idEstadoDisponible) {
+        validarParametrosBusquedaFranja(fecha, inicioBuscado, finBuscado);
+        if (idEstadoDisponible == null) {
+            throw new IllegalArgumentException("idEstadoDisponible es obligatorio");
+        }
+        return agendaBloqueRepository.findIdUsuariosConBloqueDisponibleEnFranja(
+                fecha, inicioBuscado, finBuscado, idEstadoDisponible);
+    }
+
     public AgendaBloqueResponseDTO obtener(Integer id) {
         return AgendaDtoMapper.toBloqueResponse(obtenerEntidad(id));
     }
@@ -244,6 +261,16 @@ public class AgendaBloqueService {
     private AgendaBloque obtenerEntidad(Integer id) {
         return agendaBloqueRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Bloque de agenda no encontrado"));
+    }
+
+    private void validarParametrosBusquedaFranja(
+            LocalDate fecha, LocalDateTime inicioBuscado, LocalDateTime finBuscado) {
+        if (finBuscado.isBefore(inicioBuscado) || finBuscado.isEqual(inicioBuscado)) {
+            throw new IllegalArgumentException("La hora de término debe ser posterior a la hora de inicio");
+        }
+        if (!fecha.isEqual(inicioBuscado.toLocalDate()) || !fecha.isEqual(finBuscado.toLocalDate())) {
+            throw new IllegalArgumentException("fecha debe coincidir con el día de inicio y fin");
+        }
     }
 
     private void validarRangoHorario(AgendaBloqueRequestDTO dto) {

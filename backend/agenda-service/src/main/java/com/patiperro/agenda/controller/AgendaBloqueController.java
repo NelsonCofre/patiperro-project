@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -50,6 +51,15 @@ public class AgendaBloqueController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return service.listarBloquesOfertables(idUsuario, desde, hasta);
+    }
+
+    @GetMapping("/busqueda/disponibles")
+    public List<Integer> buscarPaseadoresDisponibles(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaFin,
+            @RequestParam Integer idEstadoDisponible) {
+        return service.buscarIdUsuariosDisponiblesEnFranja(fecha, horaInicio, horaFin, idEstadoDisponible);
     }
 
     @GetMapping("/{id}")
