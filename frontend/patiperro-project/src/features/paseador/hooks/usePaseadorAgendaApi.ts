@@ -1,6 +1,14 @@
 // Agenda del paseador integrada con el microservicio: semana navegable + CRUD de bloques.
+// Extiende la vista con bloqueo local de dias/rangos, preparado para enviar fecha_inicio y fecha_fin.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AgendaToast } from "../types/agenda.types";
+import type {
+  AgendaDay,
+  AgendaBlockedRange,
+  AgendaBlockRangeErrors,
+  AgendaBlockRangeForm,
+  AgendaDateOption,
+  AgendaToast
+} from "../types/agenda.types";
 import {
   crearBloque,
   crearSerieMensualBloques,
@@ -24,6 +32,12 @@ import {
   weeksBetween,
   WEEKDAY_LABELS
 } from "../utils/agendaWeekUtils";
+import {
+  getTodayIsoDate,
+  hasBookedBlockInRange,
+  isDateInBlockedRanges,
+  validateBlockRangeForm
+} from "../utils/agendaValidators";
 
 const HOUR_SLOTS = [
   "07:00",
@@ -88,10 +102,13 @@ function validateForm(form: AgendaApiForm): AgendaApiFormErrors {
     errors.startTime = "Selecciona hora de inicio.";
   }
   if (!form.endTime) {
-    errors.endTime = "Selecciona hora de término.";
+    errors.endTime = "Selecciona hora de termino.";
+  }
+  if (form.fecha && form.fecha < getTodayIsoDate()) {
+    errors.fecha = "No puedes bloquear fechas pasadas";
   }
   if (form.startTime && form.endTime && timeToMinutes(form.endTime) <= timeToMinutes(form.startTime)) {
-    errors.endTime = "La hora de término debe ser posterior a la de inicio.";
+    errors.endTime = "La hora de termino debe ser posterior a la hora de inicio";
   }
   return errors;
 }
@@ -135,6 +152,7 @@ function pickEstadoDisponible(estados: EstadoBloqueDTO[]): number | null {
 export type TimelineBlockView = {
   id: string;
   idAgenda: number;
+  fecha: string;
   startTime: string;
   endTime: string;
   startMinutes: number;
@@ -154,6 +172,7 @@ function dtoToTimelineView(dto: AgendaBloqueDTO): TimelineBlockView {
   return {
     id: String(dto.idAgenda),
     idAgenda: dto.idAgenda,
+    fecha: dto.fecha,
     startTime,
     endTime,
     startMinutes: start.getHours() * 60 + start.getMinutes(),
@@ -168,6 +187,11 @@ const INITIAL_FORM: AgendaApiForm = {
   fecha: toISODateLocal(new Date()),
   startTime: "10:00",
   endTime: "11:00"
+};
+
+const INITIAL_BLOCK_RANGE_FORM: AgendaBlockRangeForm = {
+  fecha_inicio: toISODateLocal(new Date()),
+  fecha_fin: toISODateLocal(new Date())
 };
 
 export function usePaseadorAgendaApi() {
@@ -188,9 +212,14 @@ export function usePaseadorAgendaApi() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [form, setForm] = useState<AgendaApiForm>(INITIAL_FORM);
   const [formErrors, setFormErrors] = useState<AgendaApiFormErrors>({});
+  const [isBlockDaysModalOpen, setIsBlockDaysModalOpen] = useState(false);
+  const [blockRangeForm, setBlockRangeForm] = useState<AgendaBlockRangeForm>(
+    INITIAL_BLOCK_RANGE_FORM
+  );
+  const [blockRangeErrors, setBlockRangeErrors] = useState<AgendaBlockRangeErrors>({});
+  const [blockedRanges, setBlockedRanges] = useState<AgendaBlockedRange[]>([]);
   const [toast, setToast] = useState<AgendaToast | null>(null);
   const [saving, setSaving] = useState(false);
-  /** Repetir la misma franja en todos los [día de la semana] restantes del mes (servidor omite pasado y solapes). */
   const [repeatMismoDiaEnMes, setRepeatMismoDiaEnMes] = useState(false);
 
   const weekDays = useMemo(() => buildWeekDays(weekMonday), [weekMonday]);
@@ -217,7 +246,7 @@ export function usePaseadorAgendaApi() {
     if (paseadorId == null) {
       setBloques([]);
       setBloquesError(
-        "No hay id de paseador en sesión. Vuelve a iniciar sesión para sincronizar la agenda."
+        "No hay id de paseador en sesion. Vuelve a iniciar sesion para sincronizar la agenda."
       );
       return;
     }
@@ -241,7 +270,7 @@ export function usePaseadorAgendaApi() {
   useEffect(() => {
     if (paseadorId == null) {
       setCatalogLoading(false);
-      setCatalogError("Inicia sesión como paseador para cargar catálogos.");
+      setCatalogError("Inicia sesion como paseador para cargar catalogos.");
       return;
     }
     let cancelado = false;
@@ -256,7 +285,7 @@ export function usePaseadorAgendaApi() {
         }
       } catch (e) {
         if (!cancelado) {
-          setCatalogError(e instanceof Error ? e.message : "Error al cargar catálogos.");
+          setCatalogError(e instanceof Error ? e.message : "Error al cargar catalogos.");
         }
       } finally {
         if (!cancelado) {
@@ -270,37 +299,62 @@ export function usePaseadorAgendaApi() {
   }, [paseadorId]);
 
   const idEstadoDisponible = useMemo(() => pickEstadoDisponible(estadosBloque), [estadosBloque]);
-
-  const bloquesDelDia = useMemo(
-    () => bloques.filter((b) => b.fecha === selectedISODate),
-    [bloques, selectedISODate]
+  const selectedDateBlocked = useMemo(
+    () => isDateInBlockedRanges(selectedISODate, blockedRanges),
+    [selectedISODate, blockedRanges]
   );
 
-  const selectedDayBlocks = useMemo(
-    () => bloquesDelDia.map(dtoToTimelineView),
-    [bloquesDelDia]
+  const bloquesDelDia = useMemo(() => {
+    if (selectedDateBlocked) {
+      return [];
+    }
+
+    return bloques.filter((b) => b.fecha === selectedISODate);
+  }, [bloques, selectedISODate, selectedDateBlocked]);
+
+  const selectedDayBlocks = useMemo(() => bloquesDelDia.map(dtoToTimelineView), [bloquesDelDia]);
+
+  const selectedDayLabel = useMemo(
+    () => weekdayLabelFromISODate(selectedISODate),
+    [selectedISODate]
   );
 
-  const selectedDayLabel = useMemo(() => weekdayLabelFromISODate(selectedISODate), [selectedISODate]);
+  const visibleWeekDays = useMemo(
+    () =>
+      weekDays.map(
+        (cell): AgendaDateOption & { isToday: boolean; isBlocked: boolean } => ({
+          isoDate: cell.iso,
+          dayLabel: weekdayLabelFromISODate(cell.iso) as AgendaDay,
+          dayNumber: cell.dayNum,
+          monthLabel: cell.date.toLocaleDateString("es-CL", { month: "short" }),
+          isToday: cell.isToday,
+          isBlocked: isDateInBlockedRanges(cell.iso, blockedRanges)
+        })
+      ),
+    [weekDays, blockedRanges]
+  );
 
-  /** El botón no depende de validateForm en tiempo real (evita falsos positivos); la validación corre al enviar. */
   const addBlockDisabledReason = useMemo(() => {
-    if (catalogLoading) return "Cargando catálogos de agenda…";
+    if (selectedDateBlocked) {
+      return "El dia seleccionado esta bloqueado por motivos personales.";
+    }
+    if (catalogLoading) return "Cargando catalogos de agenda...";
     if (paseadorId == null) {
-      return "Inicia sesión como paseador; falta el id en sesión (vuelve a entrar si ya estabas conectado).";
+      return "Inicia sesion como paseador; falta el id en sesion.";
     }
     if (catalogError) return catalogError;
     if (!estadosBloque.length) {
-      return "No hay estados de bloque en el servidor. Revisa la tabla estado_bloque o GET /api/agenda/estados-bloque.";
+      return "No hay estados de bloque en el servidor.";
     }
     if (!diasSemana.length) {
-      return "No hay días de la semana en el servidor. Revisa GET /api/agenda/dias-semana.";
+      return "No hay dias de la semana en el servidor.";
     }
     if (idEstadoDisponible == null) {
-      return "Los estados de bloque no tienen idEstado válido en la respuesta JSON.";
+      return "Los estados de bloque no tienen un id valido.";
     }
     return null;
   }, [
+    selectedDateBlocked,
     catalogLoading,
     paseadorId,
     catalogError,
@@ -310,6 +364,8 @@ export function usePaseadorAgendaApi() {
   ]);
 
   const isAddDisabled = saving || addBlockDisabledReason != null;
+  const isBlockDaysDisabled =
+    saving || Object.keys(validateBlockRangeForm(blockRangeForm)).length > 0;
 
   const showToast = (next: AgendaToast) => setToast(next);
   const dismissToast = () => setToast(null);
@@ -325,6 +381,15 @@ export function usePaseadorAgendaApi() {
   };
 
   const openAddModal = () => {
+    if (selectedDateBlocked) {
+      showToast({
+        type: "info",
+        title: "Dia bloqueado",
+        message: "Quita el bloqueo del dia antes de crear nuevos bloques de disponibilidad."
+      });
+      return;
+    }
+
     setRepeatMismoDiaEnMes(false);
     setForm({
       fecha: selectedISODate,
@@ -340,9 +405,31 @@ export function usePaseadorAgendaApi() {
     setIsAddModalOpen(false);
   };
 
+  const openBlockDaysModal = () => {
+    setBlockRangeForm({
+      fecha_inicio: selectedISODate,
+      fecha_fin: selectedISODate
+    });
+    setBlockRangeErrors({});
+    setIsBlockDaysModalOpen(true);
+  };
+
+  const closeBlockDaysModal = () => {
+    setBlockRangeErrors({});
+    setIsBlockDaysModalOpen(false);
+  };
+
   const updateFormField = <K extends keyof AgendaApiForm>(name: K, value: AgendaApiForm[K]) => {
     setForm((prev) => ({ ...prev, [name]: value }));
     setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
+
+  const updateBlockRangeField = <K extends keyof AgendaBlockRangeForm>(
+    name: K,
+    value: AgendaBlockRangeForm[K]
+  ) => {
+    setBlockRangeForm((prev) => ({ ...prev, [name]: value }));
+    setBlockRangeErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleFieldBlur = <K extends keyof AgendaApiForm>(name: K) => {
@@ -350,24 +437,38 @@ export function usePaseadorAgendaApi() {
     setFormErrors((prev) => ({ ...prev, [name]: errs[name] }));
   };
 
+  const handleBlockRangeBlur = <K extends keyof AgendaBlockRangeForm>(name: K) => {
+    const errs = validateBlockRangeForm(blockRangeForm);
+    setBlockRangeErrors((prev) => ({ ...prev, [name]: errs[name] }));
+  };
+
   const handleAddBlock = async () => {
     const validationErrors = validateForm(form);
     setFormErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
 
+    if (selectedDateBlocked) {
+      showToast({
+        type: "error",
+        title: "Dia no disponible",
+        message: "El dia seleccionado esta bloqueado por motivos personales."
+      });
+      return;
+    }
+
     if (paseadorId == null) {
       showToast({
         type: "error",
-        title: "Sesión",
-        message: "No hay id de paseador. Inicia sesión de nuevo."
+        title: "Sesion",
+        message: "No hay id de paseador. Inicia sesion de nuevo."
       });
       return;
     }
     if (idEstadoDisponible == null) {
       showToast({
         type: "error",
-        title: "Catálogo",
-        message: "No se pudo determinar el estado disponible. Revisa estados-bloque en el servidor."
+        title: "Catalogo",
+        message: "No se pudo determinar el estado disponible."
       });
       return;
     }
@@ -377,8 +478,8 @@ export function usePaseadorAgendaApi() {
       if (idDiaParaUnSolo == null) {
         showToast({
           type: "error",
-          title: "Catálogo",
-          message: "No se pudo asignar el día de la semana. Revisa días-semana en el servidor."
+          title: "Catalogo",
+          message: "No se pudo asignar el dia de la semana."
         });
         return;
       }
@@ -386,7 +487,7 @@ export function usePaseadorAgendaApi() {
         showToast({
           type: "error",
           title: "Conflicto de horario",
-          message: "Ya tienes un bloque que se superpone en esa fecha."
+          message: "Ya tienes un bloque de disponibilidad que coincide con este horario"
         });
         return;
       }
@@ -423,7 +524,7 @@ export function usePaseadorAgendaApi() {
         showToast({
           type: "success",
           title: "Bloque creado",
-          message: "El bloque quedó guardado en el servidor."
+          message: "El bloque quedo guardado en el servidor."
         });
       }
     } catch (e) {
@@ -437,6 +538,65 @@ export function usePaseadorAgendaApi() {
     }
   };
 
+  const handleBlockDays = () => {
+    const validationErrors = validateBlockRangeForm(blockRangeForm);
+    setBlockRangeErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+
+    if (hasBookedBlockInRange(bloques.map(dtoToTimelineView), blockRangeForm)) {
+      showToast({
+        type: "error",
+        title: "Conflicto con paseos",
+        message:
+          "Tienes paseos programados para este dia. Debes gestionarlos individualmente antes de bloquear la fecha completa"
+      });
+      return;
+    }
+
+    const nextBlockedRange: AgendaBlockedRange = {
+      id: `blocked-${Date.now()}`,
+      fecha_inicio: blockRangeForm.fecha_inicio,
+      fecha_fin: blockRangeForm.fecha_fin,
+      estadoBloqueId: null
+    };
+
+    setBlockedRanges((prev) => [...prev, nextBlockedRange]);
+    closeBlockDaysModal();
+    showToast({
+      type: "success",
+      title: "Bloqueo aplicado",
+      message:
+        blockRangeForm.fecha_inicio === blockRangeForm.fecha_fin
+          ? "Dia bloqueado exitosamente. Tus bloques de horario para esta fecha han sido ocultados"
+          : "Dias bloqueados exitosamente. Tus bloques de horario para este rango han sido ocultados"
+    });
+  };
+
+  const handleUnblockSelectedDate = () => {
+    const hadBlockedRange = isDateInBlockedRanges(selectedISODate, blockedRanges);
+
+    if (!hadBlockedRange) {
+      showToast({
+        type: "info",
+        title: "Sin bloqueo",
+        message: "El dia seleccionado no tiene un bloqueo activo."
+      });
+      return;
+    }
+
+    setBlockedRanges((prev) =>
+      prev.filter((range) => !isDateInBlockedRanges(selectedISODate, [range]))
+    );
+    showToast({
+      type: "success",
+      title: "Dia habilitado",
+      message: "Se quito el bloqueo y la agenda vuelve a mostrarse como disponible."
+    });
+  };
+
   const handleDeleteBlock = async (idAgenda: number) => {
     const target = bloques.find((b) => b.idAgenda === idAgenda);
     if (!target) return;
@@ -444,7 +604,8 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "error",
         title: "Bloque protegido",
-        message: "No puedes eliminar un bloque reservado."
+        message:
+          "No puedes modificar este bloque porque ya tienes un paseo programado. Debes gestionar la cancelación del servicio primero"
       });
       return;
     }
@@ -455,7 +616,7 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "success",
         title: "Bloque eliminado",
-        message: "El bloque se eliminó del servidor."
+        message: "El bloque se elimino del servidor."
       });
     } catch (e) {
       showToast({
@@ -469,7 +630,7 @@ export function usePaseadorAgendaApi() {
   };
 
   const textoEstadoServidor = () => {
-    if (bloquesLoading) return "Cargando bloques…";
+    if (bloquesLoading) return "Cargando bloques...";
     if (bloquesError) return bloquesError;
     if (bloques.length === 0) return "Sin bloques en el servidor.";
     return `${bloques.length} bloque${bloques.length === 1 ? "" : "s"} guardados`;
@@ -477,7 +638,7 @@ export function usePaseadorAgendaApi() {
 
   return {
     paseadorId,
-    weekDays,
+    weekDays: visibleWeekDays,
     weekMonday,
     goPrevWeek,
     goNextWeek,
@@ -486,6 +647,8 @@ export function usePaseadorAgendaApi() {
     selectedISODate,
     setSelectedISODate,
     selectedDayLabel,
+    selectedDateBlocked,
+    blockedRanges,
     hourSlots: HOUR_SLOTS,
     allBlocks: bloques,
     selectedDayBlocks,
@@ -498,13 +661,23 @@ export function usePaseadorAgendaApi() {
     setRepeatMismoDiaEnMes,
     saving,
     toast,
+    isBlockDaysModalOpen,
+    blockRangeForm,
+    blockRangeErrors,
+    isBlockDaysDisabled,
     openAddModal,
     closeAddModal,
+    openBlockDaysModal,
+    closeBlockDaysModal,
     dismissToast,
     updateFormField,
+    updateBlockRangeField,
     handleFieldBlur,
+    handleBlockRangeBlur,
     handleAddBlock,
+    handleBlockDays,
     handleDeleteBlock,
+    handleUnblockSelectedDate,
     textoEstadoServidor,
     catalogLoading,
     catalogError,

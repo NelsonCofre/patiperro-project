@@ -177,6 +177,7 @@
 }
 
 .dayTab {
+  position: relative;
   min-height: 48px;
   padding: 10px 12px;
   border-radius: 16px;
@@ -203,6 +204,52 @@
   border-color: #64a46d;
   background: linear-gradient(180deg, #eef8ef 0%, #dff1e1 100%);
   box-shadow: 0 12px 22px rgba(47, 125, 53, 0.12);
+}
+
+.dayTabMonth {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.dayBlocked {
+  border-color: #94a3b8;
+  color: #475569;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(148, 163, 184, 0.14) 0,
+      rgba(148, 163, 184, 0.14) 10px,
+      rgba(226, 232, 240, 0.9) 10px,
+      rgba(226, 232, 240, 0.9) 20px
+    ),
+    linear-gradient(180deg, #f8fafc 0%, #e5e7eb 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.dayBlocked:hover {
+  border-color: #64748b;
+}
+
+.blockedBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 8px auto 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(100, 116, 139, 0.28);
 }
 
 /* Zona de timeline del dia seleccionado. */
@@ -259,6 +306,18 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(242, 248, 242, 0.98) 100%);
   overflow: hidden;
+}
+
+.timelineLaneBlocked {
+  border-color: #cbd5e1;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(148, 163, 184, 0.12) 0,
+      rgba(148, 163, 184, 0.12) 14px,
+      rgba(241, 245, 249, 0.96) 14px,
+      rgba(241, 245, 249, 0.96) 28px
+    );
 }
 
 .timeRow {
@@ -361,6 +420,30 @@
   background: rgba(255, 255, 255, 0.62);
 }
 
+.blockedTimeline {
+  position: absolute;
+  inset: 24px;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 28px;
+  text-align: center;
+  border-radius: 18px;
+  border: 1px dashed rgba(100, 116, 139, 0.4);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.blockedTimeline strong {
+  color: #334155;
+  font-size: 1rem;
+}
+
+.blockedTimeline p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
 .emptyTimeline strong {
   color: #163020;
   font-size: 1rem;
@@ -411,6 +494,44 @@
 .primaryButton:hover {
   transform: translateY(-1px);
   box-shadow: 0 18px 30px rgba(47, 125, 53, 0.24);
+}
+
+.secondaryButton,
+.ghostButton {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.secondaryButton {
+  border: 1px solid #9bc4a1;
+  color: #255c2e;
+  background: linear-gradient(180deg, #f0f9f1 0%, #e0f0e2 100%);
+}
+
+.secondaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(47, 125, 53, 0.12);
+}
+
+.ghostButton {
+  border: 1px dashed #b8c5d3;
+  color: #475569;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.ghostButton:hover {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
 }
 
 .helperText {
@@ -576,6 +697,17 @@
   color: #b42318;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.modalWarning {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  color: #8a4b0f;
+  font-size: 0.86rem;
+  font-weight: 700;
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.96) 0%, #fef3df 100%);
 }
 
 /* Opción tipo chip / interruptor compacto (sin checkbox nativo grande). */
