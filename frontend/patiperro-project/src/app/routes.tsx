@@ -3,6 +3,7 @@ import LoginPaseador from "../features/auth/pages/LoginPaseador/LoginPaseador";
 import LoginTutor from "../features/auth/pages/LoginTutor/LoginTutor";
 import RegisterPaseador from "../features/auth/pages/RegisterPaseador/RegisterPaseador";
 import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
+import LandingHome from "../features/home/pages/LandingHome/LandingHome";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
@@ -13,7 +14,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* Ruta inicial segura de la app. */}
-      <Route path="/" element={<Navigate to="/login/tutor" />} />
+      <Route path="/" element={<LandingHome />} />
       {/* Rutas de autenticacion por rol. */}
       <Route path="/login/paseador" element={<LoginPaseador />} />
       <Route path="/register/paseador" element={<RegisterPaseador />} />
@@ -30,7 +31,7 @@ export default function AppRoutes() {
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />
       <Route path="/tutor/mascota/nueva" element={<AddMascota />} />
       {/* Fallback para rutas desconocidas. */}
-      <Route path="*" element={<Navigate to="/login/tutor" />} />
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
