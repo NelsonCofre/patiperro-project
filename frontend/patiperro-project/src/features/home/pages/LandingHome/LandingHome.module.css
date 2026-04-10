@@ -1,246 +1,468 @@
 .page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(124, 175, 109, 0.22), transparent 32%),
-    radial-gradient(circle at top right, rgba(245, 195, 99, 0.2), transparent 28%),
-    linear-gradient(180deg, #f6fbf4 0%, #eef6ee 52%, #f8fbf7 100%);
+    radial-gradient(circle at 10% 8%, rgba(240, 193, 91, 0.16), transparent 22%),
+    radial-gradient(circle at 86% 10%, rgba(102, 170, 111, 0.16), transparent 24%),
+    linear-gradient(180deg, #f4faf3 0%, #ffffff 44%, #eef6ee 100%);
+  color: #1f2937;
 }
 
-.hero {
-  padding: 30px 28px 20px;
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
 }
 
-.navbar,
+.headerInner,
 .heroGrid,
-.rolesSection {
+.benefitsSection,
+.rolesSection,
+.testimonialsSection,
+.finalSection {
   max-width: 1180px;
   margin: 0 auto;
 }
 
-.navbar {
+.headerInner {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  align-items: center;
-  margin-bottom: 24px;
-  padding: 18px 22px;
-  border: 1px solid rgba(124, 175, 109, 0.18);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 14px 34px rgba(31, 41, 55, 0.06);
+  padding: 18px 28px;
 }
 
-.brandEyebrow,
-.eyebrow,
-.panelEyebrow,
-.rolesEyebrow,
-.roleEyebrow {
-  margin: 0 0 8px;
-  color: #2f7d35;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brandIcon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 900;
+  background: linear-gradient(180deg, #4da756 0%, #2f7d35 100%);
+  box-shadow: 0 12px 22px rgba(47, 125, 53, 0.2);
 }
 
 .brandTitle {
+  margin: 0;
   color: #183120;
   font-size: 1.05rem;
+  font-weight: 800;
 }
 
-.navActions {
+.brandSubtitle {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.nav {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 24px;
 }
 
 .navLink,
 .navButton,
-.primaryButton,
-.secondaryButton,
+.primaryCta,
+.secondaryCta,
 .rolePrimaryButton,
 .roleSecondaryLink {
   text-decoration: none;
 }
 
 .navLink {
-  color: #355145;
+  color: #334155;
+  font-size: 0.92rem;
   font-weight: 700;
 }
 
+.navLink:hover,
+.roleSecondaryLink:hover {
+  color: #2f7d35;
+}
+
 .navButton,
-.primaryButton,
+.primaryCta,
 .rolePrimaryButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  padding: 0 18px;
+  padding: 0 20px;
   border-radius: 999px;
   color: #ffffff;
+  font-size: 0.95rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #47a350 0%, #2f7d35 100%);
+  background: linear-gradient(180deg, #4da756 0%, #2f7d35 100%);
   box-shadow: 0 14px 28px rgba(47, 125, 53, 0.2);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  color: #274530;
+  font-size: 0.95rem;
+  font-weight: 800;
+  border: 1px solid #dce7dd;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.navButton:hover,
+.primaryCta:hover,
+.secondaryCta:hover,
+.rolePrimaryButton:hover {
+  transform: translateY(-2px);
+}
+
+.heroSection {
+  position: relative;
+  overflow: hidden;
+  padding: 42px 28px 28px;
+}
+
+.heroGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.heroGlow::before,
+.heroGlow::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(52px);
+}
+
+.heroGlow::before {
+  left: 4%;
+  top: 8%;
+  width: 220px;
+  height: 220px;
+  background: rgba(240, 193, 91, 0.24);
+}
+
+.heroGlow::after {
+  right: 6%;
+  top: 16%;
+  width: 260px;
+  height: 260px;
+  background: rgba(94, 161, 103, 0.2);
 }
 
 .heroGrid {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-  gap: 24px;
-  align-items: stretch;
+  gap: 44px;
+  align-items: center;
+  padding: 30px 0 10px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
 }
 
-.heroContent,
-.heroPanel,
-.roleCard {
-  border: 1px solid rgba(124, 175, 109, 0.18);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 44px rgba(31, 41, 55, 0.08);
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.heroContent {
-  padding: 38px 36px;
-  border-radius: 34px;
-  background:
-    linear-gradient(135deg, rgba(68, 160, 76, 0.12), transparent 46%),
-    rgba(255, 255, 255, 0.94);
+.heroTag,
+.sectionEyebrow,
+.roleEyebrow {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #2f7d35;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid #dce7dd;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
 }
 
-.title {
-  margin: 0;
-  max-width: 640px;
-  color: #183120;
-  font-size: clamp(2.6rem, 4vw, 4.6rem);
-  line-height: 0.98;
-}
-
-.description {
-  max-width: 660px;
+.heroTitle {
+  max-width: 650px;
   margin: 18px 0 0;
+  color: #183120;
+  font-size: clamp(3rem, 5.2vw, 5.8rem);
+  font-weight: 900;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+}
+
+.heroAccent {
+  color: #2f7d35;
+}
+
+.heroText {
+  max-width: 620px;
+  margin: 22px 0 0;
   color: #576675;
-  font-size: 1.02rem;
-  line-height: 1.8;
+  font-size: 1.08rem;
+  line-height: 1.9;
 }
 
 .heroActions {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 28px;
+  margin-top: 30px;
 }
 
-.secondaryButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 18px;
-  border-radius: 999px;
-  color: #255c2e;
-  font-weight: 800;
-  background: linear-gradient(180deg, #f2f9f3 0%, #e2f0e3 100%);
-  border: 1px solid #b7d2ba;
-}
-
-.featureRow {
+.statsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 32px;
+  max-width: 620px;
+  margin-top: 30px;
 }
 
-.featureCard {
-  padding: 18px;
+.statCard {
+  padding: 18px 16px;
   border-radius: 22px;
-  border: 1px solid #dce8dd;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f9f5 100%);
+  border: 1px solid #dce7dd;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
 }
 
-.featureCard strong {
+.statCard strong {
   display: block;
-  margin-bottom: 10px;
-  color: #183120;
-  font-size: 1rem;
-}
-
-.featureCard p,
-.heroPanel p,
-.rolesHeader p,
-.roleCard p {
-  margin: 0;
-  color: #576675;
-  line-height: 1.75;
-}
-
-.heroPanel {
-  padding: 30px 28px;
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at top right, rgba(244, 192, 79, 0.16), transparent 32%),
-    linear-gradient(180deg, #ffffff 0%, #f6faf4 100%);
-}
-
-.heroPanel h2,
-.rolesHeader h2,
-.roleCard h3 {
-  margin: 0 0 14px;
-  color: #183120;
-}
-
-.heroPanel h2 {
-  font-size: 1.8rem;
-}
-
-.panelSteps {
-  display: grid;
-  gap: 14px;
-  margin-top: 26px;
-}
-
-.stepCard {
-  padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid #dce8dd;
-  background: rgba(255, 255, 255, 0.82);
-}
-
-.stepCard span {
-  display: inline-flex;
-  margin-bottom: 10px;
   color: #2f7d35;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.statCard span {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.heroVisual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imageShell {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  padding: 14px;
+  border-radius: 36px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(220, 231, 221, 0.92);
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: 540px;
+  border-radius: 28px;
+  object-fit: cover;
+  object-position: center 24%;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+}
+
+.imageBadgeLeft,
+.imageBadgeRight {
+  position: absolute;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.imageBadgeLeft {
+  left: -12px;
+  bottom: 38px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #274530;
   font-size: 0.82rem;
   font-weight: 800;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.imageBadgeRight {
+  right: -18px;
+  top: 28px;
+  max-width: 210px;
+  padding: 18px 18px 16px;
+  border-radius: 24px;
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(32, 70, 41, 0.92) 0%, rgba(24, 49, 32, 0.86) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.imageBadgeRight p {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.stepCard strong {
+.imageBadgeRight strong {
   display: block;
-  margin-bottom: 8px;
-  color: #183120;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
-.rolesSection {
-  padding: 22px 28px 56px;
+.benefitsSection,
+.rolesSection,
+.testimonialsSection,
+.finalSection {
+  padding: 28px;
 }
 
-.rolesHeader {
+.sectionIntro {
   max-width: 760px;
+  margin-bottom: 22px;
+}
+
+.sectionIntro h2,
+.finalCard h2 {
+  margin: 14px 0 0;
+  color: #183120;
+  font-size: clamp(2rem, 3vw, 3.2rem);
+  line-height: 1.02;
+}
+
+.benefitsGrid,
+.rolesGrid,
+.testimonialsGrid {
+  display: grid;
+  gap: 18px;
+}
+
+.benefitsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.benefitCard,
+.roleCard,
+.testimonialCard {
+  border-radius: 28px;
+  border: 1px solid #dce7dd;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.benefitCard:hover,
+.roleCard:hover,
+.testimonialCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 42px rgba(15, 23, 42, 0.1);
+}
+
+.benefitCard {
+  padding: 24px;
+}
+
+.benefitIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 16px;
+  color: #2f7d35;
+  font-size: 0.84rem;
+  font-weight: 800;
+  background: rgba(240, 248, 240, 0.92);
+  border: 1px solid #d6e5d8;
+}
+
+.benefitCard h3,
+.roleCard h3 {
+  margin: 18px 0 12px;
+  color: #183120;
+  font-size: 1.35rem;
+}
+
+.benefitCard p,
+.roleCard p,
+.testimonialCard p,
+.finalCard p {
+  margin: 0;
+  color: #576675;
+  line-height: 1.78;
 }
 
 .rolesGrid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 22px;
 }
 
 .roleCard {
+  position: relative;
+  overflow: hidden;
   padding: 28px;
-  border-radius: 28px;
 }
 
-.roleCard h3 {
-  font-size: 1.7rem;
+.roleCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg, #4da756 0%, #d7b053 100%);
+}
+
+.roleBulletList {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.roleBullet {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: #355145;
+  font-size: 0.84rem;
+  font-weight: 700;
+  background: #f4f8f4;
+  border: 1px solid #d6e5d8;
 }
 
 .roleActions {
@@ -256,47 +478,155 @@
   font-weight: 800;
 }
 
+.testimonialsShell {
+  padding: 28px;
+  border-radius: 34px;
+  border: 1px solid #dce7dd;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.07);
+}
+
+.testimonialsGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.testimonialCard {
+  padding: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf7 100%);
+}
+
+.testimonialCard strong {
+  display: block;
+  margin-top: 16px;
+  color: #183120;
+}
+
+.finalCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+  padding: 30px 32px;
+  border-radius: 34px;
+  color: #eff7ef;
+  background:
+    radial-gradient(circle at top right, rgba(214, 176, 83, 0.18), transparent 24%),
+    linear-gradient(135deg, #1f4d2b 0%, #183c23 100%);
+  box-shadow: 0 24px 52px rgba(24, 49, 32, 0.18);
+}
+
+.finalCard .sectionEyebrow,
+.finalCard h2,
+.finalCard p {
+  color: inherit;
+}
+
+.finalCard .sectionEyebrow {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+}
+
+.finalCard p {
+  color: rgba(239, 247, 239, 0.82);
+}
+
+.finalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1080px) {
+  .benefitsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .heroGrid,
-  .rolesGrid {
+  .rolesGrid,
+  .testimonialsGrid,
+  .finalCard {
     grid-template-columns: 1fr;
   }
 
-  .featureRow {
+  .statsGrid {
     grid-template-columns: 1fr;
+  }
+
+  .finalActions {
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 720px) {
-  .hero,
-  .rolesSection {
+  .headerInner,
+  .heroSection,
+  .benefitsSection,
+  .rolesSection,
+  .testimonialsSection,
+  .finalSection {
     padding-left: 16px;
     padding-right: 16px;
   }
 
-  .navbar {
+  .headerInner {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .navActions,
+  .nav,
   .heroActions,
-  .roleActions {
+  .roleActions,
+  .finalActions {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
   }
 
   .navButton,
-  .primaryButton,
-  .secondaryButton,
+  .primaryCta,
+  .secondaryCta,
   .rolePrimaryButton {
     width: 100%;
   }
 
-  .heroContent,
-  .heroPanel,
-  .roleCard {
-    padding: 24px 20px;
+  .benefitsGrid,
+  .testimonialsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .imageShell {
+    padding: 12px;
+  }
+
+  .heroImage {
+    height: 460px;
+  }
+
+  .imageBadgeLeft {
+    left: 12px;
+    right: 12px;
+    justify-content: center;
+  }
+
+  .imageBadgeRight {
+    right: 12px;
+    left: 12px;
+    top: 16px;
+    max-width: none;
+  }
+
+  .heroCopy,
+  .benefitCard,
+  .roleCard,
+  .testimonialCard,
+  .testimonialsShell,
+  .finalCard {
+    padding: 22px 20px;
   }
 }
