@@ -5,31 +5,31 @@ const HERO_IMAGE_URL =
   "https://images.pexels.com/photos/6568486/pexels-photo-6568486.jpeg?cs=srgb&dl=pexels-cottonbro-6568486.jpg&fm=jpg";
 
 const stats = [
-  { value: "+2", label: "roles disponibles" },
-  { value: "100%", label: "entrada guiada" },
-  { value: "1", label: "home publico" }
+  { value: "+1", label: "forma simple de comenzar" },
+  { value: "100%", label: "enfoque en tu perro" },
+  { value: "1", label: "espacio para paseadores" }
 ];
 
 const benefits = [
   {
-    icon: "Agenda",
-    title: "Organizacion clara",
-    text: "Tutor y paseador aterrizan en un flujo mas entendible desde el primer vistazo."
-  },
-  {
     icon: "Confianza",
-    title: "Informacion mejor presentada",
-    text: "La portada transmite cuidado, orden y una experiencia mas profesional."
+    title: "Encuentra ayuda con mas claridad",
+    text: "Como tutor, puedes entender rapido por donde comenzar para buscar a la persona indicada para los paseos de tu perro."
   },
   {
-    icon: "Roles",
-    title: "Decision por rol",
-    text: "Cada visitante entiende rapido si debe continuar como tutor o como paseador."
+    icon: "Mascota",
+    title: "Tu perro al centro",
+    text: "La portada habla del cuidado, del paseo y del bienestar de tu mascota antes que de la plataforma."
+  },
+  {
+    icon: "Paseador",
+    title: "Busca al paseador correcto",
+    text: "La experiencia principal te ayuda a avanzar con calma y confianza hasta encontrar apoyo para tu mascota."
   },
   {
     icon: "Inicio",
-    title: "Accion directa",
-    text: "Los llamados a la accion apuntan a registro e inicio de sesion sin friccion."
+    title: "Empieza sin rodeos",
+    text: "Los botones principales te llevan directo a crear tu cuenta como tutor o, si corresponde, como paseador."
   }
 ];
 
@@ -37,14 +37,14 @@ const roles = [
   {
     id: "tutor",
     eyebrow: "Para tutores",
-    title: "Empieza como tutor",
-    text: "Registra a tu mascota, organiza su informacion y preparate para una experiencia mas clara desde tu dashboard.",
+    title: "Encuentra un paseador para tu perro",
+    text: "Empieza como tutor y avanza hacia una experiencia pensada para ayudarte a organizar la informacion de tu mascota y prepararte para encontrar el servicio indicado.",
     bullets: [
-      "Crea la ficha de tu mascota",
-      "Ordena mejor la informacion inicial",
-      "Avanza con mas contexto al flujo de reserva"
+      "Crea la ficha de tu perro",
+      "Ordena su informacion antes de reservar",
+      "Preparate mejor para elegir con confianza"
     ],
-    primaryLabel: "Crear cuenta de tutor",
+    primaryLabel: "Empezar como tutor",
     primaryTo: "/register/tutor",
     secondaryLabel: "Ya tengo cuenta",
     secondaryTo: "/login/tutor"
@@ -53,13 +53,13 @@ const roles = [
     id: "paseador",
     eyebrow: "Para paseadores",
     title: "Empieza como paseador",
-    text: "Configura tarifas, agenda y disponibilidad desde una portada que ya presenta mejor tu servicio.",
+    text: "Si vienes a ofrecer tu servicio, tambien puedes empezar desde aqui y crear tu perfil como paseador.",
     bullets: [
-      "Define tarifas y horarios",
-      "Gestiona bloqueos y agenda",
-      "Presenta tu servicio con mas confianza"
+      "Configura tarifas y horarios",
+      "Organiza tu agenda y disponibilidad",
+      "Presenta tu servicio de forma profesional"
     ],
-    primaryLabel: "Crear cuenta de paseador",
+    primaryLabel: "Empezar como paseador",
     primaryTo: "/register/paseador",
     secondaryLabel: "Ya tengo cuenta",
     secondaryTo: "/login/paseador"
@@ -69,15 +69,15 @@ const roles = [
 const testimonials = [
   {
     name: "Camila R.",
-    text: "La entrada se siente mucho mas clara. En un vistazo entendí si debía seguir como tutora."
+    text: "Ahora entiendo mas rapido por donde empezar si quiero encontrar un paseador para mi perro."
   },
   {
     name: "Javier M.",
-    text: "La parte visual transmite más confianza y la decisión entre roles se siente natural."
+    text: "La portada transmite mas confianza y pone a la mascota en el centro, que es justo lo que esperaba."
   },
   {
     name: "Sofia T.",
-    text: "Ahora el home se ve más profesional y ayuda a entender mejor qué ofrece la plataforma."
+    text: "Se entiende rapido como empezar a buscar ayuda para mi perro, y aun asi la opcion para paseadores sigue estando clara."
   }
 ];
 
@@ -90,7 +90,7 @@ export default function LandingHome() {
             <div className={styles.brandIcon}>P</div>
             <div>
               <p className={styles.brandTitle}>Patiperro</p>
-              <p className={styles.brandSubtitle}>Paseos con mas contexto y confianza</p>
+              <p className={styles.brandSubtitle}>Encuentra un paseador con mas confianza</p>
             </div>
           </div>
 
@@ -116,19 +116,20 @@ export default function LandingHome() {
 
         <div className={styles.heroGrid}>
           <div className={styles.heroCopy}>
-            <span className={styles.heroTag}>Patiperro te orienta desde el primer clic</span>
+            <span className={styles.heroTag}>Tu perro merece un paseo con confianza</span>
             <h1 className={styles.heroTitle}>
-              Un landing mas claro para empezar como
-              <span className={styles.heroAccent}> tutor o paseador</span>
+              Encuentra al paseador ideal para
+              <span className={styles.heroAccent}> tu perro</span>
             </h1>
             <p className={styles.heroText}>
-              Diseñado para que cualquier persona que llegue al sitio entienda rapido
-              qué puede hacer en la plataforma y hacia qué flujo debe avanzar.
+              Patiperro te ayuda a empezar como tutor con una experiencia clara, pensada
+              para organizar la informacion de tu mascota y prepararte para elegir a la
+              persona correcta para sus paseos.
             </p>
 
             <div className={styles.heroActions}>
               <Link to="/register/tutor" className={styles.primaryCta}>
-                Empezar como tutor
+                Encontrar un paseador
               </Link>
               <Link to="/register/paseador" className={styles.secondaryCta}>
                 Empezar como paseador
@@ -154,12 +155,12 @@ export default function LandingHome() {
               />
 
               <div className={styles.imageBadgeLeft}>
-                Comunidad que cuida con carino
+                Tu perro primero
               </div>
 
               <div className={styles.imageBadgeRight}>
-                <p>Home principal</p>
-                <strong>Decision clara desde el primer vistazo</strong>
+                <p>Patiperro</p>
+                <strong>Empieza como tutor y busca el paseo ideal para tu mascota</strong>
               </div>
             </div>
           </div>
@@ -169,7 +170,7 @@ export default function LandingHome() {
       <section id="beneficios" className={styles.benefitsSection}>
         <div className={styles.sectionIntro}>
           <p className={styles.sectionEyebrow}>Beneficios</p>
-          <h2>Una portada mas comercial, mas limpia y mejor orientada</h2>
+          <h2>Una experiencia pensada para quienes buscan cuidado y paseos con confianza</h2>
         </div>
 
         <div className={styles.benefitsGrid}>
@@ -186,7 +187,7 @@ export default function LandingHome() {
       <section id="roles" className={styles.rolesSection}>
         <div className={styles.sectionIntro}>
           <p className={styles.sectionEyebrow}>Roles</p>
-          <h2>Dos caminos claros dentro de la misma plataforma</h2>
+          <h2>Elige como quieres comenzar en Patiperro</h2>
         </div>
 
         <div className={styles.rolesGrid}>
@@ -221,13 +222,13 @@ export default function LandingHome() {
         <div className={styles.testimonialsShell}>
           <div className={styles.sectionIntro}>
             <p className={styles.sectionEyebrow}>Testimonios</p>
-            <h2>Lo que transmite esta nueva primera impresion</h2>
+            <h2>Una primera impresion mas cercana para quienes buscan cuidado</h2>
           </div>
 
           <div className={styles.testimonialsGrid}>
             {testimonials.map((item) => (
               <article key={item.name} className={styles.testimonialCard}>
-                <p>“{item.text}”</p>
+                <p>"{item.text}"</p>
                 <strong>{item.name}</strong>
               </article>
             ))}
@@ -239,19 +240,19 @@ export default function LandingHome() {
         <div className={styles.finalCard}>
           <div>
             <p className={styles.sectionEyebrow}>Empieza hoy</p>
-            <h2>Haz que la primera decision en Patiperro sea simple</h2>
+            <h2>Empieza hoy a buscar el mejor paseo para tu perro</h2>
             <p>
-              El landing ahora se enfoca en orientar, transmitir confianza y llevar a
-              cada persona al flujo correcto sin friccion.
+              Comienza como tutor y da el primer paso para organizar la informacion de tu
+              mascota y acercarte al paseador indicado.
             </p>
           </div>
 
           <div className={styles.finalActions}>
             <Link to="/register/tutor" className={styles.primaryCta}>
-              Crear cuenta de tutor
+              Empezar como tutor
             </Link>
             <Link to="/register/paseador" className={styles.secondaryCta}>
-              Crear cuenta de paseador
+              Empezar como paseador
             </Link>
           </div>
         </div>
