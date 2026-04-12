@@ -213,27 +213,29 @@ export default function RegisterPaseador() {
     setFieldValue(name as keyof PaseadorRegisterForm, value as never);
   };
 
-  const buildRegisterPayload = (fotoPerfil: string) => ({
-    rut: form.rut.trim(),
-    primerNombre: form.primer_nombre.trim(),
-    segundoNombre: form.segundo_nombre.trim(),
-    apellidoPaterno: form.apellido_paterno.trim(),
-    apellidoMaterno: form.apellido_materno.trim(),
-    fechaNacimiento: form.fecha_nacimiento,
-    telefono: telefonoNumericoParaApi(form.telefono),
-    correo: form.correo.trim(),
-    contrasena: form.contrasena,
-    fotoPerfil,
-    biografia: form.biografia.trim(),
-    pais: form.pais.trim(),
-    region: form.region.trim(),
-    ciudad: form.ciudad.trim(),
-    calle: form.calle.trim(),
-    comuna: form.comuna.trim(),
-    numeracion: Number(form.numeracion),
-    casaDepartamento: form.casa_departamento.trim(),
-    fotos: [] as string[]
-  });
+  const buildRegisterPayload = (fotoPerfil: string) => {
+    return {
+      rut: form.rut.trim(),
+      primerNombre: form.primer_nombre.trim(),
+      segundoNombre: form.segundo_nombre.trim(),
+      apellidoPaterno: form.apellido_paterno.trim(),
+      apellidoMaterno: form.apellido_materno.trim(),
+      fechaNacimiento: form.fecha_nacimiento,
+      telefono: telefonoNumericoParaApi(form.telefono),
+      correo: form.correo.trim(),
+      contrasena: form.contrasena,
+      fotoPerfil,
+      biografia: form.biografia.trim(),
+      pais: form.pais.trim(),
+      region: form.region.trim(),
+      ciudad: form.ciudad.trim(),
+      calle: form.calle.trim(),
+      comuna: form.comuna.trim(),
+      numeracion: Number(form.numeracion),
+      casaDepartamento: form.casa_departamento.trim(),
+      fotos: [] as string[]
+    };
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -4,7 +4,10 @@ import com.patiperro.paseador.model.Configuracion;
 import com.patiperro.paseador.model.Paseador;
 import com.patiperro.paseador.model.Tamano;
 import com.patiperro.paseador.model.TarifaPaseador;
+import com.patiperro.paseador.geo.NominatimGeocodingService;
+import com.patiperro.paseador.model.Direccion;
 import com.patiperro.paseador.repository.ConfiguracionRepository;
+import com.patiperro.paseador.repository.DireccionRepository;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.repository.TamanoRepository;
 import com.patiperro.paseador.user.dto.ConfiguracionPaseadorResponseDTO;
@@ -30,6 +33,8 @@ public class PaseadorConfiguracionService {
     private final PaseadorRepository paseadorRepository;
     private final ConfiguracionRepository configuracionRepository;
     private final TamanoRepository tamanoRepository;
+    private final DireccionRepository direccionRepository;
+    private final NominatimGeocodingService nominatimGeocodingService;
 
     @Transactional(readOnly = true)
     public ConfiguracionPaseadorResponseDTO getMyConfiguracion() {
@@ -72,6 +77,16 @@ public class PaseadorConfiguracionService {
         }
 
         Configuracion saved = configuracionRepository.save(configuracion);
+
+        Paseador conDir = paseadorRepository.findById(paseador.getId()).orElse(paseador);
+        Direccion dir = conDir.getDireccion();
+        if (dir != null && (dir.getLatitud() == null || dir.getLongitud() == null)) {
+            nominatimGeocodingService.tryEnrich(dir);
+            if (dir.getLatitud() != null && dir.getLongitud() != null) {
+                direccionRepository.save(dir);
+            }
+        }
+
         return toResponse(saved);
     }
 

@@ -37,4 +37,11 @@ public class Direccion {
 
     @Column(name = "casa_departamento", length = 60)
     private String casaDepartamento;
+
+    /** WGS84; opcional (geocodificacion / mapas). */
+    @Column(name = "latitud")
+    private Double latitud;
+
+    @Column(name = "longitud")
+    private Double longitud;
 }
