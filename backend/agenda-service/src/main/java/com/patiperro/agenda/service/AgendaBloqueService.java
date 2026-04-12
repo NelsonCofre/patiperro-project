@@ -6,11 +6,9 @@ import com.patiperro.agenda.dto.AgendaBloqueSerieMensualRequestDTO;
 import com.patiperro.agenda.dto.AgendaBloqueSerieMensualResponseDTO;
 import com.patiperro.agenda.dto.AgendaDtoMapper;
 import com.patiperro.agenda.model.AgendaBloque;
-import com.patiperro.agenda.model.AgendaBloqueoDia;
 import com.patiperro.agenda.model.DiaSemana;
 import com.patiperro.agenda.model.EstadoBloque;
 import com.patiperro.agenda.repository.AgendaBloqueRepository;
-import com.patiperro.agenda.repository.AgendaBloqueoDiaRepository;
 import com.patiperro.agenda.repository.DiaSemanaRepository;
 import com.patiperro.agenda.repository.EstadoBloqueRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,15 +24,12 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AgendaBloqueService {
 
     private final AgendaBloqueRepository agendaBloqueRepository;
-    private final AgendaBloqueoDiaRepository agendaBloqueoDiaRepository;
     private final EstadoBloqueRepository estadoBloqueRepository;
     private final DiaSemanaRepository diaSemanaRepository;
 
@@ -51,22 +46,16 @@ public class AgendaBloqueService {
     }
 
     /**
-     * Bloques horarios del paseador en el rango, excluyendo fechas con bloqueo de día personal
-     * ({@code agenda_bloqueo_dia}). Pensado para búsqueda de tutores y oferta efectiva.
+     * Bloques horarios del paseador en el rango (p. ej. para tutores). La disponibilidad se modela solo con
+     * {@code agenda_bloque}; un día sin bloques equivale a no ofrecer ese día.
      */
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(Integer idUsuario, LocalDate desde, LocalDate hasta) {
         if (desde.isAfter(hasta)) {
             throw new IllegalArgumentException("La fecha 'desde' no puede ser posterior a 'hasta'");
         }
-        Set<LocalDate> diasBloqueadosPersonal = agendaBloqueoDiaRepository
-                .findByIdUsuarioAndFechaBetweenOrderByFechaAsc(idUsuario, desde, hasta)
-                .stream()
-                .map(AgendaBloqueoDia::getFecha)
-                .collect(Collectors.toSet());
         return agendaBloqueRepository
                 .findByIdUsuarioAndFechaBetweenOrderByFechaAscHoraInicioAsc(idUsuario, desde, hasta)
                 .stream()
-                .filter(b -> !diasBloqueadosPersonal.contains(b.getFecha()))
                 .map(AgendaDtoMapper::toBloqueResponse)
                 .toList();
     }

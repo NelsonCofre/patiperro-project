@@ -41,10 +41,7 @@ public class AgendaBloqueController {
         return service.listarPorUsuario(idUsuario);
     }
 
-    /**
-     * Bloques ofertables en rango: se omiten días marcados como bloqueo personal
-     * ({@code /api/agenda/bloqueos-dia}).
-     */
+    /** Bloques del paseador en el rango de fechas (oferta para reservas / tutores). */
     @GetMapping("/usuario/{idUsuario}/oferta")
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(
             @PathVariable Integer idUsuario,

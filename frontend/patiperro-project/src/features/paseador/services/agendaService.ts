@@ -1,4 +1,4 @@
-// Cliente HTTP para microservicio agenda (bloques, catálogos, bloqueos por día).
+// Cliente HTTP para microservicio agenda (bloques y catálogos).
 // Mismo patrón que paseadorConfigService: gateway 8080 + credentials (cookie JWT).
 import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY } from "../../../config/api";
 
@@ -45,20 +45,6 @@ export type AgendaBloqueSerieMensualRespuesta = {
   omitidosPasado: number;
   omitidosSolape: number;
   bloques: AgendaBloqueDTO[];
-};
-
-export type AgendaBloqueoDiaDTO = {
-  idBloqueo: number;
-  idUsuario: number;
-  fecha: string;
-  motivo: string | null;
-  creadoEn: string | null;
-};
-
-export type AgendaBloqueoDiaCuerpo = {
-  idUsuario: number;
-  fecha: string;
-  motivo?: string | null;
 };
 
 function readErrorMessage(data: unknown, fallback: string): string {
@@ -223,46 +209,4 @@ export async function eliminarBloque(idBloque: number): Promise<void> {
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
   throw new Error(readErrorMessage(data, "No se pudo eliminar el bloque."));
-}
-
-export async function fetchBloqueosDiaPorUsuario(idUsuario: number): Promise<AgendaBloqueoDiaDTO[]> {
-  const res = await fetch(API_ENDPOINTS.agenda.bloqueosDiaPorUsuario(idUsuario), {
-    method: "GET",
-    credentials: "include"
-  });
-  const data = await parseJson(res);
-  await guardarSesionRequerida(res, data);
-  if (!res.ok) {
-    throw new Error(readErrorMessage(data, "No se pudieron cargar los bloqueos de día."));
-  }
-  if (!Array.isArray(data)) {
-    throw new Error("Respuesta inválida (bloqueos de día).");
-  }
-  return data as AgendaBloqueoDiaDTO[];
-}
-
-export async function crearBloqueoDia(body: AgendaBloqueoDiaCuerpo): Promise<AgendaBloqueoDiaDTO> {
-  const res = await fetch(API_ENDPOINTS.agenda.bloqueosDia, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body)
-  });
-  const data = await parseJson(res);
-  await guardarSesionRequerida(res, data);
-  if (!res.ok) {
-    throw new Error(readErrorMessage(data, "No se pudo crear el bloqueo de día."));
-  }
-  return data as AgendaBloqueoDiaDTO;
-}
-
-export async function eliminarBloqueoDia(id: number): Promise<void> {
-  const res = await fetch(API_ENDPOINTS.agenda.bloqueoDia(id), {
-    method: "DELETE",
-    credentials: "include"
-  });
-  if (res.status === 204) return;
-  const data = await parseJson(res);
-  await guardarSesionRequerida(res, data);
-  throw new Error(readErrorMessage(data, "No se pudo eliminar el bloqueo de día."));
 }

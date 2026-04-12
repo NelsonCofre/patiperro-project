@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import PaseadorCard from "../../components/PaseadorCard/PaseadorCard";
+import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/PaseadoresFilterBar";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
-import { usePaseadoresHomeMock } from "../../hooks/usePaseadoresHomeMock";
+import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
 import styles from "./TutorDashboard.module.css";
 
 const SKELETON_CARDS = ["skeleton-1", "skeleton-2", "skeleton-3"];
@@ -19,10 +20,27 @@ export default function TutorDashboard() {
     hasMore,
     loadMore,
     expandSearch,
-    requestTutorLocation
-  } = usePaseadoresHomeMock();
+    requestTutorLocation,
+    listError,
+    needsReferencePoint,
+    filteredCount,
+    queryText,
+    setQueryText,
+    maxDistanceFilterKm,
+    setMaxDistanceFilterKm,
+    sortMode,
+    setSortMode,
+    resetFilters,
+    hasActiveFilters,
+    profileLoadDone,
+    applySearchRadiusKm,
+    minSearchRadiusKm,
+    maxSearchRadiusKm
+  } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
+  const noFilterMatches =
+    !isLoading && !needsReferencePoint && paseadores.length > 0 && filteredCount === 0;
   const locationMessage =
     locationStatus === "requesting"
       ? "Solicitando ubicacion..."
@@ -41,8 +59,8 @@ export default function TutorDashboard() {
           <p className={styles.eyebrow}>Home del Tutor</p>
           <h1 className={styles.title}>Encuentra paseadores disponibles cerca de tu perro</h1>
           <p className={styles.description}>
-            Revisa paseadores cercanos, compara distancia, calificacion y precio base, y
-            elige con mas confianza cuando quieras preparar una solicitud de paseo.
+            Revisa paseadores cercanos por distancia y biografia, y elige con mas confianza cuando
+            quieras preparar una solicitud de paseo.
           </p>
 
           <div className={styles.heroActions}>
@@ -67,26 +85,42 @@ export default function TutorDashboard() {
             >
               {locationStatus === "requesting" ? "Solicitando..." : "Usar mi ubicacion"}
             </button>
-            <input type="text" placeholder="Ingresa tu direccion manualmente" />
+            <input
+              type="text"
+              className={styles.locationInputMuted}
+              placeholder="Direccion manual (proximamente)"
+              readOnly
+              aria-readonly="true"
+              title="Por ahora usa tu ubicacion o la direccion guardada en tu perfil"
+            />
           </div>
         </aside>
       </section>
 
       <section className={styles.summaryGrid}>
         <article className={styles.summaryCard}>
-          <span>Radio actual</span>
-          <strong>{searchRadiusKm} km</strong>
-          <p>Radio visual por defecto para encontrar paseadores disponibles.</p>
+          <span>Radio de busqueda</span>
+          <strong>{needsReferencePoint ? "—" : `${searchRadiusKm} km`}</strong>
+          <p>
+            Lo defines tu en la seccion de filtros (valor que se envia al servidor como cobertura
+            maxima).
+          </p>
         </article>
         <article className={styles.summaryCard}>
-          <span>Resultados mock</span>
-          <strong>{paseadores.length}</strong>
-          <p>Datos temporales de frontend, listos para reemplazar por backend.</p>
+          <span>Coincidencias</span>
+          <strong>{needsReferencePoint ? "—" : filteredCount}</strong>
+          <p>
+            {needsReferencePoint || paseadores.length === 0
+              ? "Activa ubicacion o espera resultados."
+              : `${filteredCount} visibles con filtros · ${paseadores.length} en radio ${searchRadiusKm} km.`}
+          </p>
         </article>
         <article className={styles.summaryCard}>
-          <span>Orden recomendado</span>
-          <strong>Distancia</strong>
-          <p>La lista se presenta de menor a mayor distancia del tutor.</p>
+          <span>Filtros</span>
+          <strong>{hasActiveFilters ? "Activos" : "Listos"}</strong>
+          <p>
+            Busca por texto, acorta la distancia maxima en pantalla y cambia el criterio de orden.
+          </p>
         </article>
       </section>
 
@@ -97,9 +131,29 @@ export default function TutorDashboard() {
             <h2>Disponibles para futuros paseos</h2>
           </div>
           <span className={styles.refreshHint}>
-            Actualizacion automatica cada 30 segundos · {lastUpdatedLabel}
+            Ultima actualizacion · {lastUpdatedLabel}
+            {listError ? ` · ${listError}` : ""}
           </span>
         </div>
+
+        {profileLoadDone && !needsReferencePoint ? (
+          <PaseadoresFilterBar
+            searchRadiusKm={searchRadiusKm}
+            minSearchRadiusKm={minSearchRadiusKm}
+            maxSearchRadiusKm={maxSearchRadiusKm}
+            onApplySearchRadiusKm={applySearchRadiusKm}
+            queryText={queryText}
+            onQueryTextChange={setQueryText}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
+            maxDistanceFilterKm={maxDistanceFilterKm}
+            onMaxDistanceFilterKmChange={setMaxDistanceFilterKm}
+            totalFromApi={paseadores.length}
+            filteredCount={filteredCount}
+            hasActiveFilters={hasActiveFilters}
+            onResetFilters={resetFilters}
+          />
+        ) : null}
 
         {isLoading ? (
           <div className={styles.walkersList} aria-label="Cargando paseadores cercanos">
@@ -115,6 +169,39 @@ export default function TutorDashboard() {
               </article>
             ))}
           </div>
+        ) : needsReferencePoint ? (
+          <article className={styles.emptyState}>
+            <div className={styles.emptyIllustration}>?</div>
+            <div>
+              <p className={styles.cardEyebrow}>Sin punto de busqueda</p>
+              <h3>Activa tu ubicacion o completa las coordenadas de tu direccion</h3>
+              <p>
+                Para listar paseadores cercanos necesitamos latitud y longitud. Puedes usar el
+                boton «Usar mi ubicacion» o, si ya guardaste direccion al registrarte, que el
+                sistema haya geocodificado tu domicilio.
+              </p>
+              <button type="button" className={styles.primaryButton} onClick={requestTutorLocation}>
+                Usar mi ubicacion
+              </button>
+            </div>
+          </article>
+        ) : noFilterMatches ? (
+          <article className={styles.emptyState}>
+            <div className={styles.emptyIllustration}>F</div>
+            <div>
+              <p className={styles.cardEyebrow}>Sin coincidencias</p>
+              <h3>Ningun paseador cumple los filtros actuales</h3>
+              <p>
+                Prueba otra palabra de busqueda, sube el limite de distancia o revisa el orden de la
+                lista.
+              </p>
+              <div className={styles.emptyActions}>
+                <button type="button" className={styles.primaryButton} onClick={resetFilters}>
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+          </article>
         ) : hasResults ? (
           <>
             <div className={styles.walkersList}>
@@ -138,12 +225,14 @@ export default function TutorDashboard() {
               <p className={styles.cardEyebrow}>Sin resultados</p>
               <h3>No hay paseadores disponibles dentro del radio actual</h3>
               <p>
-                Puedes ampliar la busqueda para revisar opciones un poco mas lejanas a tu
-                ubicacion.
+                Sube el radio de cobertura en los filtros de arriba o usa el atajo para ampliar 5
+                km.
               </p>
-              <button type="button" className={styles.primaryButton} onClick={expandSearch}>
-                Ampliar busqueda
-              </button>
+              <div className={styles.emptyActions}>
+                <button type="button" className={styles.secondaryButton} onClick={expandSearch}>
+                  Ampliar 5 km
+                </button>
+              </div>
             </div>
           </article>
         )}

@@ -1,6 +1,6 @@
 // Servicios HTTP del modulo auth.
 // Concentran la comunicacion del frontend con login, registro y subida de fotos.
-import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY } from "../../../config/api";
+import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY, TUTOR_ID_SESSION_KEY } from "../../../config/api";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -66,6 +66,8 @@ export type AuthResponse = {
   correo?: string;
   /** Login/registro paseador: id numérico para /api/agenda/bloques/usuario/{id}. */
   idPaseador?: number;
+  /** Login/registro tutor: id para GET /api/tutores/{id}. */
+  idTutor?: number;
 };
 
 /**
@@ -146,7 +148,18 @@ export async function registerTutor(
     throw new Error(readApiErrorMessage(data, "No se pudo completar el registro del tutor."));
   }
 
-  return (data as AuthResponse) ?? {};
+  const body = (data as AuthResponse & { message?: string; idTutor?: number }) ?? {};
+  const idTutor =
+    typeof body.idTutor === "number" && Number.isFinite(body.idTutor) ? body.idTutor : undefined;
+  if (idTutor != null) {
+    sessionStorage.setItem(TUTOR_ID_SESSION_KEY, String(idTutor));
+  }
+
+  return {
+    mensaje: body.mensaje ?? body.message,
+    correo: body.correo,
+    idTutor
+  };
 }
 
 export async function registerPaseador(
@@ -210,9 +223,17 @@ export async function loginTutor(credentials: {
     throw new Error(readApiErrorMessage(data, "Correo o contraseña incorrectos."));
   }
 
+  const body = data as AuthResponse & { message?: string; idTutor?: number };
+  const idTutor =
+    typeof body.idTutor === "number" && Number.isFinite(body.idTutor) ? body.idTutor : undefined;
+  if (idTutor != null) {
+    sessionStorage.setItem(TUTOR_ID_SESSION_KEY, String(idTutor));
+  }
+
   return {
-    mensaje: data?.mensaje ?? data?.message,
-    correo: data?.correo
+    mensaje: body.mensaje ?? body.message,
+    correo: body.correo,
+    idTutor
   };
 }
 

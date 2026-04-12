@@ -1,3 +1,7 @@
+/**
+ * Modelo de tarjeta en home tutor. La UI actual solo muestra nombre, foto, distancia y bio;
+ * el resto sigue en el tipo para filtros mock y futura integracion con APIs.
+ */
 export type PaseadorHome = {
   id: string;
   nombre: string;

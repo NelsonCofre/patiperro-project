@@ -4,6 +4,9 @@ export const API_BASE_URL = "http://localhost:8080";
 /** Tras login paseador se guarda idPaseador para llamadas /api/agenda/bloques/usuario/{id}. */
 export const PASEADOR_ID_SESSION_KEY = "patiperro_paseador_id";
 
+/** Tras login/registro tutor se guarda id para GET /api/tutores/{id} (coordenadas de direccion). */
+export const TUTOR_ID_SESSION_KEY = "patiperro_tutor_id";
+
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
   auth: {
@@ -19,7 +22,13 @@ export const API_ENDPOINTS = {
       /** Catálogo público (sin JWT). */
       publicTamanos: `${API_BASE_URL}/api/paseadores/public/tamanos`,
       /** Configuración del paseador autenticado (JWT en cookie vía gateway). */
-      meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`
+      meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`,
+      /**
+       * Búsqueda pública por proximidad (Haversine + radio de cobertura). Query params obligatorios:
+       * latitudReferencia, longitudReferencia; opcionales: radioBusquedaMaxKm, limite, y filtro agenda
+       * (fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible).
+       */
+      publicCercanos: `${API_BASE_URL}/api/paseadores/public/cercanos`
     }
   },
   /** Mascotas (JWT tutor en cookie vía gateway). */
@@ -42,13 +51,11 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}`,
     bloquesOferta: (idUsuario: number, desde: string, hasta: string) =>
       `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}/oferta?desde=${desde}&hasta=${hasta}`,
-    bloque: (idBloque: number) => `${API_BASE_URL}/api/agenda/bloques/${idBloque}`,
-    bloqueosDia: `${API_BASE_URL}/api/agenda/bloqueos-dia`,
-    bloqueosDiaPorUsuario: (idUsuario: number) =>
-      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}`,
-    bloqueosDiaPorUsuarioRango: (idUsuario: number, desde: string, hasta: string) =>
-      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}/rango?desde=${desde}&hasta=${hasta}`,
-    bloqueoDia: (id: number) => `${API_BASE_URL}/api/agenda/bloqueos-dia/${id}`
+    bloque: (idBloque: number) => `${API_BASE_URL}/api/agenda/bloques/${idBloque}`
+  },
+  /** Perfil tutor (JWT en cookie vía gateway). */
+  tutores: {
+    byId: (idTutor: number) => `${API_BASE_URL}/api/tutores/${idTutor}`
   }
 };
 

@@ -4,6 +4,7 @@ import com.patiperro.paseador.auth.dto.LoginRequestDTO;
 import com.patiperro.paseador.auth.dto.LoginResponseDTO;
 import com.patiperro.paseador.auth.dto.RegisterRequestDTO;
 import com.patiperro.paseador.auth.exception.InvalidCredentialsException;
+import com.patiperro.paseador.geo.NominatimGeocodingService;
 import com.patiperro.paseador.model.Direccion;
 import com.patiperro.paseador.model.Foto;
 import com.patiperro.paseador.model.Paseador;
@@ -27,6 +28,7 @@ public class AuthService {
     private final DireccionRepository direccionRepository;
     private final FotoRepository fotoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NominatimGeocodingService nominatimGeocodingService;
 
     public LoginResponseDTO login(LoginRequestDTO request) {
         Paseador paseador = paseadorRepository.findByCorreo(request.getCorreo())
@@ -48,7 +50,7 @@ public class AuthService {
 
         Direccion direccion = null;
         if (hasDireccionData(request)) {
-            direccion = direccionRepository.save(Direccion.builder()
+            Direccion nueva = Direccion.builder()
                     .pais(request.getPais())
                     .region(request.getRegion())
                     .ciudad(request.getCiudad())
@@ -56,7 +58,9 @@ public class AuthService {
                     .comuna(request.getComuna())
                     .numeracion(request.getNumeracion())
                     .casaDepartamento(request.getCasaDepartamento())
-                    .build());
+                    .build();
+            nominatimGeocodingService.tryEnrich(nueva);
+            direccion = direccionRepository.save(nueva);
         }
 
         Paseador paseador = Paseador.builder()

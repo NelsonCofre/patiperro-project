@@ -36,22 +36,6 @@
   object-fit: cover;
 }
 
-.availabilityDot {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  background: rgba(47, 125, 53, 0.92);
-  box-shadow: 0 12px 20px rgba(20, 83, 45, 0.2);
-}
-
 .content {
   display: flex;
   min-width: 0;
@@ -62,8 +46,8 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
-  gap: 14px;
+  flex-direction: column;
+  gap: 4px;
   align-items: flex-start;
 }
 
@@ -79,35 +63,6 @@
   font-size: 0.9rem;
 }
 
-.header strong {
-  color: #2f7d35;
-  font-size: 1.05rem;
-  white-space: nowrap;
-}
-
-.ratingRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #435466;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.stars {
-  display: inline-flex;
-  gap: 2px;
-  letter-spacing: 0.04em;
-}
-
-.starActive {
-  color: #2f7d35;
-}
-
-.starMuted {
-  color: #cbd5d1;
-}
-
 .bio {
   margin: 0;
   color: #586673;
@@ -118,15 +73,9 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding-top: 4px;
-}
-
-.footer span {
-  color: #466053;
-  font-size: 0.86rem;
-  font-weight: 700;
 }
 
 .footer button {

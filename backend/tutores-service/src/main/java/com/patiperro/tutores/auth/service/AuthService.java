@@ -1,5 +1,6 @@
 package com.patiperro.tutores.auth.service;
 
+import com.patiperro.tutores.geo.NominatimGeocodingService;
 import com.patiperro.tutores.auth.dto.LoginRequestDTO;
 import com.patiperro.tutores.auth.dto.LoginResponseDTO;
 import com.patiperro.tutores.auth.dto.RegisterRequestDTO;
@@ -28,6 +29,7 @@ public class AuthService {
     private final DireccionRepository direccionRepository;
     private final FotoRepository fotoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NominatimGeocodingService nominatimGeocodingService;
 
     // Flujo login:
     // 1) Buscar tutor por correo.
@@ -55,7 +57,7 @@ public class AuthService {
 
         Direccion direccion = null;
         if (hasDireccionData(request)) {
-            direccion = direccionRepository.save(Direccion.builder()
+            Direccion nueva = Direccion.builder()
                     .pais(request.getPais())
                     .region(request.getRegion())
                     .ciudad(request.getCiudad())
@@ -63,7 +65,9 @@ public class AuthService {
                     .comuna(request.getComuna())
                     .numeracion(request.getNumeracion())
                     .casaDepartamento(request.getCasaDepartamento())
-                    .build());
+                    .build();
+            nominatimGeocodingService.tryEnrich(nueva);
+            direccion = direccionRepository.save(nueva);
         }
 
         Tutor tutor = Tutor.builder()
