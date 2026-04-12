@@ -74,6 +74,27 @@ public class ReservaService {
         reservaRepository.deleteById(id);
     }
 
+    // =========================================================================
+    // NUEVO MÉTODO DE VIGILANCIA: Protección de servicios comprometidos
+    // =========================================================================
+    /**
+     * Verifica si existen reservas activas/comprometidas para una lista de bloques.
+     * Esto impide que el paseador borre horarios que ya tienen un compromiso real.
+     */
+    public boolean tieneReservasComprometidasEnBloques(List<Integer> idsAgendaBloque) {
+        if (idsAgendaBloque == null || idsAgendaBloque.isEmpty()) {
+            return false; // No hay bloques para validar //
+        }
+        // IDs de estados comprometidos (ej: 2=Pagado, 3=Confirmado, 4=En Curso) //
+        List<Integer> estadosComprometidos = List.of(2, 3, 4); 
+        
+        // Ejecuta la consulta de existencia en el repositorio //
+        return reservaRepository.existsByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
+            idsAgendaBloque, 
+            estadosComprometidos
+        );
+    }
+
     public List<ReservaResponseDTO> listarPorTutor(Integer idTutorUsuario) {
         return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
                 .map(ReservaDtoMapper::toReservaResponse)

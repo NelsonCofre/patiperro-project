@@ -34,4 +34,22 @@ public interface AgendaBloqueRepository extends JpaRepository<AgendaBloque, Inte
             @Param("inicioBuscado") LocalDateTime inicioBuscado,
             @Param("finBuscado") LocalDateTime finBuscado,
             @Param("idEstadoDisponible") Integer idEstadoDisponible);
+
+    // =========================================================================
+    // MÉTODO NUEVO: Obtener solo IDs para validación cruzada
+    // =========================================================================
+    /**
+     * Obtiene una lista de los identificadores (PK) de los bloques de un usuario
+     * en un rango de fechas. Es útil para enviarlos al reserva-service y
+     * verificar compromisos antes de borrar o bloquear días.
+     */
+    @Query("""
+        SELECT b.idAgenda FROM AgendaBloque b
+        WHERE b.idUsuario = :idUsuario
+          AND b.fecha BETWEEN :desde AND :hasta
+        """)
+    List<Integer> findIdsByIdUsuarioAndFechaBetween(
+            @Param("idUsuario") Integer idUsuario,
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta);
 }

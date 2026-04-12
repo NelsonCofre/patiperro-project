@@ -7,14 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -24,6 +17,23 @@ import java.util.List;
 public class ReservaController {
 
     private final ReservaService service;
+
+    // =========================================================================
+    // ENDPOINT DE VIGILANCIA INTERNA: Conflicto de Bloqueo
+    // =========================================================================
+    /**
+     * Verifica si una lista de bloques de agenda tiene compromisos activos.
+     * Es utilizado por el microservicio de Agenda antes de permitir ediciones.
+     * URL: POST http://localhost:8085/api/reserva/interno/conflicto-bloqueo
+     */
+    @PostMapping("/interno/conflicto-bloqueo")
+    public boolean conflictoPorBloques(@RequestBody List<Integer> idsAgendaBloque) {
+        return service.tieneReservasComprometidasEnBloques(idsAgendaBloque);
+    }
+
+    // =========================================================================
+    // CRUD Y LISTADOS EXISTENTES
+    // =========================================================================
 
     @GetMapping("/tutor/{idTutorUsuario}")
     public List<ReservaResponseDTO> listarPorTutor(@PathVariable Integer idTutorUsuario) {
