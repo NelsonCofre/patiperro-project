@@ -1,6 +1,7 @@
 package com.patiperro.agenda.dto;
 
 import com.patiperro.agenda.model.AgendaBloque;
+import com.patiperro.agenda.model.AgendaBloqueoDia;
 import com.patiperro.agenda.model.DiaSemana;
 import com.patiperro.agenda.model.EstadoBloque;
 
@@ -31,5 +32,14 @@ public final class AgendaDtoMapper {
                 b.getFecha(),
                 toEstadoResponse(b.getEstadoBloque()),
                 toDiaResponse(b.getDiaSemana()));
+    }
+
+    public static AgendaBloqueoDiaResponseDTO toBloqueoDiaResponse(AgendaBloqueoDia e) {
+        return new AgendaBloqueoDiaResponseDTO(
+                e.getIdBloqueo(),
+                e.getIdUsuario(),
+                e.getFecha(),
+                e.getMotivo(),
+                e.getCreadoEn());
     }
 }
