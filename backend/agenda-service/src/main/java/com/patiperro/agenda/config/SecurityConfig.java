@@ -9,6 +9,12 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/**
+ * Seguridad de agenda-service (punto 6): casi todo exige JWT; excepción explícita para la búsqueda
+ * de tutores (GET disponibles). Bloques CRUD, bloqueos-día, walker/blackout, catálogos: autenticados.
+ * Token: cookie {@code access_token} o cabecera {@code Authorization: Bearer ...} (misma clave HS256 que el gateway).
+ */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor

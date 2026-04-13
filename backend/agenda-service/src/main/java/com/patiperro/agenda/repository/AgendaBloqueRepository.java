@@ -25,6 +25,11 @@ public interface AgendaBloqueRepository extends JpaRepository<AgendaBloque, Inte
               AND b.estadoBloque.idEstado = :idEstadoDisponible
               AND b.horaInicio < :finBuscado
               AND b.horaFinal > :inicioBuscado
+              AND NOT EXISTS (
+                  SELECT 1 FROM AgendaBloqueoDia bd
+                  WHERE bd.idUsuario = b.idUsuario
+                    AND bd.fecha = :fecha
+              )
             """)
     List<Integer> findIdUsuariosConBloqueDisponibleEnFranja(
             @Param("fecha") LocalDate fecha,

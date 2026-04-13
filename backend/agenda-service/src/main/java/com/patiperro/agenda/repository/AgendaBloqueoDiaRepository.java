@@ -2,7 +2,6 @@ package com.patiperro.agenda.repository;
 
 import com.patiperro.agenda.model.AgendaBloqueoDia;
 import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;

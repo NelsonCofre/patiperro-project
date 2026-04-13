@@ -82,6 +82,21 @@ public class AgendaBloqueoDiaService {
         repository.deleteById(id);
     }
 
+    /**
+     * Quita el bloqueo personal del paseador para una fecha concreta (desbloqueo por día).
+     */
+    @Transactional
+    public void eliminarPorUsuarioYFecha(Integer idUsuario, LocalDate fecha) {
+        AgendaBloqueoDia e = repository
+                .findByIdUsuarioAndFecha(idUsuario, fecha)
+                .orElseThrow(() -> new IllegalArgumentException("Bloqueo de día no encontrado"));
+        repository.delete(e);
+    }
+
+    public boolean existeBloqueo(Integer idUsuario, LocalDate fecha) {
+        return repository.existsByIdUsuarioAndFecha(idUsuario, fecha);
+    }
+
     private AgendaBloqueoDia obtenerEntidad(Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Bloqueo de día no encontrado"));

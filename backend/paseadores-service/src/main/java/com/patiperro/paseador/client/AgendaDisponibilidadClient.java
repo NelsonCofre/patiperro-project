@@ -12,8 +12,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Consulta agenda-service: paseadores con bloque disponible en una franja (mismo {@code id_usuario} que
- * {@code id_paseador} en este dominio).
+ * Cliente HTTP hacia agenda-service: lista de {@code id_usuario} con bloque disponible
+ * en la franja pedida (mismo identificador que {@code id_paseador} en este dominio).
+ * La exclusión por bloqueo personal de día completo la aplica agenda-service en esa API.
  */
 @Component
 public class AgendaDisponibilidadClient {
@@ -24,6 +25,13 @@ public class AgendaDisponibilidadClient {
         this.restClient = RestClient.builder().baseUrl(baseUrl.replaceAll("/$", "")).build();
     }
 
+    /**
+     * @param fecha            día calendario de la búsqueda (debe coincidir con la parte fecha de horaInicio/horaFin)
+     * @param horaInicio       inicio de la franja (ISO-8601 local date-time)
+     * @param horaFin          fin de la franja (ISO-8601 local date-time)
+     * @param idEstadoDisponible id del estado "disponible" en catálogo de agenda
+     * @return ids de usuario elegibles; vacío si ninguno cumple (incl. si el día está bloqueado personalmente)
+     */
     public List<Integer> idsConBloqueDisponible(
             LocalDate fecha,
             LocalDateTime horaInicio,

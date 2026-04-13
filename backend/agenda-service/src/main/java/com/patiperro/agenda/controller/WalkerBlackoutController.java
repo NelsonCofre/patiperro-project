@@ -4,8 +4,12 @@ import com.patiperro.agenda.dto.WalkerBlackoutRequestDTO;
 import com.patiperro.agenda.service.WalkerBlackoutService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/walker")
@@ -16,6 +20,7 @@ public class WalkerBlackoutController {
 
     @PostMapping("/blackout")
     public ResponseEntity<?> blackout(@Valid @RequestBody WalkerBlackoutRequestDTO body) {
-        return ResponseEntity.ok(walkerBlackoutService.registrarBlackoutConChequeoReservas(body));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(walkerBlackoutService.registrarBlackoutConChequeoReservas(body));
     }
 }
