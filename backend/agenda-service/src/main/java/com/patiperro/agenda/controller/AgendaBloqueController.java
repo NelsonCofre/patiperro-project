@@ -66,6 +66,18 @@ public class AgendaBloqueController {
         return service.buscarIdUsuariosDisponiblesEnFranja(fecha, horaInicio, horaFin, idEstadoDisponible);
     }
 
+    /**
+     * IDs de usuario (paseadores) con al menos un bloque disponible desde la fecha de referencia
+     * (por defecto hoy). Query param opcional {@code desdeFecha} para pruebas o zona explícita.
+     */
+    @GetMapping("/busqueda/disponibles-desde-hoy")
+    public List<Integer> buscarPaseadoresDisponiblesDesdeHoy(
+            @RequestParam Integer idEstadoDisponible,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desdeFecha) {
+        LocalDate desde = desdeFecha != null ? desdeFecha : LocalDate.now();
+        return service.buscarIdUsuariosDisponiblesDesdeFecha(desde, idEstadoDisponible);
+    }
+
     @GetMapping("/{id}")
     public AgendaBloqueResponseDTO obtener(@PathVariable Integer id) {
         return service.obtener(id);

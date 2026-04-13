@@ -13,8 +13,9 @@ import java.util.List;
 
 /**
  * Cliente HTTP hacia agenda-service: lista de {@code id_usuario} con bloque disponible
- * en la franja pedida (mismo identificador que {@code id_paseador} en este dominio).
- * La exclusión por bloqueo personal de día completo la aplica agenda-service en esa API.
+ * (mismo identificador que {@code id_paseador} en este dominio). Soporta búsqueda por franja
+ * horaria o desde una fecha (típicamente hoy en agenda-service).
+ * La exclusión por bloqueo personal de día completo la aplica agenda-service en ambas APIs.
  */
 @Component
 public class AgendaDisponibilidadClient {
@@ -54,6 +55,44 @@ public class AgendaDisponibilidadClient {
         } catch (RestClientException e) {
             throw new IllegalStateException(
                     "No se pudo consultar disponibilidad en agenda-service: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Paseadores con al menos un bloque disponible desde hoy (fecha del servidor en agenda-service).
+     *
+     * @param idEstadoDisponible id del estado "disponible" en catálogo de agenda
+     */
+    public List<Integer> idsConBloqueDisponibleDesdeHoy(int idEstadoDisponible) {
+        return idsConBloqueDisponibleDesdeFecha(null, idEstadoDisponible);
+    }
+
+    /**
+     * Paseadores con al menos un bloque disponible desde {@code desdeFecha} inclusive.
+     * Si {@code desdeFecha} es {@code null}, agenda-service usa la fecha actual.
+     *
+     * @param desdeFecha         opcional (ISO fecha); {@code null} = hoy en el servidor de agenda
+     * @param idEstadoDisponible id del estado "disponible" en catálogo de agenda
+     */
+    public List<Integer> idsConBloqueDisponibleDesdeFecha(LocalDate desdeFecha, int idEstadoDisponible) {
+        try {
+            List<Integer> body = restClient
+                    .get()
+                    .uri(uriBuilder -> {
+                        var ub = uriBuilder
+                                .path("/api/agenda/bloques/busqueda/disponibles-desde-hoy")
+                                .queryParam("idEstadoDisponible", idEstadoDisponible);
+                        if (desdeFecha != null) {
+                            ub.queryParam("desdeFecha", desdeFecha.toString());
+                        }
+                        return ub.build();
+                    })
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Integer>>() {});
+            return body != null ? body : List.of();
+        } catch (RestClientException e) {
+            throw new IllegalStateException(
+                    "No se pudo consultar disponibilidad desde-hoy en agenda-service: " + e.getMessage(), e);
         }
     }
 }
