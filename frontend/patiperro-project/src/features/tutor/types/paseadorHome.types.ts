@@ -16,4 +16,6 @@ export type PaseadorHome = {
   radioCoberturaKm: number;
   proximoBloque: string;
   bio: string;
+  latitud: number;
+  longitud: number;
 };

@@ -43,7 +43,9 @@ function parseRadioKm(value: PaseadorCercanoApi["radioCoberturaKm"]): number {
 }
 
 function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
+  console.log("DEBUG: DTO recibido del servidor:", dto); // <-- AGREGA ESTO
   const radio = parseRadioKm(dto.radioCoberturaKm);
+  
   return {
     id: String(dto.idPaseador),
     nombre: dto.nombreCompleto ?? "",
@@ -57,7 +59,9 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     tieneTarifaConfigurada: true,
     radioCoberturaKm: radio,
     proximoBloque: "-",
-    bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora."
+    bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora.",
+    latitud: dto.latitud,
+    longitud: dto.longitud
   };
 }
 
@@ -331,6 +335,8 @@ export function usePaseadoresHome() {
     sortMode,
     setSortMode,
     resetFilters,
+    refLat,    // <-- AGREGA ESTO
+    refLon,    // <-- AGREGA ESTO
     hasActiveFilters:
       queryText.trim().length > 0 ||
       maxDistanceFilterKm != null ||

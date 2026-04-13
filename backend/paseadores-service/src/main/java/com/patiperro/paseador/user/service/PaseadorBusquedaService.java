@@ -32,7 +32,9 @@ public class PaseadorBusquedaService {
                         cos(radians(:latRef)) * cos(radians(d.latitud)) * cos(radians(d.longitud) - radians(:lonRef))
                         + sin(radians(:latRef)) * sin(radians(d.latitud))
                     )))) AS distancia_km,
-                    c.radio_cobertura AS radio_cobertura
+                    c.radio_cobertura AS radio_cobertura,
+                    d.latitud AS latitud,     -- AGREGA ESTA LÍNEA
+                    d.longitud AS longitud
                 FROM paseador p
                 INNER JOIN direccion d ON p.direccion_id_direccion = d.id_direccion
                 INNER JOIN configuracion c ON c.paseador_id_paseador = p.id_paseador
@@ -95,7 +97,12 @@ public class PaseadorBusquedaService {
             long id = ((Number) cols[0]).longValue();
             double dist = ((Number) cols[1]).doubleValue();
             BigDecimal radio = cols[2] != null ? new BigDecimal(cols[2].toString()) : null;
-            candidatos.add(new CandidatoGeo(id, dist, radio));
+            // 1. Extraemos las nuevas columnas del Object[]
+            double lat = ((Number) cols[3]).doubleValue(); 
+            double lon = ((Number) cols[4]).doubleValue();
+
+            // 2. Pasamos los 5 parámetros al constructor (ahora sí estará definido)
+            candidatos.add(new CandidatoGeo(id, dist, radio, lat, lon));
         }
 
         if (agendaCompleto) {
@@ -125,6 +132,8 @@ public class PaseadorBusquedaService {
                 continue;
             }
             CandidatoGeo cg = porId.get(id);
+            
+            // AGREGAMOS .latitud() y .longitud() al builder
             salida.add(PaseadorCercanoResponseDTO.builder()
                     .idPaseador(p.getId())
                     .nombreCompleto(nombrePublico(p))
@@ -132,6 +141,8 @@ public class PaseadorBusquedaService {
                     .biografia(p.getBiografia())
                     .distanciaKm(cg.distanciaKm())
                     .radioCoberturaKm(cg.radioCoberturaKm())
+                    .latitud(cg.latitud())   // <--- ESTA LÍNEA FALTA
+                    .longitud(cg.longitud()) // <--- ESTA LÍNEA FALTA
                     .build());
         }
         return salida;
@@ -166,5 +177,5 @@ public class PaseadorBusquedaService {
         return sb.toString();
     }
 
-    private record CandidatoGeo(long idPaseador, double distanciaKm, BigDecimal radioCoberturaKm) {}
+    private record CandidatoGeo(long idPaseador, double distanciaKm, BigDecimal radioCoberturaKm, double latitud, double longitud) {}
 }

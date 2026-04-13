@@ -21,4 +21,6 @@ public class PaseadorCercanoResponseDTO {
     /** Distancia en km desde el punto de referencia del tutor (Haversine). */
     private double distanciaKm;
     private BigDecimal radioCoberturaKm;
+    private Double latitud;
+    private Double longitud;
 }
