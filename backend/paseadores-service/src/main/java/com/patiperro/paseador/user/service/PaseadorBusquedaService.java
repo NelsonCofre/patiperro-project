@@ -21,6 +21,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Búsqueda geográfica de paseadores. Si se envían los cuatro parámetros de agenda,
+ * el filtro de disponibilidad lo resuelve agenda-service (incluye exclusión de días
+ * bloqueados por motivos personales cuando así esté implementado allí).
+ */
 @Service
 @RequiredArgsConstructor
 public class PaseadorBusquedaService {
@@ -53,6 +58,11 @@ public class PaseadorBusquedaService {
     private final PaseadorRepository paseadorRepository;
     private final AgendaDisponibilidadClient agendaDisponibilidadClient;
 
+    /**
+     * Candidatos por distancia; opcionalmente restringidos a quienes tienen bloque
+     * disponible en la franja indicada (mismo día en {@code fechaDisponibilidad}).
+     * Los IDs devueltos por agenda deben corresponder a {@code paseador.id_paseador} / {@code id_usuario} en agenda.
+     */
     @Transactional(readOnly = true)
     public List<PaseadorCercanoResponseDTO> buscarCercanos(
             double latitudReferencia,
@@ -105,6 +115,7 @@ public class PaseadorBusquedaService {
             candidatos.add(new CandidatoGeo(id, dist, radio, lat, lon));
         }
 
+        // Intersección geo ∩ agenda; la resta "disponibilidad − bloqueo día" vive en agenda-service.
         if (agendaCompleto) {
             List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponible(
                     fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible);

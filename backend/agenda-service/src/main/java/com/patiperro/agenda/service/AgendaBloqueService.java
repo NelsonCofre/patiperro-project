@@ -9,6 +9,7 @@ import com.patiperro.agenda.model.AgendaBloque;
 import com.patiperro.agenda.model.DiaSemana;
 import com.patiperro.agenda.model.EstadoBloque;
 import com.patiperro.agenda.repository.AgendaBloqueRepository;
+import com.patiperro.agenda.repository.AgendaBloqueoDiaRepository;
 import com.patiperro.agenda.repository.DiaSemanaRepository;
 import com.patiperro.agenda.repository.EstadoBloqueRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +25,15 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AgendaBloqueService {
 
     private final AgendaBloqueRepository agendaBloqueRepository;
+    private final AgendaBloqueoDiaRepository agendaBloqueoDiaRepository;
     private final EstadoBloqueRepository estadoBloqueRepository;
     private final DiaSemanaRepository diaSemanaRepository;
 
@@ -46,33 +50,44 @@ public class AgendaBloqueService {
     }
 
     /**
-     * Bloques horarios del paseador en el rango (p. ej. para tutores). La disponibilidad se modela solo con
-     * {@code agenda_bloque}; un día sin bloques equivale a no ofrecer ese día.
+     * Bloques horarios del paseador en el rango (oferta para tutores).
+     * Excluye fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
      */
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(Integer idUsuario, LocalDate desde, LocalDate hasta) {
         if (desde.isAfter(hasta)) {
             throw new IllegalArgumentException("La fecha 'desde' no puede ser posterior a 'hasta'");
         }
+
+        Set<LocalDate> diasBloqueadosPersonal = agendaBloqueoDiaRepository
+                .findByIdUsuarioAndFechaBetweenOrderByFechaAsc(idUsuario, desde, hasta)
+                .stream()
+                .map(bd -> bd.getFecha())
+                .collect(Collectors.toSet());
+
         return agendaBloqueRepository
                 .findByIdUsuarioAndFechaBetweenOrderByFechaAscHoraInicioAsc(idUsuario, desde, hasta)
                 .stream()
+                .filter(b -> !diasBloqueadosPersonal.contains(b.getFecha()))
                 .map(AgendaDtoMapper::toBloqueResponse)
                 .toList();
     }
 
     /**
-     * Paseadores ({@code id_usuario}) con bloque en estado disponible que solapa la franja indicada.
-     * Valida coherencia de fecha y orden de la franja antes de consultar la base de datos.
+     * Paseadores ({@code id_usuario}) con bloque disponible en la franja; excluye quienes tengan
+     * bloqueo personal de día completo en esa fecha (consulta en {@link AgendaBloqueRepository}).
      */
     public List<Integer> buscarIdUsuariosDisponiblesEnFranja(
             LocalDate fecha,
             LocalDateTime inicioBuscado,
             LocalDateTime finBuscado,
             Integer idEstadoDisponible) {
+
         validarParametrosBusquedaFranja(fecha, inicioBuscado, finBuscado);
+
         if (idEstadoDisponible == null) {
             throw new IllegalArgumentException("idEstadoDisponible es obligatorio");
         }
+
         return agendaBloqueRepository.findIdUsuariosConBloqueDisponibleEnFranja(
                 fecha, inicioBuscado, finBuscado, idEstadoDisponible);
     }
@@ -117,18 +132,12 @@ public class AgendaBloqueService {
         agendaBloqueRepository.deleteById(id);
     }
 
-    /**
-     * Crea bloques en todas las fechas del mismo mes que {@code fechaSemilla}, mismo día de la semana,
-     * con las mismas horas. Omite fechas anteriores a hoy (servidor) y fechas con solape horario
-     * para ese usuario.
-     */
     @Transactional
     public AgendaBloqueSerieMensualResponseDTO crearSerieMensualEnMes(AgendaBloqueSerieMensualRequestDTO dto) {
         LocalDate fechaSem = dto.getFechaSemilla();
         if (!fechaSem.equals(dto.getHoraInicio().toLocalDate())
                 || !fechaSem.equals(dto.getHoraFinal().toLocalDate())) {
-            throw new IllegalArgumentException(
-                    "fechaSemilla debe coincidir con las fechas en horaInicio y horaFinal");
+            throw new IllegalArgumentException("fechaSemilla debe coincidir con las fechas en horaInicio y horaFinal");
         }
         LocalTime tInicio = dto.getHoraInicio().toLocalTime();
         LocalTime tFin = dto.getHoraFinal().toLocalTime();
@@ -158,9 +167,7 @@ public class AgendaBloqueService {
         List<AgendaBloqueResponseDTO> creados = new ArrayList<>();
 
         for (LocalDate fecha = primerDia; !fecha.isAfter(ultimoDia); fecha = fecha.plusDays(1)) {
-            if (fecha.getDayOfWeek() != diaObjetivo) {
-                continue;
-            }
+            if (fecha.getDayOfWeek() != diaObjetivo) continue;
             if (fecha.isBefore(hoy)) {
                 omitidosPasado++;
                 continue;
@@ -192,20 +199,10 @@ public class AgendaBloqueService {
                 .build();
     }
 
-    private static boolean haySolapeHorario(
-            List<AgendaBloque> bloques,
-            LocalDate fecha,
-            LocalDateTime inicio,
-            LocalDateTime fin) {
+    private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio, LocalDateTime fin) {
         for (AgendaBloque b : bloques) {
-            if (!b.getFecha().equals(fecha)) {
-                continue;
-            }
-            LocalDateTime bi = b.getHoraInicio();
-            LocalDateTime bf = b.getHoraFinal();
-            if (inicio.isBefore(bf) && fin.isAfter(bi)) {
-                return true;
-            }
+            if (!b.getFecha().equals(fecha)) continue;
+            if (inicio.isBefore(b.getHoraFinal()) && fin.isAfter(b.getHoraInicio())) return true;
         }
         return false;
     }
@@ -216,8 +213,7 @@ public class AgendaBloqueService {
         return catalogo.stream()
                 .filter(ds -> normalizarNombreDia(ds.getNombre()).equals(clave))
                 .findFirst()
-                .orElseThrow(
-                        () -> new IllegalArgumentException("Catálogo dia_semana incompleto: falta " + esperado));
+                .orElseThrow(() -> new IllegalArgumentException("Catálogo dia_semana incompleto: falta " + esperado));
     }
 
     private static String nombreDiaSemanaEsperado(DayOfWeek d) {
@@ -233,17 +229,13 @@ public class AgendaBloqueService {
     }
 
     private static String normalizarNombreDia(String nombre) {
-        if (nombre == null) {
-            return "";
-        }
+        if (nombre == null) return "";
         String n = Normalizer.normalize(nombre.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
         return n.replaceAll("\\p{M}+", "");
     }
 
     private boolean esEstadoReservado(EstadoBloque estadoBloque) {
-        if (estadoBloque == null || estadoBloque.getNombre() == null) {
-            return false;
-        }
+        if (estadoBloque == null || estadoBloque.getNombre() == null) return false;
         return "reservado".equalsIgnoreCase(estadoBloque.getNombre().trim());
     }
 
@@ -252,13 +244,12 @@ public class AgendaBloqueService {
                 .orElseThrow(() -> new IllegalArgumentException("Bloque de agenda no encontrado"));
     }
 
-    private void validarParametrosBusquedaFranja(
-            LocalDate fecha, LocalDateTime inicioBuscado, LocalDateTime finBuscado) {
+    private void validarParametrosBusquedaFranja(LocalDate fecha, LocalDateTime inicioBuscado, LocalDateTime finBuscado) {
         if (finBuscado.isBefore(inicioBuscado) || finBuscado.isEqual(inicioBuscado)) {
             throw new IllegalArgumentException("La hora de término debe ser posterior a la hora de inicio");
         }
         if (!fecha.isEqual(inicioBuscado.toLocalDate()) || !fecha.isEqual(finBuscado.toLocalDate())) {
-            throw new IllegalArgumentException("fecha debe coincidir con el día de inicio y fin");
+            throw new IllegalArgumentException("La fecha debe coincidir con el día de inicio y fin");
         }
     }
 
@@ -270,17 +261,13 @@ public class AgendaBloqueService {
     }
 
     private EstadoBloque resolverEstado(Integer idEstado) {
-        if (idEstado == null) {
-            throw new IllegalArgumentException("estado_bloque es obligatorio (idEstado)");
-        }
+        if (idEstado == null) throw new IllegalArgumentException("estado_bloque es obligatorio");
         return estadoBloqueRepository.findById(idEstado)
                 .orElseThrow(() -> new IllegalArgumentException("Estado de bloque no encontrado: " + idEstado));
     }
 
     private DiaSemana resolverDia(Integer idDia) {
-        if (idDia == null) {
-            throw new IllegalArgumentException("dia_semana es obligatorio (idDia)");
-        }
+        if (idDia == null) throw new IllegalArgumentException("dia_semana es obligatorio");
         return diaSemanaRepository.findById(idDia)
                 .orElseThrow(() -> new IllegalArgumentException("Día de la semana no encontrado: " + idDia));
     }

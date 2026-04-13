@@ -66,4 +66,13 @@ public class AgendaBloqueoDiaController {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
+
+    /** Desbloqueo por día: elimina el registro de bloqueo personal para ese usuario y fecha. */
+    @DeleteMapping("/usuario/{idUsuario}/fecha/{fecha}")
+    public ResponseEntity<Void> eliminarPorUsuarioYFecha(
+            @PathVariable Integer idUsuario,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+        service.eliminarPorUsuarioYFecha(idUsuario, fecha);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -41,7 +41,10 @@ public class AgendaBloqueController {
         return service.listarPorUsuario(idUsuario);
     }
 
-    /** Bloques del paseador en el rango de fechas (oferta para reservas / tutores). */
+        /**
+     * Bloques del paseador en el rango (oferta para tutores / reservas).
+     * No incluye franjas en fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
+     */
     @GetMapping("/usuario/{idUsuario}/oferta")
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(
             @PathVariable Integer idUsuario,
@@ -50,6 +53,10 @@ public class AgendaBloqueController {
         return service.listarBloquesOfertables(idUsuario, desde, hasta);
     }
 
+        /**
+     * IDs de usuario (paseadores) con bloque disponible que solapa la franja en {@code fecha},
+     * excluyendo quienes tengan ese día bloqueado por motivos personales.
+     */
     @GetMapping("/busqueda/disponibles")
     public List<Integer> buscarPaseadoresDisponibles(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
