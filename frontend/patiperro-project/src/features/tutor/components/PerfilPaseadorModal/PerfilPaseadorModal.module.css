@@ -1,0 +1,262 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  overflow-y: auto;
+}
+
+.modal {
+  position: relative;
+  width: min(980px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 28px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.closeButton {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d8e7da;
+  border-radius: 8px;
+  color: #183123;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+
+.photo {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #edf6ee;
+}
+
+.headerInfo {
+  min-width: 0;
+  padding-right: 42px;
+}
+
+.headerInfo h2 {
+  margin: 12px 0;
+  color: #163020;
+  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  line-height: 1.05;
+}
+
+.headerInfo p {
+  margin: 0;
+  color: #586673;
+  line-height: 1.75;
+}
+
+.verifiedBadge,
+.unverifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.verifiedBadge {
+  color: #1f5c29;
+  background: #e8f7ea;
+  border: 1px solid #bfe5c5;
+}
+
+.unverifiedBadge {
+  color: #8a4b14;
+  background: #fff4e6;
+  border: 1px solid #ffd7a8;
+}
+
+.statsGrid,
+.rateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.statsGrid {
+  margin-top: 24px;
+}
+
+.statsGrid article,
+.rateGrid article {
+  padding: 16px;
+  border: 1px solid #dce9dd;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.statsGrid span,
+.rateGrid span {
+  display: block;
+  color: #657386;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.statsGrid strong,
+.rateGrid strong {
+  display: block;
+  margin-top: 8px;
+  color: #183123;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.section {
+  margin-top: 26px;
+}
+
+.section h3 {
+  margin: 0 0 14px;
+  color: #183123;
+  font-size: 1.22rem;
+}
+
+.reviewList {
+  display: grid;
+  gap: 12px;
+}
+
+.review {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 16px 68px 16px 16px;
+  border: 1px solid #dce9dd;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.review div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+}
+
+.review strong {
+  color: #183123;
+}
+
+.review div span {
+  color: #657386;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.review p,
+.emptyReviews {
+  margin: 0;
+  color: #586673;
+  line-height: 1.65;
+}
+
+.reviewScore {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  min-height: 32px;
+  border-radius: 8px;
+  color: #24512d;
+  font-weight: 900;
+  background: #eaf7ec;
+  border: 1px solid #cfe7d2;
+}
+
+.emptyReviews {
+  padding: 16px;
+  border: 1px dashed #bfd7c2;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.actions {
+  position: sticky;
+  bottom: -28px;
+  display: flex;
+  justify-content: flex-end;
+  margin: 28px -28px -28px;
+  padding: 18px 28px;
+  border-top: 1px solid #e0ebe1;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.reserveButton {
+  min-height: 48px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  background: #2f7d35;
+  box-shadow: 0 14px 28px rgba(47, 125, 53, 0.2);
+}
+
+.closeButton:focus-visible,
+.reserveButton:focus-visible {
+  outline: 3px solid #9ad2a1;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .overlay {
+    padding: 12px;
+  }
+
+  .modal {
+    max-height: calc(100vh - 24px);
+    padding: 20px;
+  }
+
+  .header,
+  .statsGrid,
+  .rateGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .headerInfo {
+    padding-right: 0;
+  }
+
+  .actions {
+    bottom: -20px;
+    margin: 24px -20px -20px;
+    padding: 16px 20px;
+  }
+
+  .reserveButton {
+    width: 100%;
+  }
+}

@@ -3,13 +3,14 @@ import styles from "./PaseadorCard.module.css";
 
 type PaseadorCardProps = {
   paseador: PaseadorHome;
+  onVerPerfil?: (paseador: PaseadorHome) => void;
 };
 
 /**
  * Tarjeta simplificada: precio, calificacion y proximo bloque se ocultan hasta tener APIs
  * (configuracion publica, reseñas, agenda agregada).
  */
-export default function PaseadorCard({ paseador }: PaseadorCardProps) {
+export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProps) {
   return (
     <article className={styles.card}>
       <div className={styles.photoWrap}>
@@ -27,7 +28,9 @@ export default function PaseadorCard({ paseador }: PaseadorCardProps) {
         <p className={styles.bio}>{paseador.bio}</p>
 
         <div className={styles.footer}>
-          <button type="button">Ver perfil</button>
+          <button type="button" onClick={() => onVerPerfil?.(paseador)}>
+            Ver perfil
+          </button>
         </div>
       </div>
     </article>

@@ -1,0 +1,54 @@
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.day {
+  min-width: 120px;
+  padding: 12px;
+  border: 1px solid #d8e7da;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.day h4 {
+  margin: 0 0 10px;
+  color: #183123;
+  font-size: 0.86rem;
+  text-transform: capitalize;
+}
+
+.blocks {
+  display: grid;
+  gap: 7px;
+}
+
+.blocks span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: #24512d;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: #eaf7ec;
+  border: 1px solid #cfe7d2;
+  white-space: nowrap;
+}
+
+.blocks .emptyBlock {
+  color: #6b7280;
+  background: #f4f6f4;
+  border-color: #e2e8e2;
+}
+
+@media (max-width: 900px) {
+  .weekGrid {
+    grid-template-columns: repeat(7, minmax(132px, 1fr));
+  }
+}

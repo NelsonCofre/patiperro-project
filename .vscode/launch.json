@@ -22,7 +22,8 @@
       "name": "MascotasServiceApplication",
       "request": "launch",
       "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
-      "projectName": "mascotas-service"
+      "projectName": "mascotas-service",
+      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62027 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=mascotas-service"
     },
     {
       "type": "java",
@@ -42,7 +43,8 @@
       "mainClass": "com.patiperro.gateway.Application",
       "projectName": "api-gateway",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62020 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=api-gateway"
     },
     {
       "type": "java",
@@ -61,6 +63,16 @@
       "cwd": "${workspaceFolder}/backend/agenda-service",
       "mainClass": "com.patiperro.agenda.AgendaServiceApplication",
       "projectName": "agenda-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-NotificationServiceApplication<notification-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.notification_service.NotificationServiceApplication",
+      "projectName": "notification-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }

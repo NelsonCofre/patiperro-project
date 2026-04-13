@@ -1,14 +1,19 @@
 import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import PerfilPaseadorModal from "../../components/PerfilPaseadorModal/PerfilPaseadorModal";
 import PaseadorCard from "../../components/PaseadorCard/PaseadorCard";
 import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/PaseadoresFilterBar";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
+import type { PaseadorHome } from "../../types/paseadorHome.types";
+import { buildPaseadorPerfilMock } from "../../utils/paseadorPerfilMock";
 import styles from "./TutorDashboard.module.css";
 import PaseadoresMap from '../../components/PaseadoresMap/PaseadoresMap';
 
 const SKELETON_CARDS = ["skeleton-1", "skeleton-2", "skeleton-3"];
 
 export default function TutorDashboard() {
+  const [selectedPaseador, setSelectedPaseador] = useState<PaseadorHome | null>(null);
   const {
     isLoading,
     searchRadiusKm,
@@ -42,6 +47,10 @@ export default function TutorDashboard() {
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
+  const selectedPaseadorPerfil = useMemo(
+    () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
+    [selectedPaseador]
+  );
   const noFilterMatches =
     !isLoading && !needsReferencePoint && paseadores.length > 0 && filteredCount === 0;
   const locationMessage =
@@ -222,7 +231,11 @@ export default function TutorDashboard() {
         <>
           <div className={styles.walkersList}>
             {visiblePaseadores.map((paseador) => (
-              <PaseadorCard key={paseador.id} paseador={paseador} />
+              <PaseadorCard
+                key={paseador.id}
+                paseador={paseador}
+                onVerPerfil={setSelectedPaseador}
+              />
             ))}
           </div>
 
@@ -253,6 +266,12 @@ export default function TutorDashboard() {
         </article>
       )}
     </section>
+    {selectedPaseadorPerfil ? (
+      <PerfilPaseadorModal
+        paseador={selectedPaseadorPerfil}
+        onClose={() => setSelectedPaseador(null)}
+      />
+    ) : null}
   </main>
 );
 }
