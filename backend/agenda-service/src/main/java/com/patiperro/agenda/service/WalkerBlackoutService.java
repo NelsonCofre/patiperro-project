@@ -80,6 +80,11 @@ public class WalkerBlackoutService {
         return creados;
     }
 
+    @Transactional
+    public void eliminarBlackout(Integer id) {
+        agendaBloqueoDiaService.eliminar(id);
+    }
+
     private static String currentAuthorizationHeader() {
         var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attrs == null) {
