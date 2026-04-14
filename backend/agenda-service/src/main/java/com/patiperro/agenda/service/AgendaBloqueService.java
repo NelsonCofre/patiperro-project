@@ -92,6 +92,19 @@ public class AgendaBloqueService {
                 fecha, inicioBuscado, finBuscado, idEstadoDisponible);
     }
 
+    /**
+     * Paseadores con al menos un bloque disponible desde {@code desdeFecha} (típicamente hoy en el servidor).
+     */
+    public List<Integer> buscarIdUsuariosDisponiblesDesdeFecha(LocalDate desdeFecha, Integer idEstadoDisponible) {
+        if (desdeFecha == null) {
+            throw new IllegalArgumentException("desdeFecha es obligatoria");
+        }
+        if (idEstadoDisponible == null) {
+            throw new IllegalArgumentException("idEstadoDisponible es obligatorio");
+        }
+        return agendaBloqueRepository.findIdUsuariosConBloqueDisponibleDesdeFecha(desdeFecha, idEstadoDisponible);
+    }
+
     public AgendaBloqueResponseDTO obtener(Integer id) {
         return AgendaDtoMapper.toBloqueResponse(obtenerEntidad(id));
     }

@@ -11,8 +11,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Seguridad de agenda-service (punto 6): casi todo exige JWT; excepción explícita para la búsqueda
- * de tutores (GET disponibles). Bloques CRUD, bloqueos-día, walker/blackout, catálogos: autenticados.
+ * Seguridad de agenda-service (punto 6): casi todo exige JWT; excepción explícita para búsquedas
+ * públicas de paseadores disponibles (franja concreta y desde-hoy). Resto: autenticado.
  * Token: cookie {@code access_token} o cabecera {@code Authorization: Bearer ...} (misma clave HS256 que el gateway).
  */
 @Configuration
@@ -29,6 +29,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/agenda/bloques/busqueda/disponibles")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/agenda/bloques/busqueda/disponibles-desde-hoy")
                         .permitAll()
                         .anyRequest()
                         .authenticated())

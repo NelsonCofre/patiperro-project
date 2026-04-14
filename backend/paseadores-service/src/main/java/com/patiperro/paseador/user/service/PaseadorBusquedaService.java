@@ -8,6 +8,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,10 +26,23 @@ import java.util.stream.Collectors;
  * Búsqueda geográfica de paseadores. Si se envían los cuatro parámetros de agenda,
  * el filtro de disponibilidad lo resuelve agenda-service (incluye exclusión de días
  * bloqueados por motivos personales cuando así esté implementado allí).
+ * Opcionalmente ({@code patiperro.paseadores.cercanos.filtrar-disponible-desde-hoy})
+ * se cruza con {@link AgendaDisponibilidadClient#idsConBloqueDisponibleDesdeHoy(int)}.
  */
 @Service
 @RequiredArgsConstructor
 public class PaseadorBusquedaService {
+
+    /**
+     * Si es true y no hay filtro por franja completo, solo se devuelven paseadores con bloque
+     * disponible desde hoy según agenda-service.
+     */
+    @Value("${patiperro.paseadores.cercanos.filtrar-disponible-desde-hoy:false}")
+    private boolean filtrarDisponibleDesdeHoyCercanos;
+
+    /** Id del estado "Disponible" en agenda (catálogo estado_bloque). */
+    @Value("${patiperro.paseadores.cercanos.id-estado-bloque-disponible:1}")
+    private int idEstadoBloqueDisponibleParaCercanos;
 
     private static final String SQL_CERCANOS = """
             SELECT * FROM (
@@ -119,10 +133,11 @@ public class PaseadorBusquedaService {
         if (agendaCompleto) {
             List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponible(
                     fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible);
-            Set<Long> permitidos = idsAgenda.stream().map(Integer::longValue).collect(Collectors.toSet());
-            candidatos = candidatos.stream()
-                    .filter(c -> permitidos.contains(c.idPaseador()))
-                    .toList();
+            candidatos = filtrarCandidatosPorIdsAgenda(candidatos, idsAgenda);
+        } else if (filtrarDisponibleDesdeHoyCercanos) {
+            List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponibleDesdeHoy(
+                    idEstadoBloqueDisponibleParaCercanos);
+            candidatos = filtrarCandidatosPorIdsAgenda(candidatos, idsAgenda);
         }
 
         if (candidatos.isEmpty()) {
@@ -157,6 +172,14 @@ public class PaseadorBusquedaService {
                     .build());
         }
         return salida;
+    }
+
+    private static List<CandidatoGeo> filtrarCandidatosPorIdsAgenda(
+            List<CandidatoGeo> candidatos, List<Integer> idsAgenda) {
+        Set<Long> permitidos = idsAgenda.stream().map(Integer::longValue).collect(Collectors.toSet());
+        return candidatos.stream()
+                .filter(c -> permitidos.contains(c.idPaseador()))
+                .toList();
     }
 
     private static void validarCoordenadas(double lat, double lon) {
