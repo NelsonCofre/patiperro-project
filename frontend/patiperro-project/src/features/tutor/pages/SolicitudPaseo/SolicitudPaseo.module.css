@@ -45,6 +45,52 @@
   font-weight: 800;
 }
 
+.errorText {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #f2c4c4;
+  border-radius: 12px;
+  color: #8b1f1f;
+  background: #fdecec;
+  font-weight: 700;
+}
+
+.tarifaMismatchBox {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #e0c78a;
+  border-radius: 14px;
+  background: #fffbf0;
+  color: #5c4a1f;
+}
+
+.tarifaMismatchBox strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a6d1a;
+}
+
+.tarifaMismatchBox p {
+  margin: 0 0 10px;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.tarifaMismatchList {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.tarifaMismatchList li {
+  margin: 4px 0;
+}
+
 .contentGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
@@ -86,7 +132,8 @@
 }
 
 .field select,
-.field textarea {
+.field textarea,
+.field input {
   width: 100%;
   box-sizing: border-box;
   min-height: 48px;
@@ -106,7 +153,8 @@
 }
 
 .field select:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field input:focus {
   border-color: #3f9448;
   box-shadow: 0 0 0 4px rgba(63, 148, 72, 0.12);
 }

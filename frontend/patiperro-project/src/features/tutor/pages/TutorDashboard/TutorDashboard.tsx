@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import PerfilPaseadorModal from "../../components/PerfilPaseadorModal/PerfilPaseadorModal";
 import PaseadorCard from "../../components/PaseadorCard/PaseadorCard";
 import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/PaseadoresFilterBar";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
-import { buildPaseadorPerfilMock } from "../../utils/paseadorPerfilMock";
 import styles from "./TutorDashboard.module.css";
 import PaseadoresMap from '../../components/PaseadoresMap/PaseadoresMap';
 
@@ -47,10 +46,6 @@ export default function TutorDashboard() {
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
-  const selectedPaseadorPerfil = useMemo(
-    () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
-    [selectedPaseador]
-  );
   const noFilterMatches =
     !isLoading && !needsReferencePoint && paseadores.length > 0 && filteredCount === 0;
   const locationMessage =
@@ -266,9 +261,9 @@ export default function TutorDashboard() {
         </article>
       )}
     </section>
-    {selectedPaseadorPerfil ? (
+    {selectedPaseador ? (
       <PerfilPaseadorModal
-        paseador={selectedPaseadorPerfil}
+        paseador={selectedPaseador}
         onClose={() => setSelectedPaseador(null)}
       />
     ) : null}

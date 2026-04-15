@@ -47,6 +47,13 @@ public class PaseadorConfiguracionService {
         return toResponse(configuracion);
     }
 
+    @Transactional(readOnly = true)
+    public ConfiguracionPaseadorResponseDTO getConfiguracionPublicaByPaseadorId(Long paseadorId) {
+        Configuracion configuracion = configuracionRepository.findByPaseador_Id(paseadorId)
+                .orElseThrow(() -> new IllegalArgumentException("El paseador no tiene configuración publicada"));
+        return toResponse(configuracion);
+    }
+
     @Transactional
     public ConfiguracionPaseadorResponseDTO upsertMyConfiguracion(UpsertConfiguracionRequestDTO request) {
         validateTarifas(request.getTarifas());
@@ -130,6 +137,7 @@ public class PaseadorConfiguracionService {
                 ? List.of()
                 : configuracion.getTarifas().stream()
                 .map(t -> new TarifaConfiguracionResponseDTO(
+                        t.getId(),
                         t.getTamano().getId(),
                         t.getTamano().getNombre(),
                         t.getPrecioBase()))

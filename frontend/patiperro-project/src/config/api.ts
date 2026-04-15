@@ -7,6 +7,12 @@ export const PASEADOR_ID_SESSION_KEY = "patiperro_paseador_id";
 /** Tras login/registro tutor se guarda id para GET /api/tutores/{id} (coordenadas de direccion). */
 export const TUTOR_ID_SESSION_KEY = "patiperro_tutor_id";
 
+/**
+ * JWT devuelto en el body de login/registro (mismo valor que cookie access_token).
+ * Necesario para Authorization: Bearer hacia el gateway desde el dev server (origen distinto).
+ */
+export const ACCESS_TOKEN_SESSION_KEY = "patiperro_access_token";
+
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
   auth: {
@@ -28,12 +34,15 @@ export const API_ENDPOINTS = {
        * latitudReferencia, longitudReferencia; opcionales: radioBusquedaMaxKm, limite, y filtro agenda
        * (fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible).
        */
-      publicCercanos: `${API_BASE_URL}/api/paseadores/public/cercanos`
+      publicCercanos: `${API_BASE_URL}/api/paseadores/public/cercanos`,
+      publicConfiguracion: (idPaseador: number) =>
+        `${API_BASE_URL}/api/paseadores/public/${idPaseador}/configuracion`
     }
   },
   /** Mascotas (JWT tutor en cookie vía gateway). */
   mascotas: {
     base: `${API_BASE_URL}/api/mascotas`,
+    mias: `${API_BASE_URL}/api/mascotas/mias`,
     especies: `${API_BASE_URL}/api/mascotas/especies`,
     razas: (especieId?: number) =>
       especieId != null
@@ -56,6 +65,12 @@ export const API_ENDPOINTS = {
   /** Perfil tutor (JWT en cookie vía gateway). */
   tutores: {
     byId: (idTutor: number) => `${API_BASE_URL}/api/tutores/${idTutor}`
+  },
+  reserva: {
+    base: `${API_BASE_URL}/api/reserva`,
+    estados: `${API_BASE_URL}/api/reserva/estados`,
+    byId: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}`,
+    status: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}/status`
   }
 };
 

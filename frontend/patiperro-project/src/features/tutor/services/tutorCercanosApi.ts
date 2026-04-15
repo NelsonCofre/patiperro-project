@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from "../../../config/api";
+import { bearerAuthHeaders } from "../../../config/authHeaders";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -39,7 +40,8 @@ export type PaseadorCercanoApi = {
 export async function fetchTutorPorId(idTutor: number): Promise<TutorPerfilResponse> {
   const response = await fetch(API_ENDPOINTS.tutores.byId(idTutor), {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
 
   let data: unknown = null;
