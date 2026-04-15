@@ -45,13 +45,10 @@ public class AgendaBloqueController {
         return service.listarPorUsuario(idUsuario);
     }
 
-<<<<<<< Updated upstream
         /**
      * Bloques del paseador en el rango (oferta para tutores / reservas).
      * No incluye franjas en fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
      */
-=======
->>>>>>> Stashed changes
     @GetMapping("/usuario/{idUsuario}/oferta")
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(
             @PathVariable Integer idUsuario,

@@ -3,16 +3,13 @@ package com.patiperro.reserva.controller;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.service.ReservaService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-<<<<<<< Updated upstream
-import org.springframework.web.bind.annotation.*;
-=======
-import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,7 +19,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
->>>>>>> Stashed changes
 
 import java.util.List;
 

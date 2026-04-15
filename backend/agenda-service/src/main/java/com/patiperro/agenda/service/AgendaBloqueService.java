@@ -60,13 +60,10 @@ public class AgendaBloqueService {
                 .toList();
     }
 
-<<<<<<< Updated upstream
     /**
      * Bloques horarios del paseador en el rango (oferta para tutores).
      * Excluye fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
      */
-=======
->>>>>>> Stashed changes
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(Integer idUsuario, LocalDate desde, LocalDate hasta) {
         if (desde.isAfter(hasta)) {
             throw new IllegalArgumentException("La fecha 'desde' no puede ser posterior a 'hasta'");
@@ -86,13 +83,9 @@ public class AgendaBloqueService {
                 .toList();
     }
 
-<<<<<<< Updated upstream
     /**
-     * Paseadores ({@code id_usuario}) con bloque disponible en la franja; excluye quienes tengan
-     * bloqueo personal de día completo en esa fecha (consulta en {@link AgendaBloqueRepository}).
+     * Paseadores ({@code id_usuario}) con bloque disponible en la franja.
      */
-=======
->>>>>>> Stashed changes
     public List<Integer> buscarIdUsuariosDisponiblesEnFranja(
             LocalDate fecha,
             LocalDateTime inicioBuscado,
@@ -273,9 +266,6 @@ public class AgendaBloqueService {
                 .build();
     }
 
-<<<<<<< Updated upstream
-    private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio, LocalDateTime fin) {
-=======
     private void requireJwt(String rawJwt) {
         if (rawJwt == null || rawJwt.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere Authorization Bearer");
@@ -290,12 +280,7 @@ public class AgendaBloqueService {
                 .orElseThrow(() -> new IllegalStateException("No existe estado_bloque con nombre: " + nombre));
     }
 
-    private static boolean haySolapeHorario(
-            List<AgendaBloque> bloques,
-            LocalDate fecha,
-            LocalDateTime inicio,
-            LocalDateTime fin) {
->>>>>>> Stashed changes
+    private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio, LocalDateTime fin) {
         for (AgendaBloque b : bloques) {
             if (!b.getFecha().equals(fecha)) continue;
             if (inicio.isBefore(b.getHoraFinal()) && fin.isAfter(b.getHoraInicio())) return true;
@@ -331,15 +316,8 @@ public class AgendaBloqueService {
     }
 
     private boolean esEstadoReservado(EstadoBloque estadoBloque) {
-<<<<<<< Updated upstream
         if (estadoBloque == null || estadoBloque.getNombre() == null) return false;
         return "reservado".equalsIgnoreCase(estadoBloque.getNombre().trim());
-=======
-        if (estadoBloque == null || estadoBloque.getNombre() == null) {
-            return false;
-        }
-        return estadoBloque.getNombre().trim().equalsIgnoreCase(nombreEstadoReservado);
->>>>>>> Stashed changes
     }
 
     private AgendaBloque obtenerEntidad(Integer id) {
