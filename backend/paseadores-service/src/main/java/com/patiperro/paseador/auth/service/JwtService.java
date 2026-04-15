@@ -19,15 +19,23 @@ public class JwtService {
     @Value("${jwt.expiration-ms}")
     private long expirationMs;
 
+    public static final String CLAIM_PASEADOR_ID = "paseadorId";
+
     public String generateToken(String subject) {
+        return generateToken(subject, null);
+    }
+
+    public String generateToken(String subject, Long idPaseador) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(subject)
                 .issuedAt(now)
-                .expiration(expiration)
-                .signWith(getSigningKey())
-                .compact();
+                .expiration(expiration);
+        if (idPaseador != null) {
+            builder.claim(CLAIM_PASEADOR_ID, idPaseador);
+        }
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public long getExpirationMs() {

@@ -1,0 +1,60 @@
+package com.patiperro.reserva.support;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+
+@Component
+public class AgendaIntegracionClient {
+
+    private final RestClient restClient;
+    private final boolean enabled;
+
+    public AgendaIntegracionClient(
+            RestClient.Builder restClientBuilder,
+            @Value("${patiperro.reserva.agenda-integracion.enabled:true}") boolean enabled,
+            @Value("${patiperro.reserva.agenda-integracion.base-url:}") String baseUrl) {
+        this.enabled = enabled;
+        String base = baseUrl == null ? "" : baseUrl.trim();
+        this.restClient = base.isEmpty() ? null : restClientBuilder.baseUrl(base).build();
+    }
+
+    public boolean isEnabled() {
+        return enabled && restClient != null;
+    }
+
+    public void marcarBloqueReservado(Integer idAgendaBloque, String rawJwt) {
+        if (!isEnabled()) {
+            return;
+        }
+        patchBloque(idAgendaBloque, rawJwt, "/api/agenda/bloques/{id}/marcar-reservado");
+    }
+
+    public void marcarBloqueDisponible(Integer idAgendaBloque, String rawJwt) {
+        if (!isEnabled()) {
+            return;
+        }
+        patchBloque(idAgendaBloque, rawJwt, "/api/agenda/bloques/{id}/marcar-disponible");
+    }
+
+    private void patchBloque(Integer idAgendaBloque, String rawJwt, String uriTemplate) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT para sincronizar con agenda-service");
+        }
+        try {
+            restClient.patch()
+                    .uri(uriTemplate, idAgendaBloque)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + rawJwt.trim())
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Agenda-service respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
+        }
+    }
+}

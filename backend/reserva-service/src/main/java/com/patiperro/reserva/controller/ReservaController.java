@@ -7,7 +7,22 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+<<<<<<< Updated upstream
 import org.springframework.web.bind.annotation.*;
+=======
+import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.support.BookingTokenExtractor;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+>>>>>>> Stashed changes
 
 import java.util.List;
 
@@ -66,13 +81,33 @@ public class ReservaController {
     }
 
     @PostMapping
-    public ResponseEntity<ReservaResponseDTO> crear(@Valid @RequestBody ReservaRequestDTO body) {
-        return new ResponseEntity<>(service.crear(body), HttpStatus.CREATED);
+    public ResponseEntity<ReservaResponseDTO> crear(
+            @Valid @RequestBody ReservaRequestDTO body,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return new ResponseEntity<>(service.crear(body, jwt), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ReservaResponseDTO actualizar(@PathVariable Integer id, @Valid @RequestBody ReservaRequestDTO body) {
-        return service.actualizar(id, body);
+    public ReservaResponseDTO actualizar(
+            @PathVariable Integer id,
+            @Valid @RequestBody ReservaRequestDTO body,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.actualizar(id, body, jwt);
+    }
+
+    /**
+     * Misma semantica que {@code PATCH /api/bookings/{id}/status} (decision del
+     * paseador).
+     */
+    @PatchMapping("/{id}/status")
+    public ReservaResponseDTO parchearEstado(
+            @PathVariable Integer id,
+            @Valid @RequestBody BookingStatusPatchRequestDTO body,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.aplicarDecisionPaseador(id, body, jwt);
     }
 
     @DeleteMapping("/{id}")

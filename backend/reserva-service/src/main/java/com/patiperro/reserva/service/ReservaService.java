@@ -1,11 +1,16 @@
 package com.patiperro.reserva.service;
 
+import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.PaseadorDecision;
 import com.patiperro.reserva.dto.ReservaDtoMapper;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.model.EstadoReserva;
+import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
+import com.patiperro.reserva.security.JwtService;
+import com.patiperro.reserva.support.AgendaIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +23,8 @@ public class ReservaService {
 
     private final ReservaRepository reservaRepository;
     private final EstadoReservaService estadoReservaService;
+    private final AgendaIntegracionClient agendaIntegracionClient;
+    private final JwtService jwtService;
 
     public List<ReservaResponseDTO> listarTodas() {
         return reservaRepository.findAll().stream()
@@ -30,8 +37,10 @@ public class ReservaService {
     }
 
     @Transactional
-    public ReservaResponseDTO crear(ReservaRequestDTO dto) {
-        EstadoReserva estado = estadoReservaService.obtenerEntidad(dto.getIdEstadoReserva());
+    public ReservaResponseDTO crear(ReservaRequestDTO dto, String rawJwt) {
+        EstadoReserva estado = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_SOLICITADA);
+        validarTutorJwt(dto.getIdTutorUsuario(), rawJwt);
+
         Reserva r = new Reserva();
         r.setIdReserva(null);
         r.setIdTutorUsuario(dto.getIdTutorUsuario());
@@ -45,11 +54,14 @@ public class ReservaService {
         r.setFechaInicioReal(dto.getFechaInicioReal());
         r.setFechaFin(dto.getFechaFin());
         r.setCodigoEncuentro(dto.getCodigoEncuentro());
-        return ReservaDtoMapper.toReservaResponse(reservaRepository.save(r));
+
+        Reserva saved = reservaRepository.save(r);
+        agendaIntegracionClient.marcarBloqueReservado(saved.getIdAgendaBloque(), rawJwt);
+        return ReservaDtoMapper.toReservaResponse(saved);
     }
 
     @Transactional
-    public ReservaResponseDTO actualizar(Integer id, ReservaRequestDTO dto) {
+    public ReservaResponseDTO actualizar(Integer id, ReservaRequestDTO dto, String rawJwt) {
         Reserva r = obtenerEntidad(id);
         EstadoReserva estado = estadoReservaService.obtenerEntidad(dto.getIdEstadoReserva());
         r.setIdTutorUsuario(dto.getIdTutorUsuario());
@@ -64,6 +76,22 @@ public class ReservaService {
         r.setFechaFin(dto.getFechaFin());
         r.setCodigoEncuentro(dto.getCodigoEncuentro());
         return ReservaDtoMapper.toReservaResponse(reservaRepository.save(r));
+    }
+
+    @Transactional
+    public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
+        Reserva r = obtenerEntidad(idReserva);
+        EstadoReserva actual = r.getEstadoReserva();
+        EstadoReserva nuevo = resolverEstadoDestino(dto);
+        validarTransicionPaseador(actual, nuevo);
+
+        r.setEstadoReserva(nuevo);
+        Reserva saved = reservaRepository.save(r);
+
+        if (esEstadoRechazada(nuevo)) {
+            agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
+        }
+        return ReservaDtoMapper.toReservaResponse(saved);
     }
 
     @Transactional
@@ -117,6 +145,66 @@ public class ReservaService {
         return reservaRepository.findByEstadoReserva_IdEstadoReserva(idEstadoReserva).stream()
                 .map(ReservaDtoMapper::toReservaResponse)
                 .toList();
+    }
+
+    private void validarTutorJwt(Integer idTutorUsuario, String rawJwt) {
+        if (!agendaIntegracionClient.isEnabled()) {
+            return;
+        }
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT de tutor para reservar bloque");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new IllegalArgumentException("Token inválido o expirado");
+        }
+        Long tutorId = jwtService.extractTutorId(rawJwt);
+        if (tutorId == null) {
+            throw new IllegalArgumentException("JWT sin claim tutorId");
+        }
+        if (!tutorId.equals(idTutorUsuario.longValue())) {
+            throw new IllegalArgumentException("idTutorUsuario no coincide con el token");
+        }
+    }
+
+    private EstadoReserva resolverEstadoDestino(BookingStatusPatchRequestDTO dto) {
+        if (dto.getIdEstadoReserva() != null) {
+            return estadoReservaService.obtenerEntidad(dto.getIdEstadoReserva());
+        }
+        if (dto.getDecision() != null) {
+            return buscarEstadoPorDecision(dto.getDecision());
+        }
+        throw new IllegalArgumentException("Debe enviar decision o idEstadoReserva");
+    }
+
+    private EstadoReserva buscarEstadoPorDecision(PaseadorDecision decision) {
+        String nombre = decision == PaseadorDecision.ACEPTAR
+                ? EstadoReservaCatalogo.NOMBRE_ACEPTADA
+                : EstadoReservaCatalogo.NOMBRE_RECHAZADA;
+        return estadoReservaService.obtenerPorNombreIgnoreCase(nombre);
+    }
+
+    private boolean esEstadoRechazada(EstadoReserva estado) {
+        if (estado == null) {
+            return false;
+        }
+        Integer id = estado.getIdEstadoReserva();
+        if (id != null && id.equals(EstadoReservaCatalogo.ID_RECHAZADA)) {
+            return true;
+        }
+        return estado.getNombreEstado() != null
+                && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
+    }
+
+    private void validarTransicionPaseador(EstadoReserva actual, EstadoReserva nuevo) {
+        if (actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
+            return;
+        }
+        String an = actual.getNombreEstado() == null ? "" : actual.getNombreEstado().toLowerCase();
+        boolean desdePendiente = an.contains("pend") || an.contains("solicit") || an.contains("espera");
+        if (!desdePendiente) {
+            throw new IllegalArgumentException(
+                    "Solo se puede aceptar o rechazar desde estado pendiente o solicitada");
+        }
     }
 
     private Reserva obtenerEntidad(Integer id) {

@@ -19,44 +19,46 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
-    private final JwtService jwtService;
+        private final AuthService authService;
+        private final JwtService jwtService;
 
-    @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO request) {
-        LoginResponseDTO response = authService.login(request);
-        String token = jwtService.generateToken(Objects.requireNonNull(response.getCorreo()));
+        @PostMapping("/login")
+        public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO request) {
+                LoginResponseDTO response = authService.login(request);
+        String token = jwtService.generateToken(
+                Objects.requireNonNull(response.getCorreo()),
+                Objects.requireNonNull(response.getIdPaseador()));
 
-        ResponseCookie cookie = ResponseCookie.from("access_token", Objects.requireNonNull(token))
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(jwtService.getExpirationMs() / 1000)
-                .build();
+                ResponseCookie cookie = ResponseCookie.from("access_token", Objects.requireNonNull(token))
+                                .httpOnly(true)
+                                .secure(false)
+                                .sameSite("Lax")
+                                .path("/")
+                                .maxAge(jwtService.getExpirationMs() / 1000)
+                                .build();
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(response);
-    }
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                                .body(response);
+        }
 
-    @PostMapping("/register")
-    public ResponseEntity<LoginResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
-        return ResponseEntity.ok(authService.register(request));
-    }
+        @PostMapping("/register")
+        public ResponseEntity<LoginResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
+                return ResponseEntity.ok(authService.register(request));
+        }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
-        ResponseCookie cookie = ResponseCookie.from("access_token", "")
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(0)
-                .build();
+        @PostMapping("/logout")
+        public ResponseEntity<Void> logout() {
+                ResponseCookie cookie = ResponseCookie.from("access_token", "")
+                                .httpOnly(true)
+                                .secure(false)
+                                .sameSite("Lax")
+                                .path("/")
+                                .maxAge(0)
+                                .build();
 
-        return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .build();
-    }
+                return ResponseEntity.noContent()
+                                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                                .build();
+        }
 }

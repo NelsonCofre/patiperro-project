@@ -7,18 +7,22 @@ import com.patiperro.agenda.dto.AgendaBloqueSerieMensualResponseDTO;
 import com.patiperro.agenda.service.AgendaBloqueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,10 +45,13 @@ public class AgendaBloqueController {
         return service.listarPorUsuario(idUsuario);
     }
 
+<<<<<<< Updated upstream
         /**
      * Bloques del paseador en el rango (oferta para tutores / reservas).
      * No incluye franjas en fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
      */
+=======
+>>>>>>> Stashed changes
     @GetMapping("/usuario/{idUsuario}/oferta")
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(
             @PathVariable Integer idUsuario,
@@ -88,10 +95,6 @@ public class AgendaBloqueController {
         return new ResponseEntity<>(service.crear(body), HttpStatus.CREATED);
     }
 
-    /**
-     * Misma franja horaria en todas las ocurrencias del día de la semana de {@code fechaSemilla}
-     * dentro de ese mes; omite fechas pasadas y solapes.
-     */
     @PostMapping("/serie-mes")
     public ResponseEntity<AgendaBloqueSerieMensualResponseDTO> crearSerieMensual(
             @Valid @RequestBody AgendaBloqueSerieMensualRequestDTO body) {
@@ -103,9 +106,34 @@ public class AgendaBloqueController {
         return service.actualizar(id, body);
     }
 
+    @PatchMapping("/{id}/marcar-reservado")
+    public AgendaBloqueResponseDTO marcarReservado(
+            @PathVariable Integer id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        return service.marcarReservado(id, rawJwt(authorization));
+    }
+
+    @PatchMapping("/{id}/marcar-disponible")
+    public AgendaBloqueResponseDTO marcarDisponible(
+            @PathVariable Integer id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        return service.marcarDisponible(id, rawJwt(authorization));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static String rawJwt(String authorization) {
+        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere Authorization Bearer");
+        }
+        String token = authorization.substring(7).trim();
+        if (token.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token vacío");
+        }
+        return token;
     }
 }

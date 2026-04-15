@@ -54,4 +54,9 @@ public class EstadoReservaService {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Estado de reserva no encontrado"));
     }
+
+    public EstadoReserva obtenerPorNombreIgnoreCase(String nombreEstado) {
+        return repository.findByNombreEstadoIgnoreCase(nombreEstado)
+                .orElseThrow(() -> new IllegalArgumentException("Estado de reserva no encontrado: " + nombreEstado));
+    }
 }
