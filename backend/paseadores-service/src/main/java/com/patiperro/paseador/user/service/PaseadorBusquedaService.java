@@ -4,6 +4,7 @@ import com.patiperro.paseador.client.AgendaDisponibilidadClient;
 import com.patiperro.paseador.model.Paseador;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
+import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -33,9 +34,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaseadorBusquedaService {
 
+    private static final double RADIO_MIN_EXCLUSIVO_KM = 0.0;
+    private static final double RADIO_MAX_KM = 500.0;
+    private static final int LIMITE_MIN = 1;
+    private static final int LIMITE_MAX = 100;
+    private static final int OFFSET_MIN = 0;
+    private static final int GEO_SQL_HARD_CAP = 5000;
+
     /**
      * Si es true y no hay filtro por franja completo, solo se devuelven paseadores con bloque
      * disponible desde hoy según agenda-service.
+     *
+     * Nota: esto aproxima el requisito "próximos 7 días" como "desde hoy en adelante".
+     * Para cumplir estrictamente 7 días se requiere acotar la ventana en agenda-service
+     * (o exponer un endpoint/param que filtre hasta hoy+7).
      */
     @Value("${patiperro.paseadores.cercanos.filtrar-disponible-desde-hoy:false}")
     private boolean filtrarDisponibleDesdeHoyCercanos;
@@ -44,7 +56,15 @@ public class PaseadorBusquedaService {
     @Value("${patiperro.paseadores.cercanos.id-estado-bloque-disponible:1}")
     private int idEstadoBloqueDisponibleParaCercanos;
 
-    private static final String SQL_CERCANOS = """
+    /** Maximo de candidatos geo a traer cuando hay filtro de agenda (franja o desde-hoy). */
+    @Value("${patiperro.paseadores.cercanos.max-geo-prefetch-con-agenda:2000}")
+    private int maxGeoPrefetchConAgenda;
+
+    /** Maximo de candidatos geo para el endpoint con conteo/paginacion. */
+    @Value("${patiperro.paseadores.cercanos.max-geo-prefetch-con-conteo:2000}")
+    private int maxGeoPrefetchConConteo;
+
+    private static final String SQL_CERCANOS_TOP = """
             SELECT * FROM (
                 SELECT p.id_paseador AS id_paseador,
                     (6371.0 * acos(GREATEST(-1.0, LEAST(1.0,
@@ -52,7 +72,7 @@ public class PaseadorBusquedaService {
                         + sin(radians(:latRef)) * sin(radians(d.latitud))
                     )))) AS distancia_km,
                     c.radio_cobertura AS radio_cobertura,
-                    d.latitud AS latitud,     -- AGREGA ESTA LÍNEA
+                    d.latitud AS latitud,
                     d.longitud AS longitud
                 FROM paseador p
                 INNER JOIN direccion d ON p.direccion_id_direccion = d.id_direccion
@@ -63,7 +83,7 @@ public class PaseadorBusquedaService {
             ) t
             WHERE t.distancia_km <= LEAST(t.radio_cobertura::double precision, :radioMaxKm)
             ORDER BY t.distancia_km ASC
-            LIMIT :limite
+            LIMIT :limiteMax
             """;
 
     @PersistenceContext
@@ -89,47 +109,69 @@ public class PaseadorBusquedaService {
             Integer idEstadoBloqueDisponible) {
 
         validarCoordenadas(latitudReferencia, longitudReferencia);
-        if (radioBusquedaMaxKm <= 0 || radioBusquedaMaxKm > 500) {
-            throw new IllegalArgumentException("radioBusquedaMaxKm debe estar entre 0 exclusivo y 500");
-        }
-        int limiteSeguro = Math.min(Math.max(limite, 1), 100);
+        validarRadioBusquedaMaxKm(radioBusquedaMaxKm);
+        int limiteSeguro = normalizarLimite(limite);
+        boolean agendaCompleto = validarFiltroAgenda(
+                fechaDisponibilidad,
+                horaInicioDisponibilidad,
+                horaFinDisponibilidad,
+                idEstadoBloqueDisponible);
 
-        boolean filtroAgenda = fechaDisponibilidad != null
-                || horaInicioDisponibilidad != null
-                || horaFinDisponibilidad != null
-                || idEstadoBloqueDisponible != null;
-        boolean agendaCompleto = fechaDisponibilidad != null
-                && horaInicioDisponibilidad != null
-                && horaFinDisponibilidad != null
-                && idEstadoBloqueDisponible != null;
-        if (filtroAgenda && !agendaCompleto) {
-            throw new IllegalArgumentException(
-                    "Para filtrar por agenda indique fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad e idEstadoBloqueDisponible");
-        }
-
-        Query query = entityManager.createNativeQuery(SQL_CERCANOS);
-        query.setParameter("latRef", latitudReferencia);
-        query.setParameter("lonRef", longitudReferencia);
-        query.setParameter("radioMaxKm", radioBusquedaMaxKm);
-        query.setParameter("limite", limiteSeguro);
-
-        @SuppressWarnings("unchecked")
-        List<Object[]> filas = query.getResultList();
-
-        List<CandidatoGeo> candidatos = new ArrayList<>();
-        for (Object[] cols : filas) {
-            long id = ((Number) cols[0]).longValue();
-            double dist = ((Number) cols[1]).doubleValue();
-            BigDecimal radio = cols[2] != null ? new BigDecimal(cols[2].toString()) : null;
-            // 1. Extraemos las nuevas columnas del Object[]
-            double lat = ((Number) cols[3]).doubleValue(); 
-            double lon = ((Number) cols[4]).doubleValue();
-
-            // 2. Pasamos los 5 parámetros al constructor (ahora sí estará definido)
-            candidatos.add(new CandidatoGeo(id, dist, radio, lat, lon));
-        }
+        boolean filtroAgenda = agendaCompleto || filtrarDisponibleDesdeHoyCercanos;
+        int limiteSql = calcularLimiteSqlGeo(limiteSeguro, filtroAgenda);
+        List<CandidatoGeo> candidatos = consultarCandidatosGeo(latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteSql);
 
         // Intersección geo ∩ agenda; la resta "disponibilidad − bloqueo día" vive en agenda-service.
+        if (agendaCompleto) {
+            List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponible(
+                    fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible);
+            candidatos = filtrarCandidatosPorIdsAgenda(candidatos, idsAgenda);
+        } else if (filtrarDisponibleDesdeHoyCercanos) {
+            // FUTURO: este modo filtra por "desde hoy en adelante" (agenda-service) y NO acota a "próximos 7 días".
+            // Para cumplir estrictamente 7 días, agenda-service debería permitir limitar la ventana (p.ej. hastaFecha o dias=7).
+            List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponibleDesdeHoy(
+                    idEstadoBloqueDisponibleParaCercanos);
+            candidatos = filtrarCandidatosPorIdsAgenda(candidatos, idsAgenda);
+        }
+
+        if (candidatos.isEmpty()) {
+            return List.of();
+        }
+
+        return mapearCercanosDesdeCandidatos(candidatos, limiteSeguro);
+    }
+
+    /**
+     * Variante que entrega conteo real de paseadores que cumplen filtros, además de paginación.
+     * No altera el contrato del endpoint existente; pensada para un endpoint nuevo.
+     */
+    @Transactional(readOnly = true)
+    public PaseadorCercanosConConteoResponseDTO buscarCercanosConConteo(
+            double latitudReferencia,
+            double longitudReferencia,
+            double radioBusquedaMaxKm,
+            int offset,
+            int limit,
+            LocalDate fechaDisponibilidad,
+            LocalDateTime horaInicioDisponibilidad,
+            LocalDateTime horaFinDisponibilidad,
+            Integer idEstadoBloqueDisponible) {
+
+        validarCoordenadas(latitudReferencia, longitudReferencia);
+        validarRadioBusquedaMaxKm(radioBusquedaMaxKm);
+        int offsetSeguro = normalizarOffset(offset);
+        int limitSeguro = normalizarLimite(limit);
+        boolean agendaCompleto = validarFiltroAgenda(
+                fechaDisponibilidad,
+                horaInicioDisponibilidad,
+                horaFinDisponibilidad,
+                idEstadoBloqueDisponible);
+
+        // 1) Traer candidatos geo (capados) para poder contar sin paginar la DB.
+        int limiteGeo = capGeoSql(Math.max(Math.max(1, maxGeoPrefetchConConteo), offsetSeguro + limitSeguro));
+        List<CandidatoGeo> candidatos = consultarCandidatosGeo(latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteGeo);
+
+        // 2) Aplicar filtros de disponibilidad.
         if (agendaCompleto) {
             List<Integer> idsAgenda = agendaDisponibilidadClient.idsConBloqueDisponible(
                     fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible);
@@ -140,12 +182,96 @@ public class PaseadorBusquedaService {
             candidatos = filtrarCandidatosPorIdsAgenda(candidatos, idsAgenda);
         }
 
-        if (candidatos.isEmpty()) {
-            return List.of();
+        int total = candidatos.size();
+        if (total == 0) {
+            return PaseadorCercanosConConteoResponseDTO.builder()
+                    .totalDisponibles(0)
+                    .offset(offsetSeguro)
+                    .limit(limitSeguro)
+                    .resultados(List.of())
+                    .build();
         }
 
-        List<Long> idsOrdenados = candidatos.stream().map(c -> c.idPaseador).toList();
-        Map<Long, CandidatoGeo> porId = candidatos.stream()
+        // 3) Paginación en memoria sobre candidatos ordenados por distancia.
+        int desde = Math.min(offsetSeguro, total);
+        int hasta = Math.min(desde + limitSeguro, total);
+        List<CandidatoGeo> pagina = candidatos.subList(desde, hasta);
+
+        List<Long> idsOrdenados = pagina.stream().map(c -> c.idPaseador).toList();
+        Map<Long, CandidatoGeo> porId = pagina.stream()
+                .collect(Collectors.toMap(CandidatoGeo::idPaseador, c -> c, (a, b) -> a, LinkedHashMap::new));
+
+        Map<Long, Paseador> entidades = paseadorRepository.findAllById(idsOrdenados).stream()
+                .collect(Collectors.toMap(Paseador::getId, p -> p));
+
+        List<PaseadorCercanoResponseDTO> resultados = new ArrayList<>();
+        for (Long id : idsOrdenados) {
+            Paseador p = entidades.get(id);
+            if (p == null) continue;
+            CandidatoGeo cg = porId.get(id);
+            resultados.add(PaseadorCercanoResponseDTO.builder()
+                    .idPaseador(p.getId())
+                    .nombreCompleto(nombrePublico(p))
+                    .fotoPerfil(p.getFotoPerfil())
+                    .biografia(p.getBiografia())
+                    .distanciaKm(cg.distanciaKm())
+                    .radioCoberturaKm(cg.radioCoberturaKm())
+                    .latitud(cg.latitud())
+                    .longitud(cg.longitud())
+                    .build());
+        }
+
+        return PaseadorCercanosConConteoResponseDTO.builder()
+                .totalDisponibles(total)
+                .offset(offsetSeguro)
+                .limit(limitSeguro)
+                .resultados(resultados)
+                .build();
+    }
+
+    private List<CandidatoGeo> consultarCandidatosGeo(
+            double latitudReferencia,
+            double longitudReferencia,
+            double radioBusquedaMaxKm,
+            int limiteMax) {
+        int limiteSql = capGeoSql(limiteMax);
+        Query query = entityManager.createNativeQuery(SQL_CERCANOS_TOP);
+        query.setParameter("latRef", latitudReferencia);
+        query.setParameter("lonRef", longitudReferencia);
+        query.setParameter("radioMaxKm", radioBusquedaMaxKm);
+        query.setParameter("limiteMax", limiteSql);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> filas = query.getResultList();
+
+        List<CandidatoGeo> candidatos = new ArrayList<>();
+        for (Object[] cols : filas) {
+            long id = ((Number) cols[0]).longValue();
+            double dist = ((Number) cols[1]).doubleValue();
+            BigDecimal radio = cols[2] != null ? new BigDecimal(cols[2].toString()) : null;
+            double lat = cols[3] != null ? ((Number) cols[3]).doubleValue() : Double.NaN;
+            double lon = cols[4] != null ? ((Number) cols[4]).doubleValue() : Double.NaN;
+            candidatos.add(new CandidatoGeo(id, dist, radio, lat, lon));
+        }
+        return candidatos;
+    }
+
+    private int calcularLimiteSqlGeo(int limiteSeguro, boolean filtroAgenda) {
+        if (!filtroAgenda) {
+            return capGeoSql(limiteSeguro);
+        }
+        return capGeoSql(Math.max(limiteSeguro, Math.max(1, maxGeoPrefetchConAgenda)));
+    }
+
+    private static int capGeoSql(int limite) {
+        return Math.min(Math.max(limite, 1), GEO_SQL_HARD_CAP);
+    }
+
+    private List<PaseadorCercanoResponseDTO> mapearCercanosDesdeCandidatos(List<CandidatoGeo> candidatos, int limiteSeguro) {
+        List<CandidatoGeo> pagina = candidatos.size() <= limiteSeguro ? candidatos : candidatos.subList(0, limiteSeguro);
+
+        List<Long> idsOrdenados = pagina.stream().map(CandidatoGeo::idPaseador).toList();
+        Map<Long, CandidatoGeo> porId = pagina.stream()
                 .collect(Collectors.toMap(CandidatoGeo::idPaseador, c -> c, (a, b) -> a, LinkedHashMap::new));
 
         Map<Long, Paseador> entidades = paseadorRepository.findAllById(idsOrdenados).stream()
@@ -158,8 +284,6 @@ public class PaseadorBusquedaService {
                 continue;
             }
             CandidatoGeo cg = porId.get(id);
-            
-            // AGREGAMOS .latitud() y .longitud() al builder
             salida.add(PaseadorCercanoResponseDTO.builder()
                     .idPaseador(p.getId())
                     .nombreCompleto(nombrePublico(p))
@@ -167,11 +291,70 @@ public class PaseadorBusquedaService {
                     .biografia(p.getBiografia())
                     .distanciaKm(cg.distanciaKm())
                     .radioCoberturaKm(cg.radioCoberturaKm())
-                    .latitud(cg.latitud())   // <--- ESTA LÍNEA FALTA
-                    .longitud(cg.longitud()) // <--- ESTA LÍNEA FALTA
+                    .latitud(cg.latitud())
+                    .longitud(cg.longitud())
                     .build());
         }
         return salida;
+    }
+
+    private static void validarRadioBusquedaMaxKm(double radioBusquedaMaxKm) {
+        if (Double.isNaN(radioBusquedaMaxKm) || Double.isInfinite(radioBusquedaMaxKm)) {
+            throw new IllegalArgumentException(
+                    "Parametro invalido: radioBusquedaMaxKm debe ser un numero finito (recibido=" + radioBusquedaMaxKm + ")");
+        }
+        if (radioBusquedaMaxKm <= RADIO_MIN_EXCLUSIVO_KM || radioBusquedaMaxKm > RADIO_MAX_KM) {
+            throw new IllegalArgumentException(
+                    "Parametro invalido: radioBusquedaMaxKm debe estar en (" + RADIO_MIN_EXCLUSIVO_KM + ", " + RADIO_MAX_KM + "] km"
+                            + " (recibido=" + radioBusquedaMaxKm + ")");
+        }
+    }
+
+    private static int normalizarLimite(int limite) {
+        if (limite < LIMITE_MIN) {
+            return LIMITE_MIN;
+        }
+        return Math.min(limite, LIMITE_MAX);
+    }
+
+    private static int normalizarOffset(int offset) {
+        if (offset < OFFSET_MIN) {
+            return OFFSET_MIN;
+        }
+        return offset;
+    }
+
+    /**
+     * Valida el filtro por agenda como un "modo" independiente. Si se indica cualquier parámetro,
+     * se exige el set completo para evitar combinaciones ambiguas.
+     *
+     * @return true si el filtro de agenda está completo y debe aplicarse.
+     */
+    private static boolean validarFiltroAgenda(
+            LocalDate fechaDisponibilidad,
+            LocalDateTime horaInicioDisponibilidad,
+            LocalDateTime horaFinDisponibilidad,
+            Integer idEstadoBloqueDisponible) {
+        boolean hayAlguno = fechaDisponibilidad != null
+                || horaInicioDisponibilidad != null
+                || horaFinDisponibilidad != null
+                || idEstadoBloqueDisponible != null;
+        if (!hayAlguno) {
+            return false;
+        }
+        boolean completo = fechaDisponibilidad != null
+                && horaInicioDisponibilidad != null
+                && horaFinDisponibilidad != null
+                && idEstadoBloqueDisponible != null;
+        if (!completo) {
+            throw new IllegalArgumentException(
+                    "Filtro agenda incompleto. Debe indicar: fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible"
+                            + " (recibido: fechaDisponibilidad=" + fechaDisponibilidad
+                            + ", horaInicioDisponibilidad=" + horaInicioDisponibilidad
+                            + ", horaFinDisponibilidad=" + horaFinDisponibilidad
+                            + ", idEstadoBloqueDisponible=" + idEstadoBloqueDisponible + ")");
+        }
+        return true;
     }
 
     private static List<CandidatoGeo> filtrarCandidatosPorIdsAgenda(
@@ -184,10 +367,12 @@ public class PaseadorBusquedaService {
 
     private static void validarCoordenadas(double lat, double lon) {
         if (lat < -90 || lat > 90) {
-            throw new IllegalArgumentException("latitudReferencia debe estar entre -90 y 90");
+            throw new IllegalArgumentException(
+                    "Parametro invalido: latitudReferencia debe estar entre -90 y 90 (recibido=" + lat + ")");
         }
         if (lon < -180 || lon > 180) {
-            throw new IllegalArgumentException("longitudReferencia debe estar entre -180 y 180");
+            throw new IllegalArgumentException(
+                    "Parametro invalido: longitudReferencia debe estar entre -180 y 180 (recibido=" + lon + ")");
         }
     }
 

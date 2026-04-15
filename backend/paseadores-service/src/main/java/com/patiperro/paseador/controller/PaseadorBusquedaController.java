@@ -1,6 +1,7 @@
 package com.patiperro.paseador.controller;
 
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
+import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorBusquedaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -21,15 +22,21 @@ public class PaseadorBusquedaController {
     private final PaseadorBusquedaService paseadorBusquedaService;
 
     /**
-     * Paseadores cuyo punto (direccion) esta dentro de {@code LEAST(radio_cobertura, radioBusquedaMaxKm)} km
-     * respecto al punto de referencia. Opcionalmente filtra por disponibilidad en agenda-service.
+     * Búsqueda pública de paseadores cercanos.
+     *
+     * Modos soportados:
+     * - Solo geográfico: latitudReferencia, longitudReferencia, radioBusquedaMaxKm (opcional), limite (opcional).
+     * - Geográfico + disponibilidad (agenda-service): se deben indicar los 4 parámetros de agenda
+     *   (fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible).
+     *
+     * El radio efectivo es {@code LEAST(radio_cobertura_del_paseador, radioBusquedaMaxKm)}.
      */
     @GetMapping("/cercanos")
     public List<PaseadorCercanoResponseDTO> listarCercanos(
             @RequestParam double latitudReferencia,
             @RequestParam double longitudReferencia,
-            @RequestParam(defaultValue = "50") double radioBusquedaMaxKm,
-            @RequestParam(defaultValue = "50") int limite,
+            @RequestParam(defaultValue = "10") double radioBusquedaMaxKm,
+            @RequestParam(defaultValue = "20") int limite,
             @RequestParam(required = false) LocalDate fechaDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaInicioDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaFinDisponibilidad,
@@ -39,6 +46,35 @@ public class PaseadorBusquedaController {
                 longitudReferencia,
                 radioBusquedaMaxKm,
                 limite,
+                fechaDisponibilidad,
+                horaInicioDisponibilidad,
+                horaFinDisponibilidad,
+                idEstadoBloqueDisponible);
+    }
+
+    /**
+     * Variante con conteo real + paginación por offset/limit.
+     * Mantiene el endpoint /cercanos intacto para compatibilidad con el frontend actual.
+     */
+    @GetMapping("/cercanos-con-conteo")
+    public PaseadorCercanosConConteoResponseDTO listarCercanosConConteo(
+            @RequestParam double latitudReferencia,
+            @RequestParam double longitudReferencia,
+            @RequestParam(defaultValue = "10") double radioBusquedaMaxKm,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(name = "limite", required = false) Integer limite,
+            @RequestParam(required = false) LocalDate fechaDisponibilidad,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaInicioDisponibilidad,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaFinDisponibilidad,
+            @RequestParam(required = false) Integer idEstadoBloqueDisponible) {
+        int limitEfectivo = limite != null ? limite : limit;
+        return paseadorBusquedaService.buscarCercanosConConteo(
+                latitudReferencia,
+                longitudReferencia,
+                radioBusquedaMaxKm,
+                offset,
+                limitEfectivo,
                 fechaDisponibilidad,
                 horaInicioDisponibilidad,
                 horaFinDisponibilidad,
