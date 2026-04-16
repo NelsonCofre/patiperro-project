@@ -1,0 +1,178 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.modal {
+  width: min(560px, 100%);
+  padding: 26px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.acceptEyebrow,
+.rejectEyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acceptEyebrow {
+  color: #24512d;
+  border: 1px solid #cfe7d2;
+  background: #eaf7ec;
+}
+
+.rejectEyebrow {
+  color: #8a261f;
+  border: 1px solid #f0c7c2;
+  background: #fff1ef;
+}
+
+.modal h2 {
+  margin: 16px 0 10px;
+  color: #163020;
+  font-size: clamp(1.8rem, 4vw, 2.35rem);
+  line-height: 1.08;
+}
+
+.modal p {
+  margin: 0;
+  color: #586673;
+  line-height: 1.7;
+}
+
+.rejectFields {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.rejectFields label {
+  display: grid;
+  gap: 8px;
+  color: #183123;
+  font-weight: 900;
+}
+
+.rejectFields select,
+.rejectFields textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d8e7da;
+  border-radius: 8px;
+  color: #243447;
+  font: inherit;
+  background: #fbfefb;
+}
+
+.rejectFields select {
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+.rejectFields textarea {
+  min-height: 112px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.rejectFields select:focus,
+.rejectFields textarea:focus {
+  outline: 3px solid rgba(154, 210, 161, 0.32);
+  border-color: #91c99a;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.acceptButton,
+.rejectButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.acceptButton {
+  color: #ffffff;
+  border: none;
+  background: #2f7d35;
+}
+
+.rejectButton {
+  color: #ffffff;
+  border: none;
+  background: #b7392f;
+}
+
+.secondaryButton {
+  color: #2d4d38;
+  border: 1px solid #d8e7da;
+  background: #ffffff;
+}
+
+.acceptButton:disabled,
+.rejectButton:disabled,
+.secondaryButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.36);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 12px;
+  }
+
+  .modal {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .acceptButton,
+  .rejectButton,
+  .secondaryButton {
+    width: 100%;
+  }
+}
