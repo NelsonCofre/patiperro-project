@@ -43,6 +43,10 @@ public class Reserva {
     @Column(name = "fecha_solicitud", nullable = false)
     private LocalDateTime fechaSolicitud;
 
+    /** Instantánea cuando el paseador acepta (línea de tiempo tutor). */
+    @Column(name = "fecha_aceptacion")
+    private LocalDateTime fechaAceptacion;
+
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
 

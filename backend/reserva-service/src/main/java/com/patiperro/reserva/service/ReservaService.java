@@ -1,6 +1,7 @@
 package com.patiperro.reserva.service;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.PaseadorDecision;
 import com.patiperro.reserva.dto.ReservaDtoMapper;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
@@ -15,7 +16,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +53,7 @@ public class ReservaService {
         r.setIdAgendaBloque(dto.getIdAgendaBloque());
         r.setIdTarifa(dto.getIdTarifa());
         r.setFechaSolicitud(dto.getFechaSolicitud());
+        r.setFechaAceptacion(dto.getFechaAceptacion());
         r.setMontoTotal(dto.getMontoTotal());
         r.setIdPago(dto.getIdPago());
         r.setEstadoReserva(estado);
@@ -69,6 +75,7 @@ public class ReservaService {
         r.setIdAgendaBloque(dto.getIdAgendaBloque());
         r.setIdTarifa(dto.getIdTarifa());
         r.setFechaSolicitud(dto.getFechaSolicitud());
+        r.setFechaAceptacion(dto.getFechaAceptacion());
         r.setMontoTotal(dto.getMontoTotal());
         r.setIdPago(dto.getIdPago());
         r.setEstadoReserva(estado);
@@ -86,6 +93,7 @@ public class ReservaService {
         validarTransicionPaseador(actual, nuevo);
 
         r.setEstadoReserva(nuevo);
+        aplicarMarcaTiempoTransicion(r, nuevo);
         Reserva saved = reservaRepository.save(r);
 
         if (esEstadoRechazada(nuevo)) {
@@ -113,8 +121,11 @@ public class ReservaService {
         if (idsAgendaBloque == null || idsAgendaBloque.isEmpty()) {
             return false; // No hay bloques para validar //
         }
-        // IDs de estados comprometidos (ej: 2=Pagado, 3=Confirmado, 4=En Curso) //
-        List<Integer> estadosComprometidos = List.of(2, 3, 4); 
+        // Reserva que aún retiene el bloque: solicitada, aceptada o en curso (no rechazada ni finalizada).
+        List<Integer> estadosComprometidos = List.of(
+                EstadoReservaCatalogo.ID_SOLICITADA,
+                EstadoReservaCatalogo.ID_ACEPTADA,
+                EstadoReservaCatalogo.ID_EN_CURSO);
         
         // Ejecuta la consulta de existencia en el repositorio //
         return reservaRepository.existsByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
@@ -123,11 +134,50 @@ public class ReservaService {
         );
     }
 
-    public List<ReservaResponseDTO> listarPorTutor(Integer idTutorUsuario) {
-        return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
-                .map(ReservaDtoMapper::toReservaResponse)
+    /**
+     * Listado del tutor: con integración a agenda activa, ordena por inicio programado del bloque
+     * (futuras primero ascendente, luego pasadas descendente) y exige JWT del tutor.
+     * Sin integración, devuelve el listado sin ordenar por bloque.
+     */
+    public List<ReservaResponseDTO> listarPorTutor(Integer idTutorUsuario, String rawJwt) {
+        List<Reserva> reservas = reservaRepository.findByIdTutorUsuario(idTutorUsuario);
+        if (!agendaIntegracionClient.isEnabled()) {
+            return reservas.stream()
+                    .map(ReservaDtoMapper::toReservaResponse)
+                    .toList();
+        }
+        validarTutorJwt(idTutorUsuario, rawJwt);
+        LocalDateTime ahora = LocalDateTime.now();
+        List<ReservaConInicio> conInicio = new ArrayList<>(reservas.size());
+        for (Reserva r : reservas) {
+            AgendaBloqueReservaClientDTO bloque =
+                    agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            conInicio.add(new ReservaConInicio(r, resolverInicioPaseo(r, bloque), bloque));
+        }
+        List<ReservaConInicio> futuras = conInicio.stream()
+                .filter(x -> !x.inicio().isBefore(ahora))
+                .sorted(Comparator.comparing(ReservaConInicio::inicio))
+                .toList();
+        List<ReservaConInicio> pasadas = conInicio.stream()
+                .filter(x -> x.inicio().isBefore(ahora))
+                .sorted(Comparator.comparing(ReservaConInicio::inicio).reversed())
+                .toList();
+        return Stream.concat(futuras.stream(), pasadas.stream())
+                .map(x -> ReservaDtoMapper.toReservaResponse(x.reserva(), x.bloque()))
                 .toList();
     }
+
+    private static LocalDateTime resolverInicioPaseo(Reserva reserva, AgendaBloqueReservaClientDTO bloque) {
+        if (bloque.getHoraInicio() != null) {
+            return bloque.getHoraInicio();
+        }
+        if (bloque.getFecha() != null) {
+            return bloque.getFecha().atStartOfDay();
+        }
+        return reserva.getFechaSolicitud();
+    }
+
+    private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {}
 
     public List<ReservaResponseDTO> listarPorMascota(Integer idMascota) {
         return reservaRepository.findByIdMascota(idMascota).stream()
@@ -177,9 +227,12 @@ public class ReservaService {
     }
 
     private EstadoReserva buscarEstadoPorDecision(PaseadorDecision decision) {
-        String nombre = decision == PaseadorDecision.ACEPTAR
-                ? EstadoReservaCatalogo.NOMBRE_ACEPTADA
-                : EstadoReservaCatalogo.NOMBRE_RECHAZADA;
+        String nombre = switch (decision) {
+            case ACEPTAR -> EstadoReservaCatalogo.NOMBRE_ACEPTADA;
+            case RECHAZAR -> EstadoReservaCatalogo.NOMBRE_RECHAZADA;
+            case INICIAR_PASEO -> EstadoReservaCatalogo.NOMBRE_EN_CURSO;
+            case FINALIZAR_PASEO -> EstadoReservaCatalogo.NOMBRE_FINALIZADA;
+        };
         return estadoReservaService.obtenerPorNombreIgnoreCase(nombre);
     }
 
@@ -196,15 +249,75 @@ public class ReservaService {
     }
 
     private void validarTransicionPaseador(EstadoReserva actual, EstadoReserva nuevo) {
-        if (actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
+        if (actual.getIdEstadoReserva() != null
+                && nuevo.getIdEstadoReserva() != null
+                && actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
             return;
         }
-        String an = actual.getNombreEstado() == null ? "" : actual.getNombreEstado().toLowerCase();
-        boolean desdePendiente = an.contains("pend") || an.contains("solicit") || an.contains("espera");
-        if (!desdePendiente) {
-            throw new IllegalArgumentException(
-                    "Solo se puede aceptar o rechazar desde estado pendiente o solicitada");
+        if (esSolicitada(actual)) {
+            if (esAceptada(nuevo) || esRechazada(nuevo)) {
+                return;
+            }
+            throw new IllegalArgumentException("Desde SOLICITADA solo se permite ACEPTADA o RECHAZADA");
         }
+        if (esAceptada(actual)) {
+            if (esEnCurso(nuevo)) {
+                return;
+            }
+            throw new IllegalArgumentException("Desde ACEPTADA solo se permite EN_CURSO");
+        }
+        if (esEnCurso(actual)) {
+            if (esFinalizada(nuevo)) {
+                return;
+            }
+            throw new IllegalArgumentException("Desde EN_CURSO solo se permite FINALIZADA");
+        }
+        throw new IllegalArgumentException("Transición de estado no permitida para el paseador");
+    }
+
+    private void aplicarMarcaTiempoTransicion(Reserva r, EstadoReserva nuevo) {
+        LocalDateTime ahora = LocalDateTime.now();
+        if (esAceptada(nuevo) && r.getFechaAceptacion() == null) {
+            r.setFechaAceptacion(ahora);
+        }
+        if (esEnCurso(nuevo) && r.getFechaInicioReal() == null) {
+            r.setFechaInicioReal(ahora);
+        }
+        if (esFinalizada(nuevo) && r.getFechaFin() == null) {
+            r.setFechaFin(ahora);
+        }
+    }
+
+    private static boolean coincideIdONombre(EstadoReserva e, int idEsperado, String nombreEsperado) {
+        if (e == null) {
+            return false;
+        }
+        Integer id = e.getIdEstadoReserva();
+        if (id != null && id.equals(idEsperado)) {
+            return true;
+        }
+        String n = e.getNombreEstado();
+        return n != null && n.trim().equalsIgnoreCase(nombreEsperado);
+    }
+
+    private static boolean esSolicitada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_SOLICITADA, EstadoReservaCatalogo.NOMBRE_SOLICITADA);
+    }
+
+    private static boolean esAceptada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_ACEPTADA, EstadoReservaCatalogo.NOMBRE_ACEPTADA);
+    }
+
+    private static boolean esRechazada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_RECHAZADA, EstadoReservaCatalogo.NOMBRE_RECHAZADA);
+    }
+
+    private static boolean esEnCurso(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_EN_CURSO, EstadoReservaCatalogo.NOMBRE_EN_CURSO);
+    }
+
+    private static boolean esFinalizada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_FINALIZADA, EstadoReservaCatalogo.NOMBRE_FINALIZADA);
     }
 
     private Reserva obtenerEntidad(Integer id) {

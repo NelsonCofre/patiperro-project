@@ -1,5 +1,6 @@
 package com.patiperro.reserva.controller;
 
+import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.service.ReservaService;
@@ -7,7 +8,6 @@ import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -46,9 +46,16 @@ public class ReservaController {
     // CRUD Y LISTADOS EXISTENTES
     // =========================================================================
 
+    /**
+     * Listado del tutor. Con integración a agenda activa requiere JWT del tutor
+     * (misma extracción que crear/actualizar) para consultar bloques y ordenar.
+     */
     @GetMapping("/tutor/{idTutorUsuario}")
-    public List<ReservaResponseDTO> listarPorTutor(@PathVariable Integer idTutorUsuario) {
-        return service.listarPorTutor(idTutorUsuario);
+    public List<ReservaResponseDTO> listarPorTutor(
+            @PathVariable Integer idTutorUsuario,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarPorTutor(idTutorUsuario, jwt);
     }
 
     @GetMapping("/mascota/{idMascota}")
