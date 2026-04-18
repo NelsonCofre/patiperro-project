@@ -5,6 +5,7 @@ import styles from "./TutorNavbar.module.css";
 
 const NAV_ITEMS = [
   { label: "Inicio", to: "/tutor/dashboard", end: true },
+  { label: "Mis Reservas", to: "/tutor/reservas" },
   { label: "Anadir Mascota", to: "/tutor/mascota/nueva" }
 ];
 

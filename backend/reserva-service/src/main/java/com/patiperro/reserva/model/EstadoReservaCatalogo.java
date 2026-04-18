@@ -15,7 +15,7 @@ public final class EstadoReservaCatalogo {
     public static final String NOMBRE_SOLICITADA = "SOLICITADA";
     public static final String NOMBRE_ACEPTADA = "ACEPTADA";
     public static final String NOMBRE_RECHAZADA = "RECHAZADA";
-    public static final String NOMBRE_EN_CURSO = "EN_CURSO";
+    public static final String NOMBRE_EN_CURSO = "EN CURSO";
     public static final String NOMBRE_FINALIZADA = "FINALIZADA";
 
     private EstadoReservaCatalogo() {

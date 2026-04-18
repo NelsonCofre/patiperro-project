@@ -1,6 +1,7 @@
 package com.patiperro.paseador.controller;
 
 import com.patiperro.paseador.user.dto.ConfiguracionPaseadorResponseDTO;
+import com.patiperro.paseador.user.dto.PaseadorResumenResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorConfiguracionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,5 +19,10 @@ public class PaseadorConfiguracionPublicController {
     @GetMapping("/{idPaseador}/configuracion")
     public ConfiguracionPaseadorResponseDTO obtenerConfiguracionPublica(@PathVariable Long idPaseador) {
         return configuracionService.getConfiguracionPublicaByPaseadorId(idPaseador);
+    }
+
+    @GetMapping("/{idPaseador}/resumen")
+    public PaseadorResumenResponseDTO obtenerResumenPublico(@PathVariable Long idPaseador) {
+        return configuracionService.getResumenPublicoByPaseadorId(idPaseador);
     }
 }

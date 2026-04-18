@@ -5,9 +5,10 @@ import { usePaseadorAgendaApi } from "../../hooks/usePaseadorAgendaApi";
 import { MAX_WEEKS_AHEAD } from "../../utils/agendaWeekUtils";
 import styles from "./PaseadorAgenda.module.css";
 
-const TIMELINE_START_MINUTES = 7 * 60;
-const TIMELINE_HEIGHT = 780;
-const MINUTES_RANGE = 14 * 60;
+const TIMELINE_START_MINUTES = 6 * 60;
+const TIMELINE_HOUR_HEIGHT = 52;
+const TIMELINE_HEIGHT = 16 * TIMELINE_HOUR_HEIGHT;
+const MINUTES_RANGE = 16 * 60;
 
 function getBlockStyle(startMinutes: number, endMinutes: number) {
   const top = ((startMinutes - TIMELINE_START_MINUTES) / MINUTES_RANGE) * TIMELINE_HEIGHT;
@@ -15,7 +16,7 @@ function getBlockStyle(startMinutes: number, endMinutes: number) {
 
   return {
     top: `${top}px`,
-    height: `${Math.max(height, 56)}px`
+    height: `${height}px`
   };
 }
 
@@ -251,17 +252,17 @@ export default function PaseadorAgenda() {
       <section className={styles.hero}>
         <div className={styles.heroContent}>
           <p className={styles.eyebrow}>Mi Agenda</p>
-          <h1 className={styles.title}>Calendario semanal y dias no disponibles</h1>
+          <h1 className={styles.title}>Agenda semanal</h1>
           <p className={styles.description}>
-            Navega la semana visible, crea bloques horarios y bloquea fechas concretas
-            por motivos personales para diferenciar claramente tu disponibilidad.
+            Organiza tus bloques disponibles, revisa el dia activo y bloquea fechas
+            donde no podras aceptar paseos.
           </p>
 
           <div className={styles.heroRibbon}>
-            <span className={styles.heroRibbonTag}>Agenda ampliada</span>
+            <span className={styles.heroRibbonTag}>Gestion diaria</span>
             <p>
-              Los dias bloqueados se pintan distinto y ocultan los bloques horarios del
-              dia en la linea de tiempo actual.
+              Los dias bloqueados quedan marcados en la semana y la linea de tiempo se
+              enfoca solo en la disponibilidad real del dia seleccionado.
             </p>
           </div>
         </div>
@@ -274,7 +275,7 @@ export default function PaseadorAgenda() {
               ? "Cargando catalogos de agenda..."
               : catalogError
                 ? catalogError
-                : `${allBlocks.length} bloque(s) reales · ${blockedRanges.length} bloqueo(s) locales por fecha`}
+                : `${allBlocks.length} bloque(s) reales - ${blockedRanges.length} bloqueo(s) locales por fecha`}
           </p>
         </div>
       </section>
@@ -284,7 +285,7 @@ export default function PaseadorAgenda() {
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.cardEyebrow}>Calendario</p>
-              <h2>Semana visible y linea de tiempo del dia</h2>
+              <h2>Semana visible</h2>
             </div>
             <span className={styles.emptyChip}>Lunes a domingo</span>
           </div>
@@ -317,9 +318,8 @@ export default function PaseadorAgenda() {
           </div>
 
           <p className={styles.supportText}>
-            Pulsa una fecha visible para revisar sus bloques. Si la fecha esta bloqueada,
-            aparecera marcada como <strong>No disponible</strong> y la linea de tiempo
-            ocultara los bloques de ese dia.
+            Elige una fecha para revisar sus bloques. Si el dia esta bloqueado, se
+            mostrara como <strong>No disponible</strong> y no se ofreceran horarios.
           </p>
 
           <div className={styles.dayTabs} role="tablist" aria-label="Dias de la semana visible">
@@ -347,7 +347,7 @@ export default function PaseadorAgenda() {
               <div>
                 <p className={styles.cardEyebrow}>Dia seleccionado</p>
                 <h3>
-                  {selectedDayLabel} · {selectedISODate}
+                  {selectedDayLabel} - {selectedISODate}
                 </h3>
               </div>
               <span className={styles.timelineMeta}>
@@ -361,15 +361,19 @@ export default function PaseadorAgenda() {
 
             <div className={styles.timelineWrapper}>
               <div className={styles.timeColumn}>
-                {hourSlots.map((hour) => (
-                  <span key={hour} className={styles.timeLabel}>
+                {hourSlots.map((hour, index) => (
+                  <span
+                    key={hour}
+                    className={styles.timeLabel}
+                    style={{ top: `${index * TIMELINE_HOUR_HEIGHT}px` }}
+                  >
                     {hour}
                   </span>
                 ))}
               </div>
 
               <div className={`${styles.timelineLane} ${selectedDateBlocked ? styles.timelineLaneBlocked : ""}`}>
-                {hourSlots.map((hour) => (
+                {hourSlots.slice(0, -1).map((hour) => (
                   <div key={hour} className={styles.timeRow} />
                 ))}
 
@@ -391,11 +395,22 @@ export default function PaseadorAgenda() {
                       style={getBlockStyle(block.startMinutes, block.endMinutes)}
                     >
                       <div className={styles.blockHeader}>
-                        <strong>{block.title}</strong>
+                        <div className={styles.blockTitleGroup}>
+                          <span className={styles.blockStatusDot} aria-hidden="true" />
+                          <strong>{block.title}</strong>
+                        </div>
                         <span>{block.status === "booked" ? "Reservado" : "Disponible"}</span>
                       </div>
-                      <p>{`${block.startTime} - ${block.endTime}`}</p>
-                      <small>{block.durationLabel}</small>
+                      <div className={styles.blockBody}>
+                        <div>
+                          <small>Horario</small>
+                          <p>{`${block.startTime} - ${block.endTime}`}</p>
+                        </div>
+                        <div>
+                          <small>Duración</small>
+                          <p>{block.durationLabel}</p>
+                        </div>
+                      </div>
                       <div className={styles.blockActions}>
                         <button
                           type="button"
@@ -411,7 +426,7 @@ export default function PaseadorAgenda() {
                 ) : (
                   <div className={styles.emptyTimeline}>
                     <strong>Sin bloques este dia</strong>
-                    <p>Crea uno con el boton del panel lateral o bloquea la fecha completa.</p>
+                    <p>Crea un bloque desde el panel lateral o bloquea la fecha completa.</p>
                   </div>
                 )}
               </div>
@@ -423,8 +438,8 @@ export default function PaseadorAgenda() {
           <p className={styles.cardEyebrow}>Acciones</p>
           <h2>Gestionar disponibilidad y bloqueos</h2>
           <p className={styles.supportText}>
-            Puedes crear bloques reales en la API y, desde frontend, bloquear fechas
-            individuales o rangos usando <code>fecha_inicio</code> y <code>fecha_fin</code>.
+            Usa estas acciones para mantener tu agenda clara antes de recibir nuevas
+            solicitudes de paseo.
           </p>
 
           <div className={styles.summaryStack}>
@@ -459,8 +474,7 @@ export default function PaseadorAgenda() {
           </button>
 
           <p className={styles.helperText}>
-            Si la fecha activa esta bloqueada, la agenda la mostrara con estilo gris y
-            etiqueta de no disponibilidad.
+            Si bloqueas la fecha activa, quedara marcada como no disponible en el calendario.
           </p>
 
           <Link to="/paseador/dashboard" className={styles.secondaryLink}>

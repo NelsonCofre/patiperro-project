@@ -1,5 +1,6 @@
 import { API_ENDPOINTS, TUTOR_ID_SESSION_KEY } from "../../../config/api";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
+import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -83,6 +84,22 @@ export type ReservaCreatedDTO = {
   idTarifa: number;
   idEstadoReserva: number;
   nombreEstado: string;
+};
+
+type ReservaBasicaDTO = {
+  idReserva: number;
+  idTutorUsuario: number;
+  idMascota: number;
+  idAgendaBloque: number;
+  idTarifa?: number | null;
+  idEstadoReserva: number | null;
+  nombreEstado: string | null;
+  fechaSolicitud: string | null;
+  montoTotal: number | null;
+  idPago: number | null;
+  fechaInicioReal: string | null;
+  fechaFin: string | null;
+  codigoEncuentro: number | null;
 };
 
 export type TarifaConfiguracionPublicaDTO = {
@@ -197,4 +214,67 @@ export async function crearReservaTutor(payload: ReservaCreatePayload): Promise<
     throw new Error(readApiErrorMessage(data, "No se pudo crear la reserva."));
   }
   return data as ReservaCreatedDTO;
+}
+
+export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
+  const response = await fetch(API_ENDPOINTS.reserva.byTutorDetalle(idTutor), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJsonSafe(response);
+  if (response.ok) {
+    return Array.isArray(data) ? (data as ReservaTutorDetalleDTO[]) : [];
+  }
+
+  if (response.status === 404) {
+    return fetchReservasBasicasTutor(idTutor);
+  }
+
+  throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+}
+
+async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
+  const response = await fetch(API_ENDPOINTS.reserva.byTutor(idTutor), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+  }
+  if (!Array.isArray(data)) return [];
+
+  return (data as ReservaBasicaDTO[]).map((reserva) => ({
+    idReserva: reserva.idReserva,
+    idTutorUsuario: reserva.idTutorUsuario,
+    idMascota: reserva.idMascota,
+    mascotaNombre: `Mascota #${reserva.idMascota}`,
+    idAgendaBloque: reserva.idAgendaBloque,
+    idPaseador: null,
+    paseadorNombre: `Bloque agenda #${reserva.idAgendaBloque}`,
+    fecha: null,
+    horaInicio: null,
+    horaFinal: null,
+    montoTotal: reserva.montoTotal,
+    idPago: reserva.idPago,
+    idEstadoReserva: reserva.idEstadoReserva,
+    nombreEstado: reserva.nombreEstado,
+    fechaSolicitud: reserva.fechaSolicitud,
+    fechaInicioReal: reserva.fechaInicioReal,
+    fechaFin: reserva.fechaFin,
+    codigoEncuentro: reserva.codigoEncuentro
+  }));
+}
+
+export async function cancelarReservaTutor(idReserva: number): Promise<void> {
+  const response = await fetch(API_ENDPOINTS.reserva.byId(idReserva), {
+    method: "DELETE",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  if (response.status === 204) return;
+  const data = await parseJsonSafe(response);
+  throw new Error(readApiErrorMessage(data, "No se pudo cancelar la solicitud."));
 }

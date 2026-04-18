@@ -3,6 +3,7 @@ package com.patiperro.reserva.controller;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
+import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -56,6 +57,14 @@ public class ReservaController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return service.listarPorTutor(idTutorUsuario, jwt);
+    }
+
+    @GetMapping("/tutor/{idTutorUsuario}/detalle")
+    public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(
+            @PathVariable Integer idTutorUsuario,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarDetallePorTutor(idTutorUsuario, jwt);
     }
 
     @GetMapping("/mascota/{idMascota}")

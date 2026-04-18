@@ -11,6 +11,7 @@ import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/Pase
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
+import TutorReservas from "../features/tutor/pages/TutorReservas/TutorReservas";
 
 export default function AppRoutes() {
   return (
@@ -34,6 +35,7 @@ export default function AppRoutes() {
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />
       <Route path="/tutor/mascota/nueva" element={<AddMascota />} />
       <Route path="/tutor/solicitud-paseo" element={<SolicitudPaseo />} />
+      <Route path="/tutor/reservas" element={<TutorReservas />} />
       {/* Fallback para rutas desconocidas. */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

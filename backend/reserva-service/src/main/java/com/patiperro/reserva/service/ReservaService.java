@@ -2,16 +2,22 @@ package com.patiperro.reserva.service;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
+import com.patiperro.reserva.dto.AgendaBloqueResumenDTO;
+import com.patiperro.reserva.dto.MascotaResumenDTO;
 import com.patiperro.reserva.dto.PaseadorDecision;
+import com.patiperro.reserva.dto.PaseadorResumenDTO;
 import com.patiperro.reserva.dto.ReservaDtoMapper;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
+import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.security.JwtService;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
+import com.patiperro.reserva.support.MascotaIntegracionClient;
+import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +35,8 @@ public class ReservaService {
     private final ReservaRepository reservaRepository;
     private final EstadoReservaService estadoReservaService;
     private final AgendaIntegracionClient agendaIntegracionClient;
+    private final MascotaIntegracionClient mascotaIntegracionClient;
+    private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final JwtService jwtService;
 
     public List<ReservaResponseDTO> listarTodas() {
@@ -179,6 +187,27 @@ public class ReservaService {
 
     private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {}
 
+    public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(Integer idTutorUsuario, String rawJwt) {
+        validarTutorJwt(idTutorUsuario, rawJwt);
+        return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
+                .map(r -> toTutorDetalle(r, rawJwt))
+                .sorted((a, b) -> {
+                    LocalDateTime fechaA = a.getHoraInicio() != null ? a.getHoraInicio() : a.getFechaSolicitud();
+                    LocalDateTime fechaB = b.getHoraInicio() != null ? b.getHoraInicio() : b.getFechaSolicitud();
+                    if (fechaA == null && fechaB == null) {
+                        return 0;
+                    }
+                    if (fechaA == null) {
+                        return 1;
+                    }
+                    if (fechaB == null) {
+                        return -1;
+                    }
+                    return fechaA.compareTo(fechaB);
+                })
+                .toList();
+    }
+
     public List<ReservaResponseDTO> listarPorMascota(Integer idMascota) {
         return reservaRepository.findByIdMascota(idMascota).stream()
                 .map(ReservaDtoMapper::toReservaResponse)
@@ -246,6 +275,59 @@ public class ReservaService {
         }
         return estado.getNombreEstado() != null
                 && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
+    }
+
+    private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
+        AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
+        MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
+        PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
+        EstadoReserva estado = r.getEstadoReserva();
+
+        return new ReservaTutorDetalleResponseDTO(
+                r.getIdReserva(),
+                r.getIdTutorUsuario(),
+                r.getIdMascota(),
+                mascota != null && mascota.getNombre() != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
+                r.getIdAgendaBloque(),
+                bloque != null ? bloque.getIdUsuario() : null,
+                paseador != null && paseador.getNombreCompleto() != null && !paseador.getNombreCompleto().isBlank()
+                        ? paseador.getNombreCompleto()
+                        : bloque != null ? "Paseador #" + bloque.getIdUsuario() : "Paseador no disponible",
+                bloque != null ? bloque.getFecha() : null,
+                bloque != null ? bloque.getHoraInicio() : null,
+                bloque != null ? bloque.getHoraFinal() : null,
+                r.getMontoTotal(),
+                r.getIdPago(),
+                estado != null ? estado.getIdEstadoReserva() : null,
+                estado != null ? estado.getNombreEstado() : null,
+                r.getFechaSolicitud(),
+                r.getFechaInicioReal(),
+                r.getFechaFin(),
+                r.getCodigoEncuentro());
+    }
+
+    private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {
+        try {
+            return agendaIntegracionClient.obtenerBloque(idAgendaBloque, rawJwt);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private MascotaResumenDTO obtenerMascotaSeguro(Integer idMascota, String rawJwt) {
+        try {
+            return mascotaIntegracionClient.obtenerResumen(idMascota, rawJwt);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private PaseadorResumenDTO obtenerPaseadorSeguro(Integer idPaseador) {
+        try {
+            return paseadorIntegracionClient.obtenerResumen(idPaseador);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private void validarTransicionPaseador(EstadoReserva actual, EstadoReserva nuevo) {

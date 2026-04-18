@@ -1,0 +1,173 @@
+.card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #dce7dd;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.cardHeader,
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.statusSolicitada {
+  color: #7c4a03;
+  background: #fff3cf;
+  border: 1px solid #f2c45d;
+}
+
+.statusAceptada {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+}
+
+.statusEnCurso {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.statusFinalizada {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
+.statusRechazada {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.statusDesconocida {
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+
+.statusHelper,
+.reservaId {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.mainInfo {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mainInfo div {
+  padding: 14px;
+  border: 1px solid #e1ebe2;
+  border-radius: 8px;
+  background: #f8fbf8;
+}
+
+.mainInfo span {
+  display: block;
+  margin-bottom: 8px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mainInfo strong {
+  color: #183120;
+  font-size: 0.96rem;
+  line-height: 1.4;
+}
+
+.footer > span {
+  color: #183120;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.primaryButton,
+.secondaryButton,
+.warningButton {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.primaryButton {
+  border: none;
+  color: #ffffff;
+  background: #2f7d35;
+  box-shadow: 0 10px 20px rgba(47, 125, 53, 0.16);
+}
+
+.secondaryButton {
+  color: #2d4d38;
+  border: 1px solid #d8e7da;
+  background: #ffffff;
+}
+
+.warningButton {
+  color: #7c4a03;
+  border: 1px solid #f2c45d;
+  background: #fff8e6;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover,
+.warningButton:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 860px) {
+  .mainInfo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cardHeader,
+  .footer {
+    flex-direction: column;
+  }
+
+  .mainInfo {
+    grid-template-columns: 1fr;
+  }
+
+  .actions,
+  .actions button {
+    width: 100%;
+  }
+}
