@@ -8,7 +8,7 @@ const METRICS = [
   {
     label: "Paseos Realizados",
     value: "0",
-    helper: "Tu historial aparecera aqui cuando completes tu perfil."
+    helper: "Tu historial aparecerá aquí cuando completes tu perfil."
   },
   {
     label: "Calificacion Media",

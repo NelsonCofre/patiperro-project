@@ -1,0 +1,248 @@
+.card {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.34fr) minmax(0, 0.66fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #dce9dd;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 34px rgba(31, 41, 55, 0.06);
+}
+
+.photoColumn {
+  position: relative;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e1ebe2;
+  border-radius: 8px;
+  background: #eef7ef;
+}
+
+.petPhoto {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.content {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow,
+.detailsGrid span,
+.locationBox span {
+  color: #2f7d35;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header h3 {
+  margin: 6px 0 4px;
+  color: #163020;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.header p,
+.locationBox p,
+.comment {
+  margin: 0;
+  color: #586673;
+  line-height: 1.45;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d8e7da;
+  border-radius: 8px;
+  color: #24512d;
+  font-size: 0.84rem;
+  font-weight: 900;
+  background: #eaf7ec;
+  white-space: nowrap;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detailsGrid div {
+  padding: 10px 12px;
+  border: 1px solid #e1ebe2;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.detailsGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: #183123;
+  font-size: 0.98rem;
+}
+
+.locationBox,
+.comment {
+  padding: 10px 12px;
+  border: 1px solid #e1ebe2;
+  border-radius: 8px;
+  background: #fbfefb;
+}
+
+.locationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.acceptButton,
+.rejectButton,
+.tutorButton,
+.mapButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.acceptButton,
+.rejectButton,
+.tutorButton {
+  min-height: 38px;
+  min-width: 112px;
+  padding: 0 14px;
+}
+
+.mapButton {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cfe4d2;
+  color: #24512d;
+  font-size: 0.82rem;
+  background: #edf8ef;
+  white-space: nowrap;
+}
+
+.acceptButton {
+  border: none;
+  color: #ffffff;
+  background: #2f7d35;
+  box-shadow: 0 12px 22px rgba(47, 125, 53, 0.18);
+}
+
+.rejectButton {
+  color: #8a261f;
+  border: 1px solid #f0c7c2;
+  background: #fff1ef;
+}
+
+.tutorButton {
+  color: #24512d;
+  border: 1px solid #cfe4d2;
+  background: #edf8ef;
+}
+
+.acceptButton:hover:not(:disabled),
+.rejectButton:hover:not(:disabled),
+.tutorButton:hover:not(:disabled),
+.mapButton:hover {
+  transform: translateY(-1px);
+}
+
+.acceptButton:disabled,
+.rejectButton:disabled,
+.tutorButton:disabled {
+  cursor: wait;
+  opacity: 0.74;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+  animation: spin 800ms linear infinite;
+}
+
+.rejectButton .spinner {
+  border-color: rgba(138, 38, 31, 0.22);
+  border-top-color: #8a261f;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 860px) {
+  .card {
+    grid-template-columns: 1fr;
+  }
+
+  .photoColumn {
+    height: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .header,
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .locationHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .acceptButton,
+  .rejectButton,
+  .tutorButton,
+  .mapButton {
+    width: 100%;
+  }
+}

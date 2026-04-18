@@ -1,5 +1,6 @@
 package com.patiperro.paseador.client;
 
+import com.patiperro.paseador.dto.agenda.AgendaBloqueOfertaJsonDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.util.List;
  * (mismo identificador que {@code id_paseador} en este dominio). Soporta búsqueda por franja
  * horaria o desde una fecha (típicamente hoy en agenda-service).
  * La exclusión por bloqueo personal de día completo la aplica agenda-service en ambas APIs.
+ * {@link #listarBloquesOfertables(int, LocalDate, LocalDate)} consulta la oferta por rango de fechas.
  */
 @Component
 public class AgendaDisponibilidadClient {
@@ -93,6 +95,34 @@ public class AgendaDisponibilidadClient {
         } catch (RestClientException e) {
             throw new IllegalStateException(
                     "No se pudo consultar disponibilidad desde-hoy en agenda-service: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Bloques en rango (oferta para tutores), vía agenda-service.
+     * Excluye fechas con bloqueo personal de día completo.
+     * <p><b>Advertencia (identificadores):</b> se asume que el id enviado a agenda es el mismo que
+     * {@code id_paseador} en paseadores-service. Si el modelo separa usuario de paseador, la consulta
+     * podría ir al usuario equivocado o devolver vacío sin un fallo obvio; usar entonces un mapeo
+     * explícito paseador → usuario de agenda.
+     *
+     * @param idUsuario mismo identificador que {@code id_paseador} en paseadores-service (mientras dure esa convención)
+     */
+    public List<AgendaBloqueOfertaJsonDTO> listarBloquesOfertables(int idUsuario, LocalDate desde, LocalDate hasta) {
+        try {
+            List<AgendaBloqueOfertaJsonDTO> body = restClient
+                    .get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/agenda/bloques/usuario/{idUsuario}/oferta")
+                            .queryParam("desde", desde.toString())
+                            .queryParam("hasta", hasta.toString())
+                            .build(idUsuario))
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<AgendaBloqueOfertaJsonDTO>>() {});
+            return body != null ? body : List.of();
+        } catch (RestClientException e) {
+            throw new IllegalStateException(
+                    "No se pudo consultar oferta de agenda-service: " + e.getMessage(), e);
         }
     }
 }
