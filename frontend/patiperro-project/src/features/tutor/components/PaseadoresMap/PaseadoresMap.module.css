@@ -1,48 +1,116 @@
 /* PaseadoresMap.module.css */
-
 .mapContainer {
-  height: 450px;
+  /* ... tus otros estilos ... */
+  position: relative;
+  z-index: 1; /* Forzamos un z-index bajo para que no flote sobre modales */
+}
+.mainWrapper {
+  display: flex;
+  gap: 15px;
+  height: 600px; /* IMPORTANTE: Esta altura define qué tan grande es el conjunto */
   width: 100%;
   margin-bottom: 20px;
+  align-items: flex-start;
+}
+
+.mapContainer {
+  flex: 2; /* El mapa ocupa más espacio (aprox 66%) */
+  height: 100%; /* Ocupa los 600px del padre */
   border-radius: 15px;
   overflow: hidden;
   border: 1px solid #ddd;
+  position: relative;
 }
 
-:global(.marker-container) {
+.cardsContainer {
+  flex: 1; /* La lista ocupa el resto (aprox 33%) */
+  height: 100%; /* Ocupa los 600px del padre */
+  
+  /* --- EFECTO DE NAVEGACIÓN (SCROLL) --- */
+  overflow-y: auto; 
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  
+  /* Estetica para que parezca un "contenedor" */
+  background-color: #f8f9fa;
+  border-radius: 15px;
+  border: 1px solid #eee;
+}
+
+/* Personalización de la barra de scroll (opcional para que se vea Pro) */
+.cardsContainer::-webkit-scrollbar {
+  width: 6px;
+}
+.cardsContainer::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.selectedCard {
+  border: 2px solid #f1c40f !important;
+  background-color: #fff9db;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.cardWrapper {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent; /* Para evitar saltos cuando se selecciona */
+  border-radius: 12px;
+}
+
+.cardWrapper:hover {
+  transform: translateY(-2px);
+}
+.noWalkersSideMessage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: transform 0.2s ease-out; /* Para que el cambio de tamaño sea suave */
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  color: #64748b;
+  gap: 10px;
 }
 
-:global(.marker-avatar) {
-  width: 45px;  /* Tamaño base fijo */
-  height: 45px; /* Tamaño base fijo */
-  border-radius: 50%;
-  border: 3px solid #f1c40f;
-  background-size: cover;
-  background-position: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  background-color: #fff;
+.noWalkersIcon {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  opacity: 0.5;
 }
 
-:global(.marker-pin) {
-  width: 0;
-  height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 12px solid #f1c40f;
-  margin-top: -4px;
+.noWalkersSideMessage h3 {
+  font-size: 1.1rem;
+  color: #1b3a24;
+  margin: 0;
 }
 
-.popupBtn {
-  margin-top: 10px;
-  background-color: #f1c40f;
-  color: #000;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: bold;
+.noWalkersSideMessage p {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Agrega esto a PaseadoresMap.module.css */
+.noWalkersMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 30px;
+  text-align: center;
+  color: #64748b;
+  gap: 12px;
+  background-color: #f8f9fa;
+  border-radius: 15px;
+}
+
+.noWalkersMessage p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
 }

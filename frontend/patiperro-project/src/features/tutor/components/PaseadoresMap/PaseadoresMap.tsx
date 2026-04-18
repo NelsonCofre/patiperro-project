@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents, useMap } from "react-leaflet";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
 import styles from "./PaseadoresMap.module.css";
+import PaseadorCard from "../PaseadorCard/PaseadorCard";
 
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -18,85 +19,130 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-type PaseadoresMapProps = {
+interface PaseadoresMapProps {
   centroLat: number;
   centroLng: number;
   paseadores: PaseadorHome[];
-};
+  onVerPerfil: (p: PaseadorHome) => void; // Agregado para abrir el modal
+}
 
-type MapEventsHandlerProps = {
-  onZoomChange: (zoom: number) => void;
-};
+function MapController({ lat, lng, onZoomChange }: { lat: number, lng: number, onZoomChange: (z: number) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => { map.invalidateSize(); }, 250);
+    map.setView([lat, lng], map.getZoom());
+  }, [lat, lng, map]);
 
-function MapEventsHandler({ onZoomChange }: MapEventsHandlerProps) {
   useMapEvents({
     zoomend: (event) => {
       onZoomChange(event.target.getZoom());
     }
   });
-
   return null;
 }
 
-function createWalkerIcon(fotoUrl: string, currentZoom: number) {
-  const scale = currentZoom / 14;
+function createWalkerIcon(fotoUrl: string, currentZoom: number, isSelected: boolean) {
+  const scale = (currentZoom / 14) * (isSelected ? 1.3 : 1);
+  const borderColor = isSelected ? "#2ecc71" : "#f1c40f";
 
   return L.divIcon({
     className: "custom-walker-icon",
     html: `
-      <div class="marker-container" style="transform: scale(${scale}); transform-origin: bottom center;">
-        <div class="marker-avatar" style="background-image: url('${fotoUrl}')"></div>
-        <div class="marker-pin"></div>
+      <div style="transform: scale(${scale}); transform-origin: bottom center; display: flex; flex-direction: column; align-items: center;">
+        <div style="
+            background-image: url('${fotoUrl}');
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 3px solid ${borderColor};
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            background-color: #fff;
+        "></div>
+        <div style="
+            width: 0;
+            height: 0;
+            border-left: 9px solid transparent;
+            border-right: 9px solid transparent;
+            border-top: 12px solid ${borderColor};
+            margin-top: -4px;
+        "></div>
       </div>
     `,
-    iconSize: [82 * scale, 94 * scale],
-    iconAnchor: [(82 * scale) / 2, 94 * scale],
-    popupAnchor: [0, -40 * scale]
+    iconSize: [45 * scale, 60 * scale],
+    iconAnchor: [(45 * scale) / 2, 60 * scale],
+    popupAnchor: [0, -50 * scale]
   });
 }
 
-export default function PaseadoresMap({ centroLat, centroLng, paseadores }: PaseadoresMapProps) {
+export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerPerfil }: PaseadoresMapProps) {
   const [currentZoom, setCurrentZoom] = useState(14);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Efecto para hacer scroll automático a la tarjeta seleccionada
+  useEffect(() => {
+    if (selectedId) {
+      const cardElement = document.getElementById(`card-${selectedId}`);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [selectedId]);
 
   return (
-    <div className={styles.mapContainer}>
-      <MapContainer center={[centroLat, centroLng]} zoom={14} style={{ height: "100%", width: "100%" }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <div className={styles.mainWrapper}>
+      <div className={styles.mapContainer}>
+        <MapContainer center={[centroLat, centroLng]} zoom={14} style={{ height: "100%", width: "100%" }}>
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <MapController lat={centroLat} lng={centroLng} onZoomChange={setCurrentZoom} />
 
-        <MapEventsHandler onZoomChange={setCurrentZoom} />
+          <Marker position={[centroLat, centroLng]}><Popup>Estás aquí</Popup></Marker>
 
-        <Marker position={[centroLat, centroLng]}>
-          <Popup>Estas aqui</Popup>
-        </Marker>
-
-        {paseadores.map((paseador) => {
-          const lat = Number(paseador.latitud);
-          const lon = Number(paseador.longitud);
-
-          if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-            return null;
-          }
-
-          return (
+          {paseadores.map((p) => (
             <Marker
-              key={`walker-${paseador.id}-zoom-${currentZoom}`}
-              position={[lat, lon]}
-              icon={createWalkerIcon(paseador.fotoUrl || "https://via.placeholder.com/100", currentZoom)}
+              key={`marker-${p.id}-${currentZoom}-${selectedId === p.id}`}
+              position={[Number(p.latitud), Number(p.longitud)]}
+              icon={createWalkerIcon(p.fotoUrl || "", currentZoom, selectedId === p.id)}
+              eventHandlers={{
+                click: () => setSelectedId(p.id),
+              }}
             >
               <Popup>
-                <div style={{ textAlign: "center" }}>
-                  <strong>{paseador.nombre}</strong>
-                  <br />
-                  {paseador.distanciaKm.toFixed(2)} km
+                <div style={{ textAlign: 'center' }}>
+                  <strong>{p.nombre}</strong><br/>
+                  <button 
+                    onClick={() => onVerPerfil(p)}
+                    style={{ marginTop: '5px', cursor: 'pointer' }}
+                  >
+                    Ver Perfil Completo
+                  </button>
                 </div>
               </Popup>
             </Marker>
-          );
-        })}
-      </MapContainer>
+          ))}
+        </MapContainer>
+      </div>
+      <div className={styles.cardsContainer}>
+        {paseadores.length > 0 ? (
+          paseadores.map((p) => (
+            <div 
+              id={`card-${p.id}`} 
+              key={p.id}
+              className={`${styles.cardWrapper} ${selectedId === p.id ? styles.selectedCard : ""}`}
+              onClick={() => setSelectedId(p.id)}
+            >
+              <PaseadorCard paseador={p} onVerPerfil={() => onVerPerfil(p)} />
+            </div>
+          ))
+        ) : (
+          <div className={styles.noWalkersMessage}>
+            <p style={{ fontSize: '2rem' }}>📍</p>
+            <p><strong>No hay paseadores en esta zona</strong></p>
+            <p>Prueba ampliando el radio o limpiando los filtros de búsqueda.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

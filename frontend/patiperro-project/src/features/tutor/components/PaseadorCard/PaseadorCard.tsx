@@ -6,29 +6,36 @@ type PaseadorCardProps = {
   onVerPerfil?: (paseador: PaseadorHome) => void;
 };
 
-/**
- * Tarjeta simplificada: precio, calificacion y proximo bloque se ocultan hasta tener APIs
- * (configuracion publica, reseñas, agenda agregada).
- */
 export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProps) {
   return (
     <article className={styles.card}>
       <div className={styles.photoWrap}>
-        <img src={paseador.fotoUrl} alt={`Foto de ${paseador.nombre}`} className={styles.photo} />
+        <img 
+          src={paseador.fotoUrl || "https://via.placeholder.com/150"} 
+          alt={`Foto de ${paseador.nombre}`} 
+          className={styles.photo} 
+        />
       </div>
 
       <div className={styles.content}>
         <div className={styles.header}>
           <div>
             <h3>{paseador.nombre}</h3>
-            <p>{paseador.distanciaKm.toFixed(1)} km de tu ubicacion</p>
+            <p className={styles.distance}>{paseador.distanciaKm.toFixed(1)} km de ti</p>
           </div>
         </div>
 
         <p className={styles.bio}>{paseador.bio}</p>
 
         <div className={styles.footer}>
-          <button type="button" onClick={() => onVerPerfil?.(paseador)}>
+          <button 
+            type="button" 
+            className={styles.primaryButton} 
+            onClick={(e) => {
+              e.stopPropagation();
+              onVerPerfil?.(paseador);
+            }}
+          >
             Ver perfil
           </button>
         </div>
