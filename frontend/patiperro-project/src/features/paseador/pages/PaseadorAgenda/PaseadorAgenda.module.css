@@ -3,55 +3,66 @@
   min-height: 100vh;
   padding: 40px 28px 56px;
   background:
-    radial-gradient(circle at top right, rgba(145, 197, 125, 0.18), transparent 30%),
-    linear-gradient(180deg, #f4fbf4 0%, #eef6ee 48%, #f8fbf8 100%);
+    linear-gradient(180deg, #f5f8f6 0%, #ffffff 44%, #eef6ee 100%);
+  color: #1f2937;
 }
 
 /* Hero superior que explica el objetivo de la agenda. */
 .hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
+  gap: 22px;
+  align-items: stretch;
   max-width: 1180px;
-  margin: 0 auto 24px;
-  padding: 28px 30px;
-  border: 1px solid rgba(126, 170, 129, 0.2);
-  border-radius: 28px;
+  margin: 0 auto 22px;
+  padding: 30px;
+  border: 1px solid #dce7dd;
+  border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(56, 142, 60, 0.08), transparent 46%),
-    rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 46px rgba(31, 41, 55, 0.08);
+    linear-gradient(135deg, rgba(240, 193, 91, 0.12), transparent 42%),
+    rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
 .heroContent {
   display: grid;
-  gap: 18px;
+  align-content: center;
+  gap: 16px;
 }
 
 .eyebrow,
 .cardEyebrow {
-  margin: 0 0 10px;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 32px;
+  margin: 0 0 8px;
+  padding: 0 12px;
+  border-radius: 8px;
   color: #2f7d35;
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  background: #f8fbf8;
+  border: 1px solid #dce7dd;
 }
 
 .title {
   margin: 0;
   max-width: 700px;
   color: #163020;
-  font-size: clamp(2rem, 3vw, 3rem);
-  line-height: 1.04;
+  font-size: clamp(2.3rem, 4vw, 4.4rem);
+  line-height: 0.96;
 }
 
 .description,
 .supportText,
 .helperText {
   color: #576675;
-  line-height: 1.72;
+  line-height: 1.68;
 }
 
 .description {
@@ -61,17 +72,19 @@
 
 .heroRibbon {
   max-width: 640px;
-  padding: 18px 20px;
-  border-radius: 20px;
+  padding: 16px 18px;
+  border-radius: 8px;
   border: 1px solid #dce8dd;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, #f3f8f3 100%);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
 .heroRibbonTag {
   display: inline-flex;
   align-items: center;
-  padding: 7px 12px;
-  border-radius: 999px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
   margin-bottom: 12px;
   color: #2f7d35;
   font-size: 0.82rem;
@@ -88,13 +101,15 @@
 }
 
 .heroBadge {
-  min-width: 280px;
-  max-width: 320px;
+  min-width: 0;
   padding: 22px;
-  border-radius: 24px;
+  border-radius: 8px;
   border: 1px solid #d9eadb;
-  background: linear-gradient(180deg, #ffffff 0%, #f4faf4 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f7fbf7 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 14px 30px rgba(15, 23, 42, 0.05);
 }
 
 .heroBadgeLabel,
@@ -108,8 +123,8 @@
 
 .heroBadge strong {
   display: block;
-  color: #163020;
-  font-size: 1.28rem;
+  color: #2f7d35;
+  font-size: 1.35rem;
   margin-bottom: 10px;
 }
 
@@ -121,19 +136,27 @@
 /* Tablero principal: agenda y panel de siguiente paso. */
 .board {
   display: grid;
-  grid-template-columns: 1.45fr 0.75fr;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.62fr);
   gap: 22px;
   max-width: 1180px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .mainCard,
 .sideCard {
   padding: 24px;
   border: 1px solid #e1ebe2;
-  border-radius: 24px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 16px 40px rgba(31, 41, 55, 0.06);
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.sideCard {
+  position: sticky;
+  top: 112px;
 }
 
 .sectionHeader {
@@ -159,8 +182,9 @@
 .emptyChip {
   display: inline-flex;
   align-items: center;
-  padding: 9px 14px;
-  border-radius: 999px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
   color: #2f7d35;
   font-size: 0.84rem;
   font-weight: 800;
@@ -172,21 +196,22 @@
 .dayTabs {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   margin-top: 22px;
 }
 
 .dayTab {
   position: relative;
-  min-height: 48px;
-  padding: 10px 12px;
-  border-radius: 16px;
+  min-height: 94px;
+  padding: 12px 10px;
+  border-radius: 8px;
   border: 1px solid #d7e5d8;
   color: #4d6159;
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f9f5 100%);
+  background: #ffffff;
+  box-shadow: inset 0 -2px 0 rgba(15, 23, 42, 0.03);
   transition:
     transform 160ms ease,
     border-color 160ms ease,
@@ -195,15 +220,18 @@
 }
 
 .dayTab:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: #86b38b;
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
 }
 
 .dayTabActive {
   color: #163020;
-  border-color: #64a46d;
-  background: linear-gradient(180deg, #eef8ef 0%, #dff1e1 100%);
-  box-shadow: 0 12px 22px rgba(47, 125, 53, 0.12);
+  border-color: #2f7d35;
+  background: linear-gradient(180deg, #f8fcf8 0%, #eaf7ec 100%);
+  box-shadow:
+    0 14px 24px rgba(47, 125, 53, 0.14),
+    inset 0 -3px 0 #2f7d35;
 }
 
 .dayTabMonth {
@@ -241,7 +269,7 @@
   width: fit-content;
   margin: 8px auto 0;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: 8px;
   color: #334155;
   font-size: 0.68rem;
   font-style: normal;
@@ -256,9 +284,9 @@
 .timelineSection {
   margin-top: 24px;
   padding: 22px;
-  border-radius: 22px;
+  border-radius: 8px;
   border: 1px solid #dbe8dd;
-  background: linear-gradient(180deg, #fbfdfb 0%, #f2f8f2 100%);
+  background: #f8fbf8;
 }
 
 .timelineHeader {
@@ -270,8 +298,11 @@
 }
 
 .timelineMeta {
-  padding: 8px 12px;
-  border-radius: 999px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
   color: #476252;
   font-size: 0.84rem;
   font-weight: 700;
@@ -283,16 +314,23 @@
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
 }
 
 .timeColumn {
-  display: grid;
-  grid-template-rows: repeat(15, 52px);
-  gap: 0;
-  padding-top: 8px;
+  position: relative;
+  height: 832px;
 }
 
 .timeLabel {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  transform: translateY(-9px);
   color: #64748b;
   font-size: 0.84rem;
   font-weight: 700;
@@ -300,11 +338,12 @@
 
 .timelineLane {
   position: relative;
-  min-height: 780px;
-  border-radius: 20px;
+  height: 832px;
+  min-height: 832px;
+  border-radius: 8px;
   border: 1px solid #dbe8dd;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(242, 248, 242, 0.98) 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 250, 246, 0.98) 100%);
   overflow: hidden;
 }
 
@@ -322,7 +361,9 @@
 
 .timeRow {
   height: 52px;
-  border-bottom: 1px dashed rgba(122, 150, 126, 0.22);
+  border-bottom: 1px solid rgba(122, 150, 126, 0.16);
+  background:
+    linear-gradient(90deg, rgba(47, 125, 53, 0.05) 0 2px, transparent 2px 100%);
 }
 
 .timeRow:last-child {
@@ -331,80 +372,206 @@
 
 .blockCard {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 20px;
+  right: 20px;
   display: grid;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(190px, 1fr) max-content;
+  grid-template-areas: "header body action";
+  align-content: center;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 0;
+  min-height: 0;
+  padding: 6px 10px 6px 17px;
+  border-radius: 8px;
   border: 1px solid transparent;
-  box-shadow: 0 14px 24px rgba(31, 41, 55, 0.08);
+  overflow: hidden;
+  box-shadow:
+    0 14px 24px rgba(15, 23, 42, 0.1),
+    0 4px 10px rgba(31, 41, 55, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.blockCard::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 8px;
+  width: 3px;
+  border-radius: 8px;
+  content: "";
+}
+
+.blockCard::after {
+  display: none;
 }
 
 .blockAvailable {
   color: #163020;
-  border-color: rgba(67, 160, 71, 0.24);
-  background: linear-gradient(180deg, rgba(233, 246, 234, 0.95) 0%, #dff0e1 100%);
+  border-color: rgba(47, 125, 53, 0.28);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #eaf7ec 100%);
+}
+
+.blockAvailable::before {
+  background: #2f7d35;
 }
 
 .blockBooked {
-  color: #3b2a13;
-  border-color: rgba(180, 83, 9, 0.2);
-  background: linear-gradient(180deg, rgba(255, 243, 223, 0.96) 0%, #fce8c5 100%);
+  color: #1f2937;
+  border-color: rgba(15, 118, 110, 0.24);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #e6f4f1 100%);
+}
+
+.blockBooked::before {
+  background: #0f766e;
 }
 
 .blockHeader {
+  grid-area: header;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
   align-items: center;
+  min-width: 0;
 }
 
-.blockHeader strong {
-  font-size: 0.96rem;
+.blockTitleGroup {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
 }
 
-.blockHeader span,
-.blockCard small {
-  font-size: 0.8rem;
-  font-weight: 700;
+.blockStatusDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 8px;
+  background: #2f7d35;
+  box-shadow: 0 0 0 4px rgba(47, 125, 53, 0.12);
 }
 
-.blockCard p {
+.blockBooked .blockStatusDot {
+  background: #0f766e;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+
+.blockTitleGroup strong {
+  overflow: hidden;
+  color: #10291a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.blockHeader span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: #1f6d2b;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(47, 125, 53, 0.2);
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+}
+
+.blockBooked .blockHeader span {
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.22);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.blockBody {
+  grid-area: body;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.blockBody div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid rgba(47, 125, 53, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.blockBooked .blockBody div {
+  border-color: rgba(15, 118, 110, 0.12);
+}
+
+.blockBody p {
   margin: 0;
-  font-size: 0.92rem;
-  font-weight: 700;
+  color: #10291a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
-.blockCard small {
-  color: rgba(22, 48, 32, 0.72);
+.blockBody small {
+  color: rgba(22, 48, 32, 0.62);
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .blockActions {
+  grid-area: action;
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .blockActionButton {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(22, 48, 32, 0.15);
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(22, 48, 32, 0.12);
   color: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 800;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 8px 16px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
 }
 
+.blockActionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .blockActionButton:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  box-shadow:
+    0 12px 20px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .emptyTimeline {
@@ -415,7 +582,7 @@
   gap: 12px;
   padding: 24px;
   text-align: center;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px dashed #cfe0d1;
   background: rgba(255, 255, 255, 0.62);
 }
@@ -428,7 +595,7 @@
   gap: 12px;
   padding: 28px;
   text-align: center;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px dashed rgba(100, 116, 139, 0.4);
   background: rgba(248, 250, 252, 0.92);
 }
@@ -464,9 +631,9 @@
 
 .summaryCard {
   padding: 16px 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px solid #dce8dd;
-  background: linear-gradient(180deg, #ffffff 0%, #f4faf4 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbf8 100%);
 }
 
 .summaryCard strong {
@@ -479,7 +646,7 @@
   min-height: 50px;
   margin-top: 6px;
   border: none;
-  border-radius: 14px;
+  border-radius: 8px;
   color: #ffffff;
   font-size: 0.96rem;
   font-weight: 700;
@@ -501,7 +668,7 @@
   width: 100%;
   min-height: 48px;
   margin-top: 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   font-size: 0.94rem;
   font-weight: 700;
   cursor: pointer;
@@ -515,7 +682,7 @@
 .secondaryButton {
   border: 1px solid #9bc4a1;
   color: #255c2e;
-  background: linear-gradient(180deg, #f0f9f1 0%, #e0f0e2 100%);
+  background: #f4faf4;
 }
 
 .secondaryButton:hover {
@@ -561,7 +728,7 @@
   align-items: flex-start;
   width: min(100%, 420px);
   padding: 16px 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px solid transparent;
   box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16);
 }
@@ -601,7 +768,7 @@
 .toastCloseButton {
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid rgba(22, 48, 32, 0.12);
   color: #355145;
   font-size: 0.8rem;
@@ -625,10 +792,10 @@
 .modalCard {
   width: min(100%, 560px);
   padding: 28px;
-  border-radius: 26px;
+  border-radius: 8px;
   border: 1px solid #d8e8da;
   background:
-    linear-gradient(135deg, rgba(84, 167, 91, 0.12), transparent 42%),
+    linear-gradient(135deg, rgba(240, 193, 91, 0.12), transparent 42%),
     rgba(255, 255, 255, 0.98);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
 }
@@ -677,7 +844,7 @@
   min-height: 48px;
   padding: 0 14px;
   border: 1px solid #cfe0d1;
-  border-radius: 14px;
+  border-radius: 8px;
   color: #20303a;
   font-size: 0.95rem;
   background: #ffffff;
@@ -702,7 +869,7 @@
 .modalWarning {
   margin: 18px 0 0;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(180, 83, 9, 0.18);
   color: #8a4b0f;
   font-size: 0.86rem;
@@ -720,7 +887,7 @@
   padding: 12px 14px;
   text-align: left;
   border: 1px solid #d5e5d8;
-  border-radius: 16px;
+  border-radius: 8px;
   cursor: pointer;
   background: linear-gradient(180deg, #fbfcfb 0%, #f3f8f4 100%);
   color: #3d5247;
@@ -749,7 +916,7 @@
   width: 36px;
   height: 20px;
   margin-top: 2px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: #cbd5d1;
   position: relative;
   transition: background 160ms ease;
@@ -798,7 +965,7 @@
 .modalSecondaryButton {
   min-height: 48px;
   padding: 0 18px;
-  border-radius: 14px;
+  border-radius: 8px;
   font-size: 0.94rem;
   font-weight: 700;
   cursor: pointer;
@@ -844,7 +1011,7 @@
   gap: 16px;
   margin-top: 20px;
   padding: 16px 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px solid #d7e5d8;
   background: linear-gradient(180deg, #ffffff 0%, #f6faf6 100%);
 }
@@ -858,7 +1025,7 @@
 .weekNavButton {
   min-height: 40px;
   padding: 0 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #cfe0d1;
   font-size: 0.88rem;
   font-weight: 700;
@@ -947,6 +1114,32 @@
   .blockHeader {
     align-items: flex-start;
     flex-direction: column;
+    gap: 6px;
+  }
+
+  .blockCard {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "body"
+      "action";
+    align-content: start;
+    gap: 7px;
+    padding: 10px 12px;
+  }
+
+  .blockBody {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+  }
+
+  .blockBody div {
+    flex: 1 1 120px;
+  }
+
+  .blockActions,
+  .blockActionButton {
+    width: 100%;
   }
 
   .toast {
@@ -965,12 +1158,12 @@
   .mainCard,
   .sideCard {
     padding: 20px;
-    border-radius: 20px;
+    border-radius: 8px;
   }
 
   .modalCard {
     padding: 22px;
-    border-radius: 22px;
+    border-radius: 8px;
   }
 
   .modalActions {

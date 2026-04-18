@@ -7,18 +7,22 @@ import com.patiperro.agenda.dto.AgendaBloqueSerieMensualResponseDTO;
 import com.patiperro.agenda.service.AgendaBloqueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,6 +70,18 @@ public class AgendaBloqueController {
         return service.buscarIdUsuariosDisponiblesEnFranja(fecha, horaInicio, horaFin, idEstadoDisponible);
     }
 
+    /**
+     * IDs de usuario (paseadores) con al menos un bloque disponible desde la fecha de referencia
+     * (por defecto hoy). Query param opcional {@code desdeFecha} para pruebas o zona explícita.
+     */
+    @GetMapping("/busqueda/disponibles-desde-hoy")
+    public List<Integer> buscarPaseadoresDisponiblesDesdeHoy(
+            @RequestParam Integer idEstadoDisponible,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desdeFecha) {
+        LocalDate desde = desdeFecha != null ? desdeFecha : LocalDate.now();
+        return service.buscarIdUsuariosDisponiblesDesdeFecha(desde, idEstadoDisponible);
+    }
+
     @GetMapping("/{id}")
     public AgendaBloqueResponseDTO obtener(@PathVariable Integer id) {
         return service.obtener(id);
@@ -76,10 +92,6 @@ public class AgendaBloqueController {
         return new ResponseEntity<>(service.crear(body), HttpStatus.CREATED);
     }
 
-    /**
-     * Misma franja horaria en todas las ocurrencias del día de la semana de {@code fechaSemilla}
-     * dentro de ese mes; omite fechas pasadas y solapes.
-     */
     @PostMapping("/serie-mes")
     public ResponseEntity<AgendaBloqueSerieMensualResponseDTO> crearSerieMensual(
             @Valid @RequestBody AgendaBloqueSerieMensualRequestDTO body) {
@@ -91,9 +103,34 @@ public class AgendaBloqueController {
         return service.actualizar(id, body);
     }
 
+    @PatchMapping("/{id}/marcar-reservado")
+    public AgendaBloqueResponseDTO marcarReservado(
+            @PathVariable Integer id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        return service.marcarReservado(id, rawJwt(authorization));
+    }
+
+    @PatchMapping("/{id}/marcar-disponible")
+    public AgendaBloqueResponseDTO marcarDisponible(
+            @PathVariable Integer id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        return service.marcarDisponible(id, rawJwt(authorization));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private static String rawJwt(String authorization) {
+        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere Authorization Bearer");
+        }
+        String token = authorization.substring(7).trim();
+        if (token.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token vacío");
+        }
+        return token;
     }
 }

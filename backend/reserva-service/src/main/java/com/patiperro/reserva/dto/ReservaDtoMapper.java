@@ -1,5 +1,6 @@
 package com.patiperro.reserva.dto;
 
+import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.Reserva;
 
@@ -15,7 +16,15 @@ public final class ReservaDtoMapper {
     }
 
     public static ReservaResponseDTO toReservaResponse(Reserva r) {
+        return toReservaResponse(r, null);
+    }
+
+    /**
+     * @param bloque datos de agenda-service; si es null, los campos {@code agenda*} y {@code idPaseadorUsuario} quedan null.
+     */
+    public static ReservaResponseDTO toReservaResponse(Reserva r, AgendaBloqueReservaClientDTO bloque) {
         EstadoReserva est = r.getEstadoReserva();
+        AgendaBloqueReservaClientDTO b = bloque;
         return new ReservaResponseDTO(
                 r.getIdReserva(),
                 r.getIdTutorUsuario(),
@@ -23,12 +32,16 @@ public final class ReservaDtoMapper {
                 r.getIdAgendaBloque(),
                 r.getIdTarifa(),
                 r.getFechaSolicitud(),
+                r.getFechaAceptacion(),
                 r.getMontoTotal(),
                 r.getIdPago(),
                 est != null ? est.getIdEstadoReserva() : null,
                 est != null ? est.getNombreEstado() : null,
                 r.getFechaInicioReal(),
                 r.getFechaFin(),
-                r.getCodigoEncuentro());
+                r.getCodigoEncuentro(),
+                b != null ? b.getHoraInicio() : null,
+                b != null ? b.getHoraFinal() : null,
+                b != null ? b.getIdUsuario() : null);
     }
 }

@@ -12,9 +12,13 @@ import com.patiperro.agenda.repository.AgendaBloqueRepository;
 import com.patiperro.agenda.repository.AgendaBloqueoDiaRepository;
 import com.patiperro.agenda.repository.DiaSemanaRepository;
 import com.patiperro.agenda.repository.EstadoBloqueRepository;
+import com.patiperro.agenda.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
 import java.time.DayOfWeek;
@@ -36,6 +40,13 @@ public class AgendaBloqueService {
     private final AgendaBloqueoDiaRepository agendaBloqueoDiaRepository;
     private final EstadoBloqueRepository estadoBloqueRepository;
     private final DiaSemanaRepository diaSemanaRepository;
+    private final JwtService jwtService;
+
+    @Value("${patiperro.agenda.estado-bloque.nombre-disponible:Disponible}")
+    private String nombreEstadoDisponible;
+
+    @Value("${patiperro.agenda.estado-bloque.nombre-reservado:Reservado}")
+    private String nombreEstadoReservado;
 
     public List<AgendaBloqueResponseDTO> listar() {
         return agendaBloqueRepository.findAll().stream()
@@ -73,8 +84,7 @@ public class AgendaBloqueService {
     }
 
     /**
-     * Paseadores ({@code id_usuario}) con bloque disponible en la franja; excluye quienes tengan
-     * bloqueo personal de día completo en esa fecha (consulta en {@link AgendaBloqueRepository}).
+     * Paseadores ({@code id_usuario}) con bloque disponible en la franja.
      */
     public List<Integer> buscarIdUsuariosDisponiblesEnFranja(
             LocalDate fecha,
@@ -90,6 +100,19 @@ public class AgendaBloqueService {
 
         return agendaBloqueRepository.findIdUsuariosConBloqueDisponibleEnFranja(
                 fecha, inicioBuscado, finBuscado, idEstadoDisponible);
+    }
+
+    /**
+     * Paseadores con al menos un bloque disponible desde {@code desdeFecha} (típicamente hoy en el servidor).
+     */
+    public List<Integer> buscarIdUsuariosDisponiblesDesdeFecha(LocalDate desdeFecha, Integer idEstadoDisponible) {
+        if (desdeFecha == null) {
+            throw new IllegalArgumentException("desdeFecha es obligatoria");
+        }
+        if (idEstadoDisponible == null) {
+            throw new IllegalArgumentException("idEstadoDisponible es obligatorio");
+        }
+        return agendaBloqueRepository.findIdUsuariosConBloqueDisponibleDesdeFecha(desdeFecha, idEstadoDisponible);
     }
 
     public AgendaBloqueResponseDTO obtener(Integer id) {
@@ -121,6 +144,50 @@ public class AgendaBloqueService {
         existente.setEstadoBloque(resolverEstado(dto.getEstadoBloque().getIdEstado()));
         existente.setDiaSemana(resolverDia(dto.getDiaSemana().getIdDia()));
         return AgendaDtoMapper.toBloqueResponse(agendaBloqueRepository.save(existente));
+    }
+
+    @Transactional
+    public AgendaBloqueResponseDTO marcarReservado(Integer idAgenda, String rawJwt) {
+        requireJwt(rawJwt);
+        if (jwtService.extractTutorId(rawJwt) == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere JWT de tutor para reservar bloque");
+        }
+        AgendaBloque bloque = obtenerEntidad(idAgenda);
+        EstadoBloque disponible = estadoPorNombre(nombreEstadoDisponible);
+        EstadoBloque reservado = estadoPorNombre(nombreEstadoReservado);
+        Integer actual = bloque.getEstadoBloque() != null ? bloque.getEstadoBloque().getIdEstado() : null;
+        if (actual == null || !actual.equals(disponible.getIdEstado())) {
+            throw new IllegalStateException("El bloque no está disponible");
+        }
+        bloque.setEstadoBloque(reservado);
+        return AgendaDtoMapper.toBloqueResponse(agendaBloqueRepository.save(bloque));
+    }
+
+    @Transactional
+    public AgendaBloqueResponseDTO marcarDisponible(Integer idAgenda, String rawJwt) {
+        requireJwt(rawJwt);
+        Long paseadorId = jwtService.extractPaseadorId(rawJwt);
+        if (paseadorId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere JWT de paseador para liberar bloque");
+        }
+        AgendaBloque bloque = obtenerEntidad(idAgenda);
+        if (!bloque.getIdUsuario().equals(paseadorId.intValue())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Solo el paseador dueño del bloque puede liberarlo");
+        }
+
+        EstadoBloque disponible = estadoPorNombre(nombreEstadoDisponible);
+        EstadoBloque reservado = estadoPorNombre(nombreEstadoReservado);
+        Integer actual = bloque.getEstadoBloque() != null ? bloque.getEstadoBloque().getIdEstado() : null;
+
+        if (actual != null && actual.equals(disponible.getIdEstado())) {
+            return AgendaDtoMapper.toBloqueResponse(bloque);
+        }
+        if (actual == null || !actual.equals(reservado.getIdEstado())) {
+            throw new IllegalStateException("El bloque no está en estado reservado");
+        }
+        bloque.setEstadoBloque(disponible);
+        return AgendaDtoMapper.toBloqueResponse(agendaBloqueRepository.save(bloque));
     }
 
     @Transactional
@@ -197,6 +264,20 @@ public class AgendaBloqueService {
                 .omitidosSolape(omitidosSolape)
                 .bloques(creados)
                 .build();
+    }
+
+    private void requireJwt(String rawJwt) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere Authorization Bearer");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token inválido o expirado");
+        }
+    }
+
+    private EstadoBloque estadoPorNombre(String nombre) {
+        return estadoBloqueRepository.findByNombreIgnoreCase(nombre)
+                .orElseThrow(() -> new IllegalStateException("No existe estado_bloque con nombre: " + nombre));
     }
 
     private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio, LocalDateTime fin) {

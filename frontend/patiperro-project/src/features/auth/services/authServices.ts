@@ -1,6 +1,11 @@
 // Servicios HTTP del modulo auth.
 // Concentran la comunicacion del frontend con login, registro y subida de fotos.
-import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY, TUTOR_ID_SESSION_KEY } from "../../../config/api";
+import {
+  ACCESS_TOKEN_SESSION_KEY,
+  API_ENDPOINTS,
+  PASEADOR_ID_SESSION_KEY,
+  TUTOR_ID_SESSION_KEY
+} from "../../../config/api";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -68,7 +73,16 @@ export type AuthResponse = {
   idPaseador?: number;
   /** Login/registro tutor: id para GET /api/tutores/{id}. */
   idTutor?: number;
+  /** Mismo JWT que la cookie; para Authorization: Bearer en desarrollo (Vite). */
+  accessToken?: string;
 };
+
+function persistAccessToken(body: { accessToken?: string } | null | undefined) {
+  const t = body?.accessToken;
+  if (typeof t === "string" && t.trim()) {
+    sessionStorage.setItem(ACCESS_TOKEN_SESSION_KEY, t.trim());
+  }
+}
 
 /**
  * Sube la imagen de perfil y devuelve la ruta a guardar en registro (relativa al gateway).
@@ -154,11 +168,13 @@ export async function registerTutor(
   if (idTutor != null) {
     sessionStorage.setItem(TUTOR_ID_SESSION_KEY, String(idTutor));
   }
+  persistAccessToken(body);
 
   return {
     mensaje: body.mensaje ?? body.message,
     correo: body.correo,
-    idTutor
+    idTutor,
+    accessToken: body.accessToken
   };
 }
 
@@ -189,10 +205,12 @@ export async function registerPaseador(
   const body = data as AuthResponse & { message?: string; idPaseador?: number };
   const idPaseador =
     typeof body.idPaseador === "number" && Number.isFinite(body.idPaseador) ? body.idPaseador : undefined;
+  persistAccessToken(body);
   return {
     mensaje: body.mensaje ?? body.message,
     correo: body.correo,
-    idPaseador
+    idPaseador,
+    accessToken: body.accessToken
   };
 }
 
@@ -229,11 +247,13 @@ export async function loginTutor(credentials: {
   if (idTutor != null) {
     sessionStorage.setItem(TUTOR_ID_SESSION_KEY, String(idTutor));
   }
+  persistAccessToken(body);
 
   return {
     mensaje: body.mensaje ?? body.message,
     correo: body.correo,
-    idTutor
+    idTutor,
+    accessToken: body.accessToken
   };
 }
 
@@ -271,10 +291,12 @@ export async function loginPaseador(credentials: {
   if (idPaseador != null) {
     sessionStorage.setItem(PASEADOR_ID_SESSION_KEY, String(idPaseador));
   }
+  persistAccessToken(data ?? undefined);
 
   return {
     mensaje: data?.mensaje ?? data?.message,
     correo: data?.correo,
-    idPaseador
+    idPaseador,
+    accessToken: data?.accessToken
   };
 }

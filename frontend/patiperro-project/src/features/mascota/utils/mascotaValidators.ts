@@ -2,6 +2,9 @@
 // Mantienen separadas las reglas de negocio del componente visual.
 import type { MascotaForm } from "../types/mascota.types";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 export function keepOnlyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
@@ -52,6 +55,20 @@ export function getMascotaAgeLabel(birthDate: string): string {
 
   const years = Math.floor(months / 12);
   return `${years} ${years === 1 ? "año" : "años"}`;
+}
+
+export function validateMascotaPhoto(file: File | null): string | undefined {
+  if (!file) return "Debes subir una foto de tu mascota";
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return "La foto debe ser un archivo JPG, PNG o WEBP";
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return "La foto no puede superar los 5 MB";
+  }
+
+  return undefined;
 }
 
 export function validateMascotaField(
@@ -105,7 +122,7 @@ export function validateMascotaField(
     }
   }
 
-  if (name === "foto" && !form.foto) return "Debes subir una foto de tu mascota";
+  if (name === "foto") return validateMascotaPhoto(form.foto);
 
   return undefined;
 }

@@ -18,7 +18,8 @@
       "mainClass": "com.patiperro.tutores.TutoresServiceApplication",
       "projectName": "tutores-service",
       "args": "",
-      "envFile": "${workspaceFolder}/../../.env"
+      "envFile": "${workspaceFolder}/../../.env",
+      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=59381 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=tutores-service"
     },
     {
       "type": "java",
@@ -47,6 +48,17 @@
       "cwd": "${workspaceFolder}",
       "mainClass": "com.patiperro.paseador.PaseadorServiceApplication",
       "projectName": "paseadores-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=59384 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=paseadores-service"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-MascotasServiceApplication<mascotas-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
+      "projectName": "mascotas-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }

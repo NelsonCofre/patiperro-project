@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,5 +34,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDataIntegrity(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("message", "No se puede completar la operación (referencia o restricción en base de datos)"));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "Fallo en integración con otro servicio";
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", msg));
     }
 }

@@ -38,7 +38,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        return new LoginResponseDTO("Login exitoso", paseador.getCorreo(), paseador.getId());
+        return new LoginResponseDTO("Login exitoso", paseador.getCorreo(), paseador.getId(), null);
     }
 
     @Transactional
@@ -87,7 +87,7 @@ public class AuthService {
             fotoRepository.save(Foto.builder().url(url).paseador(paseador).build());
         }
 
-        return new LoginResponseDTO("Registro exitoso", paseador.getCorreo(), paseador.getId());
+        return new LoginResponseDTO("Registro exitoso", paseador.getCorreo(), paseador.getId(), null);
     }
 
     private Set<String> collectGaleriaUrls(RegisterRequestDTO request) {

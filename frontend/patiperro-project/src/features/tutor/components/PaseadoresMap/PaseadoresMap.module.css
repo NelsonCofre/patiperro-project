@@ -1,71 +1,69 @@
 /* PaseadoresMap.module.css */
-.mapContainer {
-  /* ... tus otros estilos ... */
-  position: relative;
-  z-index: 1; /* Forzamos un z-index bajo para que no flote sobre modales */
-}
+
+/* El contenedor principal que agrupa el mapa (izq) y la lista (der) */
 .mainWrapper {
   display: flex;
-  gap: 15px;
-  height: 600px; /* IMPORTANTE: Esta altura define qué tan grande es el conjunto */
+  gap: 20px;
+  height: 600px; /* Altura total de la sección */
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   align-items: flex-start;
 }
 
+/* El bloque izquierdo (el mapa) */
 .mapContainer {
-  flex: 2; /* El mapa ocupa más espacio (aprox 66%) */
-  height: 100%; /* Ocupa los 600px del padre */
+  flex: 2; /* Ocupa aprox el 66% del ancho */
+  height: 100%; 
   border-radius: 15px;
   overflow: hidden;
   border: 1px solid #ddd;
   position: relative;
+  isolation: isolate; /* Ayuda a controlar el z-index interno */
 }
 
+/* Ajustes de z-index para que Leaflet no tape otros elementos (como el modal) */
+.mapContainer :global(.leaflet-container) {
+  z-index: 0;
+  height: 100%; /* Asegura que llene el contenedor */
+  width: 100%;
+}
+
+.mapContainer :global(.leaflet-pane),
+.mapContainer :global(.leaflet-control-container) {
+  z-index: 1;
+}
+
+/* El bloque derecho (la lista de tarjetas) */
 .cardsContainer {
-  flex: 1; /* La lista ocupa el resto (aprox 33%) */
-  height: 100%; /* Ocupa los 600px del padre */
-  
-  /* --- EFECTO DE NAVEGACIÓN (SCROLL) --- */
-  overflow-y: auto; 
-  padding: 10px;
+  flex: 1; /* Ocupa aprox el 33% del ancho */
+  height: 100%;
+  overflow-y: auto; /* Permite scroll si hay muchas tarjetas */
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  
-  /* Estetica para que parezca un "contenedor" */
-  background-color: #f8f9fa;
-  border-radius: 15px;
-  border: 1px solid #eee;
+  gap: 15px;
+  padding-right: 10px; /* Espacio para la barra de scroll */
 }
 
-/* Personalización de la barra de scroll (opcional para que se vea Pro) */
-.cardsContainer::-webkit-scrollbar {
-  width: 6px;
-}
-.cardsContainer::-webkit-scrollbar-thumb {
-  background: #ccc;
-  border-radius: 10px;
-}
-
-.selectedCard {
-  border: 2px solid #f1c40f !important;
-  background-color: #fff9db;
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
+/* Tarjeta individual dentro del scroll lateral */
 .cardWrapper {
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 2px solid transparent; /* Para evitar saltos cuando se selecciona */
-  border-radius: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  border-radius: 15px;
+  border: 2px solid transparent; /* Borde invisible por defecto */
 }
 
 .cardWrapper:hover {
   transform: translateY(-2px);
 }
-.noWalkersSideMessage {
+
+/* Estilo cuando haces clic en la tarjeta (o en el pin del mapa) */
+.selectedCard {
+  border: 2px solid #2ecc71; /* Borde verde brillante */
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+}
+
+/* Mensajes cuando no hay paseadores */
+.noWalkersMessage {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -75,42 +73,40 @@
   text-align: center;
   color: #64748b;
   gap: 10px;
-}
-
-.noWalkersIcon {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  opacity: 0.5;
-}
-
-.noWalkersSideMessage h3 {
-  font-size: 1.1rem;
-  color: #1b3a24;
-  margin: 0;
-}
-
-.noWalkersSideMessage p {
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-/* Agrega esto a PaseadoresMap.module.css */
-.noWalkersMessage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 30px;
-  text-align: center;
-  color: #64748b;
-  gap: 12px;
-  background-color: #f8f9fa;
+  background-color: #f8fafc;
   border-radius: 15px;
+  border: 1px solid #e2e8f0;
 }
 
-.noWalkersMessage p {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin: 0;
+/* Botón que aparece dentro del Popup del pin en el mapa */
+.popupBtn {
+  margin-top: 10px;
+  background-color: #f1c40f;
+  color: #000;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.popupBtn:hover {
+  background-color: #f39c12;
+}
+
+/* Opcional: para personalizar la barra de scroll del panel derecho */
+.cardsContainer::-webkit-scrollbar {
+  width: 6px;
+}
+.cardsContainer::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+  border-radius: 10px;
+}
+.cardsContainer::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 10px;
+}
+.cardsContainer::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
 }

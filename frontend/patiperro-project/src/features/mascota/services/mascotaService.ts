@@ -1,5 +1,6 @@
 // Cliente HTTP del microservicio mascotas (siempre vía gateway + cookie de sesión tutor).
 import { API_ENDPOINTS } from "../../../config/api";
+import { bearerAuthHeaders } from "../../../config/authHeaders";
 import type { MascotaForm } from "../types/mascota.types";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
@@ -45,7 +46,8 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
 
 export async function fetchEspecies(): Promise<EspecieDTO[]> {
   const response = await fetch(API_ENDPOINTS.mascotas.especies, {
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
@@ -56,7 +58,8 @@ export async function fetchEspecies(): Promise<EspecieDTO[]> {
 
 export async function fetchRazas(especieId: number): Promise<RazaDTO[]> {
   const response = await fetch(API_ENDPOINTS.mascotas.razas(especieId), {
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
@@ -67,7 +70,8 @@ export async function fetchRazas(especieId: number): Promise<RazaDTO[]> {
 
 export async function fetchTamanos(): Promise<TamanoDTO[]> {
   const response = await fetch(API_ENDPOINTS.mascotas.tamanos, {
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
@@ -119,7 +123,7 @@ export async function createMascota(payload: CreateMascotaPayload): Promise<Masc
   const response = await fetch(API_ENDPOINTS.mascotas.base, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
   const data = await parseJsonSafe(response);

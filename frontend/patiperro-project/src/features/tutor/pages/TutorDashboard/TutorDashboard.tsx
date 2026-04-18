@@ -6,9 +6,9 @@ import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/Paseadores
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
-import { buildPaseadorPerfilMock } from "../../utils/paseadorPerfilMock";
 import styles from "./TutorDashboard.module.css";
 import PaseadoresMap from '../../components/PaseadoresMap/PaseadoresMap';
+import { buildPaseadorPerfilMock } from "../../utils/paseadorPerfilMock";
 
 const SKELETON_CARDS = ["skeleton-1", "skeleton-2", "skeleton-3"];
 
@@ -47,12 +47,13 @@ export default function TutorDashboard() {
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
-  
-  const selectedPaseadorPerfil = useMemo(
-    () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
-    [selectedPaseador]
-  );
 
+  const selectedPaseadorPerfil = useMemo(
+  () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
+  [selectedPaseador]
+);
+  const noFilterMatches =
+    !isLoading && !needsReferencePoint && paseadores.length > 0 && filteredCount === 0;
   const locationMessage =
     locationStatus === "requesting"
       ? "Solicitando ubicacion..."

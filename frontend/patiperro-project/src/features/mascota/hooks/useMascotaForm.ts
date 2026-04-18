@@ -5,7 +5,7 @@ import type {
   MascotaForm,
   MascotaFormErrors
 } from "../types/mascota.types";
-import { validateMascotaField } from "../utils/mascotaValidators";
+import { validateMascotaField, validateMascotaPhoto } from "../utils/mascotaValidators";
 
 type UseMascotaFormParams = {
   initialForm: MascotaForm;
@@ -50,7 +50,7 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setForm((prev) => ({ ...prev, foto: file }));
-    setErrors((prev) => ({ ...prev, foto: undefined }));
+    setErrors((prev) => ({ ...prev, foto: validateMascotaPhoto(file) }));
   };
 
   const validateStep = useCallback(

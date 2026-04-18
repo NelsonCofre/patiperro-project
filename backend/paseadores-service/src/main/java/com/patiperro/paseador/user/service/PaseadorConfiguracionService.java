@@ -11,6 +11,7 @@ import com.patiperro.paseador.repository.DireccionRepository;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.repository.TamanoRepository;
 import com.patiperro.paseador.user.dto.ConfiguracionPaseadorResponseDTO;
+import com.patiperro.paseador.user.dto.PaseadorResumenResponseDTO;
 import com.patiperro.paseador.user.dto.TarifaConfiguracionResponseDTO;
 import com.patiperro.paseador.user.dto.TarifaInputDTO;
 import com.patiperro.paseador.user.dto.UpsertConfiguracionRequestDTO;
@@ -45,6 +46,23 @@ public class PaseadorConfiguracionService {
                         .radioCobertura(null)
                         .build());
         return toResponse(configuracion);
+    }
+
+    @Transactional(readOnly = true)
+    public ConfiguracionPaseadorResponseDTO getConfiguracionPublicaByPaseadorId(Long paseadorId) {
+        Configuracion configuracion = configuracionRepository.findByPaseador_Id(paseadorId)
+                .orElseThrow(() -> new IllegalArgumentException("El paseador no tiene configuración publicada"));
+        return toResponse(configuracion);
+    }
+
+    @Transactional(readOnly = true)
+    public PaseadorResumenResponseDTO getResumenPublicoByPaseadorId(Long paseadorId) {
+        Paseador paseador = paseadorRepository.findById(paseadorId)
+                .orElseThrow(() -> new IllegalArgumentException("Paseador no encontrado"));
+        return new PaseadorResumenResponseDTO(
+                paseador.getId(),
+                nombrePublico(paseador),
+                paseador.getFotoPerfil());
     }
 
     @Transactional
@@ -130,6 +148,7 @@ public class PaseadorConfiguracionService {
                 ? List.of()
                 : configuracion.getTarifas().stream()
                 .map(t -> new TarifaConfiguracionResponseDTO(
+                        t.getId(),
                         t.getTamano().getId(),
                         t.getTamano().getNombre(),
                         t.getPrecioBase()))
@@ -141,5 +160,15 @@ public class PaseadorConfiguracionService {
                 .radioCoberturaKm(configuracion.getRadioCobertura())
                 .tarifas(tarifas)
                 .build();
+    }
+
+    private static String nombrePublico(Paseador p) {
+        return java.util.stream.Stream.of(
+                        p.getPrimerNombre(),
+                        p.getSegundoNombre(),
+                        p.getApellidoPaterno(),
+                        p.getApellidoMaterno())
+                .filter(s -> s != null && !s.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 }

@@ -18,6 +18,8 @@ public class ReservaResponseDTO {
     private Integer idAgendaBloque;
     private Integer idTarifa;
     private LocalDateTime fechaSolicitud;
+    /** Cuando el paseador aceptó (stepper / historial). */
+    private LocalDateTime fechaAceptacion;
     private BigDecimal montoTotal;
     private Integer idPago;
     private Integer idEstadoReserva;
@@ -25,4 +27,9 @@ public class ReservaResponseDTO {
     private LocalDateTime fechaInicioReal;
     private LocalDateTime fechaFin;
     private Integer codigoEncuentro;
+    /** Copia del bloque de agenda (inicio/fin programados) cuando se enriquece el listado. */
+    private LocalDateTime agendaHoraInicio;
+    private LocalDateTime agendaHoraFin;
+    /** {@code id_usuario} del paseador en agenda_bloque. */
+    private Integer idPaseadorUsuario;
 }

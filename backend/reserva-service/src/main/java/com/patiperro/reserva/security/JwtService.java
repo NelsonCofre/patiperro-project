@@ -1,5 +1,6 @@
 package com.patiperro.reserva.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +11,8 @@ import java.nio.charset.StandardCharsets;
 
 @Service
 public class JwtService {
+
+    public static final String CLAIM_TUTOR_ID = "tutorId";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -27,12 +30,23 @@ public class JwtService {
     }
 
     public String extractSubject(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    public Long extractTutorId(String token) {
+        Object raw = parseClaims(token).get(CLAIM_TUTOR_ID);
+        if (raw instanceof Number n) {
+            return n.longValue();
+        }
+        return null;
+    }
+
+    private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+                .getPayload();
     }
 
     private SecretKey getSigningKey() {

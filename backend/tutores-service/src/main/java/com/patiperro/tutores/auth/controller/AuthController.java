@@ -33,6 +33,7 @@ public class AuthController {
         String token = jwtService.generateToken(
                 Objects.requireNonNull(response.getCorreo()),
                 Objects.requireNonNull(response.getIdTutor()));
+        response.setAccessToken(token);
 
         ResponseCookie cookie = ResponseCookie.from("access_token", Objects.requireNonNull(token))
                 .httpOnly(true)
@@ -50,7 +51,23 @@ public class AuthController {
     // Registra un nuevo dueño de mascota (tutor): datos personales, direccion, fotoPerfil, biografia.
     @PostMapping("/register")
     public ResponseEntity<LoginResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
-        return ResponseEntity.ok(authService.register(request));
+        LoginResponseDTO response = authService.register(request);
+        String token = jwtService.generateToken(
+                Objects.requireNonNull(response.getCorreo()),
+                Objects.requireNonNull(response.getIdTutor()));
+        response.setAccessToken(token);
+
+        ResponseCookie cookie = ResponseCookie.from("access_token", Objects.requireNonNull(token))
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(jwtService.getExpirationMs() / 1000)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
     }
 
     // Limpia la cookie de autenticacion en cliente.

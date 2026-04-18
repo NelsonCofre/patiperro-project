@@ -1,5 +1,6 @@
 package com.patiperro.paseador.auth.exception;
 
+import com.patiperro.paseador.auth.controller.AuthController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,7 +11,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = {AuthController.class})
 public class AuthExceptionHandler {
 
     @ExceptionHandler(InvalidCredentialsException.class)

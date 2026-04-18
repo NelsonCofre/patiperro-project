@@ -4,32 +4,39 @@ import { NavLink } from "react-router-dom";
 import styles from "./PaseadorNavbar.module.css";
 
 const NAV_ITEMS = [
-  { label: "Inicio", to: "/paseador/dashboard" },
+  { label: "Inicio", to: "/paseador/dashboard", end: true },
+  { label: "Solicitudes", to: "/paseador/dashboard/solicitudes" },
   { label: "Configurar mi Servicio", to: "/paseador/dashboard/configuracion" },
   { label: "Mi Agenda", to: "/paseador/dashboard/agenda" }
 ];
 
 export default function PaseadorNavbar() {
   return (
-    <nav className={styles.nav} aria-label="Navegacion del paseador">
-      <div className={styles.brandBlock}>
-        <span className={styles.brandEyebrow}>Panel del Paseador</span>
-        <strong className={styles.brandTitle}>Patiperro Pro</strong>
-      </div>
+    <header className={styles.header}>
+      <div className={styles.headerInner}>
+        <div className={styles.brandBlock}>
+          <div className={styles.brandIcon}>P</div>
+          <div>
+            <strong className={styles.brandTitle}>Patiperro Pro</strong>
+            <span className={styles.brandSubtitle}>Panel del paseador</span>
+          </div>
+        </div>
 
-      <div className={styles.links}>
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `${styles.link} ${isActive ? styles.linkActive : ""}`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        <nav className={styles.nav} aria-label="Navegacion del paseador">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `${styles.link} ${isActive ? styles.linkActive : ""}`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
       </div>
-    </nav>
+    </header>
   );
 }

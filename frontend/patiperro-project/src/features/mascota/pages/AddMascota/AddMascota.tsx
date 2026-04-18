@@ -515,7 +515,7 @@ export default function AddMascota() {
                   id="mascota-foto"
                   className={styles.hiddenInput}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                   onChange={handlePhotoChange}
                 />
 

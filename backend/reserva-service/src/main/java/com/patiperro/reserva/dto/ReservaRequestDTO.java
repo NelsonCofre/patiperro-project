@@ -34,6 +34,9 @@ public class ReservaRequestDTO {
     @NotNull
     private LocalDateTime fechaSolicitud;
 
+    /** Opcional; suele rellenarse al aceptar vía PATCH, no en alta inicial. */
+    private LocalDateTime fechaAceptacion;
+
     @NotNull
     @DecimalMin(value = "0.0", inclusive = true)
     private BigDecimal montoTotal;

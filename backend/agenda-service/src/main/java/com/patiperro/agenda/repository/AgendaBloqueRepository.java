@@ -37,6 +37,23 @@ public interface AgendaBloqueRepository extends JpaRepository<AgendaBloque, Inte
             @Param("finBuscado") LocalDateTime finBuscado,
             @Param("idEstadoDisponible") Integer idEstadoDisponible);
 
+    /**
+     * Paseadores con al menos un bloque disponible en {@code fecha} o fechas posteriores;
+     * excluye quienes tengan bloqueo personal de día completo en la misma fecha del bloque.
+     */
+    @Query("""
+            SELECT DISTINCT b.idUsuario FROM AgendaBloque b
+            WHERE b.estadoBloque.idEstado = :idEstadoDisponible
+              AND b.fecha >= :hoy
+              AND NOT EXISTS (
+                  SELECT 1 FROM AgendaBloqueoDia bd
+                  WHERE bd.idUsuario = b.idUsuario AND bd.fecha = b.fecha
+              )
+            """)
+    List<Integer> findIdUsuariosConBloqueDisponibleDesdeFecha(
+            @Param("hoy") LocalDate hoy,
+            @Param("idEstadoDisponible") Integer idEstadoDisponible);
+
     // =========================================================================
     // MÉTODO NUEVO: Obtener solo IDs para validación cruzada
     // =========================================================================

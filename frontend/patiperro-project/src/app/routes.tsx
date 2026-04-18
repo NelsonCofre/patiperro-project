@@ -8,8 +8,10 @@ import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
+import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
+import TutorReservas from "../features/tutor/pages/TutorReservas/TutorReservas";
 
 export default function AppRoutes() {
   return (
@@ -27,11 +29,13 @@ export default function AppRoutes() {
         path="/paseador/dashboard/configuracion"
         element={<PaseadorConfiguracion />}
       />
+      <Route path="/paseador/dashboard/solicitudes" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
       {/* Primeras rutas del espacio del tutor. */}
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />
       <Route path="/tutor/mascota/nueva" element={<AddMascota />} />
       <Route path="/tutor/solicitud-paseo" element={<SolicitudPaseo />} />
+      <Route path="/tutor/reservas" element={<TutorReservas />} />
       {/* Fallback para rutas desconocidas. */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
