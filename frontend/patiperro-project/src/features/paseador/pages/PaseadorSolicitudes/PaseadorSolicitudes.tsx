@@ -104,8 +104,8 @@ export default function PaseadorSolicitudes() {
         type: "success",
         message:
           decision === "ACEPTAR"
-            ? "Solicitud aceptada. El tutor podrá continuar con el pago cuando el backend esté conectado."
-            : "Solicitud rechazada. El bloque quedará disponible cuando el backend libere la agenda."
+            ? "Solicitud aceptada. Se notificará el cambio de estado al tutor."
+            : "Solicitud rechazada. El bloque de agenda volvió a quedar disponible."
       });
     } catch (error) {
       setFeedback({

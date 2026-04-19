@@ -1,6 +1,7 @@
 package com.patiperro.reserva.controller;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
@@ -65,6 +66,18 @@ public class ReservaController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return service.listarDetallePorTutor(idTutorUsuario, jwt);
+    }
+
+    /**
+     * Solicitudes pendientes (estado SOLICITADA) para bloques de agenda del paseador.
+     * El {@code idPaseador} debe coincidir con el claim {@code paseadorId} del JWT.
+     */
+    @GetMapping("/paseador/{idPaseador}/solicitudes-pendientes")
+    public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
+            @PathVariable Integer idPaseador,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarSolicitudesPendientesPaseador(idPaseador, jwt);
     }
 
     @GetMapping("/mascota/{idMascota}")

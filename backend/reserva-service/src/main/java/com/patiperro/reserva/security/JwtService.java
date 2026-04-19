@@ -14,6 +14,9 @@ public class JwtService {
 
     public static final String CLAIM_TUTOR_ID = "tutorId";
 
+    /** Mismo claim que emite paseadores-service en el JWT del paseador. */
+    public static final String CLAIM_PASEADOR_ID = "paseadorId";
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -35,6 +38,14 @@ public class JwtService {
 
     public Long extractTutorId(String token) {
         Object raw = parseClaims(token).get(CLAIM_TUTOR_ID);
+        if (raw instanceof Number n) {
+            return n.longValue();
+        }
+        return null;
+    }
+
+    public Long extractPaseadorId(String token) {
+        Object raw = parseClaims(token).get(CLAIM_PASEADOR_ID);
         if (raw instanceof Number n) {
             return n.longValue();
         }

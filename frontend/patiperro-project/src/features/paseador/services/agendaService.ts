@@ -1,6 +1,7 @@
 // Cliente HTTP para microservicio agenda (bloques y catálogos).
-// Mismo patrón que paseadorConfigService: gateway 8080 + credentials (cookie JWT).
+// Gateway 8080 + credentials + Bearer (Vite distinto origen que el gateway).
 import { API_ENDPOINTS, PASEADOR_ID_SESSION_KEY } from "../../../config/api";
+import { bearerAuthHeaders } from "../../../config/authHeaders";
 
 export type EstadoBloqueDTO = {
   idEstado: number;
@@ -85,7 +86,8 @@ async function guardarSesionRequerida(res: Response, data: unknown): Promise<voi
 export async function fetchEstadosBloque(): Promise<EstadoBloqueDTO[]> {
   const res = await fetch(API_ENDPOINTS.agenda.estadosBloque, {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
@@ -101,7 +103,8 @@ export async function fetchEstadosBloque(): Promise<EstadoBloqueDTO[]> {
 export async function fetchDiasSemana(): Promise<DiaSemanaDTO[]> {
   const res = await fetch(API_ENDPOINTS.agenda.diasSemana, {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
@@ -117,7 +120,8 @@ export async function fetchDiasSemana(): Promise<DiaSemanaDTO[]> {
 export async function fetchBloquesPorUsuario(idUsuario: number): Promise<AgendaBloqueDTO[]> {
   const res = await fetch(API_ENDPOINTS.agenda.bloquesPorUsuario(idUsuario), {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
@@ -137,7 +141,8 @@ export async function fetchBloquesOferta(
 ): Promise<AgendaBloqueDTO[]> {
   const res = await fetch(API_ENDPOINTS.agenda.bloquesOferta(idUsuario, desde, hasta), {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
@@ -155,7 +160,7 @@ export async function crearSerieMensualBloques(
 ): Promise<AgendaBloqueSerieMensualRespuesta> {
   const res = await fetch(API_ENDPOINTS.agenda.bloquesSerieMes, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(body)
   });
@@ -170,7 +175,7 @@ export async function crearSerieMensualBloques(
 export async function crearBloque(body: AgendaBloqueCuerpo): Promise<AgendaBloqueDTO> {
   const res = await fetch(API_ENDPOINTS.agenda.bloques, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(body)
   });
@@ -188,7 +193,7 @@ export async function actualizarBloque(
 ): Promise<AgendaBloqueDTO> {
   const res = await fetch(API_ENDPOINTS.agenda.bloque(idBloque), {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(body)
   });
@@ -203,7 +208,8 @@ export async function actualizarBloque(
 export async function eliminarBloque(idBloque: number): Promise<void> {
   const res = await fetch(API_ENDPOINTS.agenda.bloque(idBloque), {
     method: "DELETE",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   if (res.status === 204) return;
   const data = await parseJson(res);

@@ -9,7 +9,10 @@ import com.patiperro.reserva.dto.PaseadorResumenDTO;
 import com.patiperro.reserva.dto.ReservaDtoMapper;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
+import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
+import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
+import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
@@ -18,14 +21,18 @@ import com.patiperro.reserva.security.JwtService;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
+import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -37,6 +44,7 @@ public class ReservaService {
     private final AgendaIntegracionClient agendaIntegracionClient;
     private final MascotaIntegracionClient mascotaIntegracionClient;
     private final PaseadorIntegracionClient paseadorIntegracionClient;
+    private final TutorIntegracionClient tutorIntegracionClient;
     private final JwtService jwtService;
 
     public List<ReservaResponseDTO> listarTodas() {
@@ -96,6 +104,7 @@ public class ReservaService {
     @Transactional
     public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
+        validarPaseadorPropietarioReserva(r, rawJwt);
         EstadoReserva actual = r.getEstadoReserva();
         EstadoReserva nuevo = resolverEstadoDestino(dto);
         validarTransicionPaseador(actual, nuevo);
@@ -208,6 +217,41 @@ public class ReservaService {
                 .toList();
     }
 
+    /**
+     * Reservas en estado SOLICITADA cuyo bloque de agenda pertenece al paseador (JWT {@code paseadorId}).
+     */
+    public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
+            Integer idPaseador, String rawJwt) {
+        validarPaseadorJwt(idPaseador, rawJwt);
+        if (!agendaIntegracionClient.isEnabled()) {
+            return List.of();
+        }
+        List<AgendaBloqueReservaClientDTO> bloques =
+                agendaIntegracionClient.listarBloquesPorUsuario(idPaseador, rawJwt);
+        if (bloques.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, AgendaBloqueReservaClientDTO> bloquePorId = bloques.stream()
+                .filter(b -> b.getIdAgenda() != null)
+                .collect(Collectors.toMap(AgendaBloqueReservaClientDTO::getIdAgenda, b -> b, (a, b) -> a));
+
+        List<Integer> idsBloque = new ArrayList<>(bloquePorId.keySet());
+        List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
+                idsBloque, EstadoReservaCatalogo.ID_SOLICITADA);
+
+        List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
+        for (Reserva r : reservas) {
+            AgendaBloqueReservaClientDTO bloque = bloquePorId.get(r.getIdAgendaBloque());
+            TutorReservaClientDTO tutor =
+                    tutorIntegracionClient.obtenerTutor(r.getIdTutorUsuario().longValue(), rawJwt);
+            salida.add(mapearSolicitudPaseador(r, bloque, tutor));
+        }
+        salida.sort(Comparator.comparing(
+                ReservaPaseadorSolicitudResponseDTO::getFechaSolicitud,
+                Comparator.nullsLast(Comparator.naturalOrder())));
+        return salida;
+    }
+
     public List<ReservaResponseDTO> listarPorMascota(Integer idMascota) {
         return reservaRepository.findByIdMascota(idMascota).stream()
                 .map(ReservaDtoMapper::toReservaResponse)
@@ -224,6 +268,187 @@ public class ReservaService {
         return reservaRepository.findByEstadoReserva_IdEstadoReserva(idEstadoReserva).stream()
                 .map(ReservaDtoMapper::toReservaResponse)
                 .toList();
+    }
+
+    private void validarPaseadorJwt(Integer idPaseador, String rawJwt) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT de paseador");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new IllegalArgumentException("Token inválido o expirado");
+        }
+        Long idJwt = jwtService.extractPaseadorId(rawJwt);
+        if (idJwt == null) {
+            throw new IllegalArgumentException("JWT sin claim paseadorId");
+        }
+        if (!idJwt.equals(idPaseador.longValue())) {
+            throw new IllegalArgumentException("idPaseador no coincide con el token");
+        }
+    }
+
+    private void validarPaseadorPropietarioReserva(Reserva r, String rawJwt) {
+        if (!agendaIntegracionClient.isEnabled()) {
+            return;
+        }
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT de paseador");
+        }
+        Long paseadorId = jwtService.extractPaseadorId(rawJwt);
+        if (paseadorId == null) {
+            throw new IllegalArgumentException("JWT sin claim paseadorId");
+        }
+        AgendaBloqueReservaClientDTO bloque =
+                agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+        if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
+            throw new IllegalArgumentException("No tienes permiso para modificar esta reserva");
+        }
+    }
+
+    private ReservaPaseadorSolicitudResponseDTO mapearSolicitudPaseador(
+            Reserva r, AgendaBloqueReservaClientDTO bloque, TutorReservaClientDTO tutor) {
+        EstadoReserva estado = r.getEstadoReserva();
+        String nombreEstado = estado != null ? estado.getNombreEstado() : null;
+
+        String fechaAgenda = "";
+        String horaIni = "";
+        String horaFin = "";
+        if (bloque != null) {
+            LocalDate f = bloque.getFecha();
+            if (f != null) {
+                fechaAgenda = f.toString();
+            }
+            horaIni = formatearHoraMinuto(bloque.getHoraInicio());
+            horaFin = formatearHoraMinuto(bloque.getHoraFinal());
+        }
+
+        String tutorNombre;
+        String tutorTel = "";
+        String tutorCorreo = "";
+        String tutorFoto = "";
+        String tutorNotas = "";
+        String comuna = "";
+        String direccionRef = "";
+
+        if (tutor != null) {
+            tutorNombre = nombreCompletoTutor(tutor);
+            if (tutor.getTelefono() != null) {
+                tutorTel = tutor.getTelefono();
+            }
+            if (tutor.getCorreo() != null) {
+                tutorCorreo = tutor.getCorreo();
+            }
+            if (tutor.getFotoPerfil() != null) {
+                tutorFoto = tutor.getFotoPerfil();
+            }
+            if (tutor.getBiografia() != null) {
+                tutorNotas = tutor.getBiografia();
+            }
+            TutorReservaClientDTO.DireccionTutorClientDTO d = tutor.getDireccion();
+            if (d != null) {
+                if (d.getComuna() != null) {
+                    comuna = d.getComuna();
+                }
+                direccionRef = lineaDireccionTutor(d);
+            }
+        } else {
+            tutorNombre = "Tutor #" + r.getIdTutorUsuario();
+        }
+
+        if (direccionRef.isBlank() && bloque != null) {
+            direccionRef = "Bloque agenda #" + r.getIdAgendaBloque();
+        }
+        if (comuna.isBlank()) {
+            comuna = "—";
+        }
+
+        String mascotaNombre = "Mascota #" + r.getIdMascota();
+        String mascotaFotoUrl = null;
+        try {
+            MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(r.getIdMascota());
+            if (portada != null) {
+                mascotaFotoUrl = portada.getUrl();
+                if (portada.getNombre() != null && !portada.getNombre().isBlank()) {
+                    mascotaNombre = portada.getNombre();
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Si mascotas no está o falla el interno, el panel del paseador sigue mostrando nombre genérico.
+        }
+
+        return new ReservaPaseadorSolicitudResponseDTO(
+                r.getIdReserva(),
+                r.getIdTutorUsuario(),
+                r.getIdMascota(),
+                r.getIdAgendaBloque(),
+                r.getMontoTotal(),
+                r.getFechaSolicitud(),
+                nombreEstado,
+                fechaAgenda,
+                horaIni,
+                horaFin,
+                comuna,
+                direccionRef,
+                tutorNombre,
+                tutorTel,
+                tutorCorreo,
+                tutorFoto,
+                tutorNotas,
+                mascotaFotoUrl,
+                mascotaNombre);
+    }
+
+    private static String formatearHoraMinuto(LocalDateTime t) {
+        if (t == null) {
+            return "";
+        }
+        return String.format("%02d:%02d", t.getHour(), t.getMinute());
+    }
+
+    private static String nombreCompletoTutor(TutorReservaClientDTO t) {
+        StringBuilder sb = new StringBuilder();
+        if (t.getPrimerNombre() != null && !t.getPrimerNombre().isBlank()) {
+            sb.append(t.getPrimerNombre().trim());
+        }
+        if (t.getSegundoNombre() != null && !t.getSegundoNombre().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(t.getSegundoNombre().trim());
+        }
+        if (t.getApellidoPaterno() != null && !t.getApellidoPaterno().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(t.getApellidoPaterno().trim());
+        }
+        if (t.getApellidoMaterno() != null && !t.getApellidoMaterno().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(t.getApellidoMaterno().trim());
+        }
+        String s = sb.toString().trim();
+        return s.isEmpty() ? "Tutor" : s;
+    }
+
+    private static String lineaDireccionTutor(TutorReservaClientDTO.DireccionTutorClientDTO d) {
+        List<String> partes = new ArrayList<>();
+        if (d.getCalle() != null && !d.getCalle().isBlank()) {
+            partes.add(d.getCalle().trim());
+        }
+        if (d.getNumeracion() != null) {
+            partes.add(String.valueOf(d.getNumeracion()));
+        }
+        if (d.getCasaDepartamento() != null && !d.getCasaDepartamento().isBlank()) {
+            partes.add(d.getCasaDepartamento().trim());
+        }
+        if (d.getCiudad() != null && !d.getCiudad().isBlank()) {
+            partes.add(d.getCiudad().trim());
+        }
+        if (d.getComuna() != null && !d.getComuna().isBlank()) {
+            partes.add(d.getComuna().trim());
+        }
+        return String.join(", ", partes);
     }
 
     private void validarTutorJwt(Integer idTutorUsuario, String rawJwt) {

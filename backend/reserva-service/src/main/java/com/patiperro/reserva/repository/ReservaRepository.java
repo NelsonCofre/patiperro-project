@@ -30,4 +30,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     boolean existsByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
             Collection<Integer> idsAgenda,
             Collection<Integer> idsEstadoReservaComprometidos);
+
+    List<Reserva> findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
+            Collection<Integer> idsAgendaBloque,
+            Integer idEstadoReserva);
 }

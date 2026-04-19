@@ -72,7 +72,9 @@ export const API_ENDPOINTS = {
     byTutor: (idTutor: number) => `${API_BASE_URL}/api/reserva/tutor/${idTutor}`,
     byTutorDetalle: (idTutor: number) => `${API_BASE_URL}/api/reserva/tutor/${idTutor}/detalle`,
     byId: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}`,
-    status: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}/status`
+    status: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}/status`,
+    paseadorSolicitudesPendientes: (idPaseador: number) =>
+      `${API_BASE_URL}/api/reserva/paseador/${idPaseador}/solicitudes-pendientes`
   }
 };
 

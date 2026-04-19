@@ -1,5 +1,6 @@
 package com.patiperro.mascota.service;
 
+import com.patiperro.mascota.dto.PortadaIntegracion;
 import com.patiperro.mascota.exception.ForbiddenOperationException;
 import com.patiperro.mascota.model.Foto;
 import com.patiperro.mascota.model.Mascota;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -157,5 +159,29 @@ public class MascotaService {
             throw new IllegalArgumentException("Identificador de catálogo obligatorio");
         }
         return id;
+    }
+
+    /**
+     * Solo para integración server-to-server (cabecera secreta en {@link com.patiperro.mascota.controller.MascotaInternoController}).
+     * Prioridad URL: {@code foto_perfil}; si no, primera URL de la galería {@code foto}.
+     */
+    @Transactional(readOnly = true)
+    public PortadaIntegracion obtenerPortadaParaIntegracion(Long idMascota) {
+        Optional<Mascota> opt = mascotaRepository.findById(idMascota);
+        if (opt.isEmpty()) {
+            return null;
+        }
+        Mascota m = opt.get();
+        String nombre = m.getNombre() != null ? m.getNombre().trim() : "";
+        if (m.getFotoPerfil() != null && !m.getFotoPerfil().isBlank()) {
+            return new PortadaIntegracion(m.getFotoPerfil().trim(), nombre);
+        }
+        String url = fotoRepository.findByMascota_IdMascota(idMascota).stream()
+                .map(Foto::getUrl)
+                .filter(u -> u != null && !u.isBlank())
+                .map(String::trim)
+                .findFirst()
+                .orElse(null);
+        return new PortadaIntegracion(url, nombre);
     }
 }

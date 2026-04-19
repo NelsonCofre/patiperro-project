@@ -3,11 +3,15 @@ package com.patiperro.reserva.support;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.AgendaBloqueResumenDTO;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+
+import java.util.Collections;
+import java.util.List;
 
 @Component
 public class AgendaIntegracionClient {
@@ -34,6 +38,30 @@ public class AgendaIntegracionClient {
      * Obtiene un bloque de agenda por id (misma ruta que agenda-service).
      * Requiere JWT porque {@code GET /api/agenda/bloques/{id}} está protegido.
      */
+    /**
+     * Lista todos los bloques del usuario (paseador). Requiere JWT.
+     */
+    public List<AgendaBloqueReservaClientDTO> listarBloquesPorUsuario(Integer idUsuario, String rawJwt) {
+        if (!isEnabled()) {
+            return Collections.emptyList();
+        }
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT para listar bloques en agenda-service");
+        }
+        try {
+            return restClient.get()
+                    .uri("/api/agenda/bloques/usuario/{idUsuario}", idUsuario)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + rawJwt.trim())
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<AgendaBloqueReservaClientDTO>>() {});
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Agenda-service respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
+        }
+    }
+
     public AgendaBloqueReservaClientDTO obtenerBloquePorId(Integer idAgendaBloque, String rawJwt) {
         if (!isEnabled()) {
             throw new IllegalStateException(

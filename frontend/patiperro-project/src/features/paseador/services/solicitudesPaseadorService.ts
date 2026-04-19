@@ -1,138 +1,155 @@
+import { API_ENDPOINTS, resolveApiUrl } from "../../../config/api";
+import { bearerAuthHeaders } from "../../../config/authHeaders";
+import { readStoredPaseadorId } from "./agendaService";
 import type {
   DecisionSolicitudPayload,
   SolicitudPendientePaseador
 } from "../types/solicitudPaseador.types";
 
-const MOCK_DELAY_MS = 850;
+type ApiErrorBody = { message?: string; mensaje?: string };
 
-const MOCK_SOLICITUDES: SolicitudPendientePaseador[] = [
-  {
-    idReserva: 101,
-    tutorNombre: "Camila Rojas",
-    tutorTelefono: "+56 9 6123 4578",
-    tutorCorreo: "camila.rojas@mail.com",
-    tutorComuna: "Providencia",
-    tutorDireccion: "Cercano a Plaza Las Lilas",
-    tutorFotoUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80",
-    tutorNotas: "Prefiere recibir actualizaciones al inicio y al finalizar el paseo.",
-    mascotaNombre: "Luna",
-    mascotaFotoUrl:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=900&q=80",
-    mascotaRaza: "Mestiza",
-    mascotaTamano: "Mediano",
-    mascotaEdad: "3 años",
-    mascotaPeso: "18 kg",
-    mascotaSexo: "Hembra",
-    mascotaCaracter: "Tranquila, curiosa y algo sensible al ruido.",
-    mascotaCuidados: "Evitar calles con motos y mantener correa corta en cruces.",
-    fecha: "2026-04-18",
-    horaInicio: "10:00",
-    horaFin: "11:00",
-    comuna: "Providencia",
-    direccionReferencia: "Cercano a Plaza Las Lilas",
-    montoTotal: 9500,
-    estado: "Solicitada",
-    comentarioTutor: "Luna se asusta con motos, prefiere caminar por calles tranquilas.",
-    fechaSolicitud: "2026-04-15T09:24:00"
-  },
-  {
-    idReserva: 102,
-    tutorNombre: "Diego Morales",
-    tutorTelefono: "+56 9 7344 2091",
-    tutorCorreo: "diego.morales@mail.com",
-    tutorComuna: "Ñuñoa",
-    tutorDireccion: "Sector Parque Juan XXIII",
-    tutorFotoUrl:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80",
-    tutorNotas: "Rocky tiene buena energía, pero no debe soltarse en parques abiertos.",
-    mascotaNombre: "Rocky",
-    mascotaFotoUrl:
-      "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=900&q=80",
-    mascotaRaza: "Labrador",
-    mascotaTamano: "Grande",
-    mascotaEdad: "5 años",
-    mascotaPeso: "31 kg",
-    mascotaSexo: "Macho",
-    mascotaCaracter: "Activo, sociable y con mucha energía.",
-    mascotaCuidados: "No soltar en parques abiertos y llevar agua para el recorrido.",
-    fecha: "2026-04-18",
-    horaInicio: "16:00",
-    horaFin: "17:30",
-    comuna: "Ñuñoa",
-    direccionReferencia: "Sector Parque Juan XXIII",
-    montoTotal: 17250,
-    estado: "Solicitada",
-    comentarioTutor: "Rocky tiene mucha energía y responde bien con correa corta.",
-    fechaSolicitud: "2026-04-15T11:10:00"
-  },
-  {
-    idReserva: 103,
-    tutorNombre: "Sofía Herrera",
-    tutorTelefono: "+56 9 8455 6720",
-    tutorCorreo: "sofia.herrera@mail.com",
-    tutorComuna: "Santiago Centro",
-    tutorDireccion: "Edificio con conserjería",
-    tutorFotoUrl:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=700&q=80",
-    tutorNotas: "Milo suele caminar lento durante los primeros minutos.",
-    mascotaNombre: "Milo",
-    mascotaFotoUrl:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=900&q=80",
-    mascotaRaza: "Poodle",
-    mascotaTamano: "Pequeño",
-    mascotaEdad: "2 años",
-    mascotaPeso: "7 kg",
-    mascotaSexo: "Macho",
-    mascotaCaracter: "Cariñoso, observador y camina a ritmo pausado.",
-    mascotaCuidados: "Darle unos minutos para tomar confianza antes de caminar rápido.",
-    fecha: "2026-04-19",
-    horaInicio: "09:00",
-    horaFin: "10:00",
-    comuna: "Santiago Centro",
-    direccionReferencia: "Edificio con conserjeria",
-    montoTotal: 8000,
-    estado: "Solicitada",
-    fechaSolicitud: "2026-04-15T12:42:00"
+function readApiErrorMessage(data: unknown, fallback: string): string {
+  if (data && typeof data === "object") {
+    const o = data as ApiErrorBody;
+    if (typeof o.message === "string" && o.message.trim()) return o.message;
+    if (typeof o.mensaje === "string" && o.mensaje.trim()) return o.mensaje;
   }
-];
+  return fallback;
+}
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+async function parseJsonSafe(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Respuesta de {@code GET /api/reserva/paseador/{id}/solicitudes-pendientes}. */
+export type ReservaPaseadorSolicitudApiDTO = {
+  idReserva: number;
+  idTutorUsuario: number;
+  idMascota: number;
+  idAgendaBloque: number;
+  montoTotal: number;
+  fechaSolicitud: string | null;
+  nombreEstado: string | null;
+  fechaAgenda: string;
+  horaInicio: string;
+  horaFin: string;
+  comuna: string;
+  direccionReferencia: string;
+  tutorNombre: string;
+  tutorTelefono: string;
+  tutorCorreo: string;
+  tutorFotoUrl: string;
+  tutorNotas: string;
+  /** URL relativa o absoluta desde mascotas-service (integración interna reserva ↔ mascotas). */
+  mascotaFotoUrl?: string | null;
+  mascotaNombre: string;
+};
+
+function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendientePaseador["estado"] {
+  const u = (nombre ?? "").toUpperCase();
+  if (u.includes("SOLICIT")) return "Solicitada";
+  if (u.includes("ACEPT")) return "Aceptada";
+  if (u.includes("RECHAZ")) return "Rechazada";
+  return "Solicitada";
+}
+
+const PLACEHOLDER_MASCOTA_FOTO =
+  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=400&q=60";
+
+function mascotaFotoDesdeApi(s: ReservaPaseadorSolicitudApiDTO): string {
+  const raw = s.mascotaFotoUrl?.trim();
+  if (!raw) return PLACEHOLDER_MASCOTA_FOTO;
+  return resolveApiUrl(raw);
+}
+
+function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendientePaseador {
+  const dash = "—";
+  const fotoTutor = s.tutorFotoUrl ? resolveApiUrl(s.tutorFotoUrl) : "";
+  const fechaSol = s.fechaSolicitud?.trim() || "";
+
+  return {
+    idReserva: s.idReserva,
+    tutorNombre: s.tutorNombre || `Tutor #${s.idTutorUsuario}`,
+    tutorTelefono: s.tutorTelefono?.trim() || dash,
+    tutorCorreo: s.tutorCorreo?.trim() || dash,
+    tutorComuna: s.comuna?.trim() || dash,
+    tutorDireccion: s.direccionReferencia?.trim() || dash,
+    tutorFotoUrl: fotoTutor || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=60",
+    tutorNotas: s.tutorNotas?.trim() || undefined,
+    mascotaNombre: s.mascotaNombre || `Mascota #${s.idMascota}`,
+    mascotaFotoUrl: mascotaFotoDesdeApi(s),
+    mascotaRaza: dash,
+    mascotaTamano: dash,
+    mascotaEdad: dash,
+    mascotaPeso: dash,
+    mascotaSexo: dash,
+    mascotaCaracter: dash,
+    mascotaCuidados: dash,
+    fecha: s.fechaAgenda?.trim() || "",
+    horaInicio: s.horaInicio?.trim() || "",
+    horaFin: s.horaFin?.trim() || "",
+    comuna: s.comuna?.trim() || dash,
+    direccionReferencia: s.direccionReferencia?.trim() || dash,
+    montoTotal: Number(s.montoTotal) || 0,
+    estado: mapNombreEstadoToUi(s.nombreEstado),
+    comentarioTutor: undefined,
+    fechaSolicitud: fechaSol
+  };
 }
 
 export async function fetchSolicitudesPendientesPaseador(): Promise<SolicitudPendientePaseador[]> {
-  await wait(MOCK_DELAY_MS);
-  return MOCK_SOLICITUDES.map((solicitud) => ({ ...solicitud }));
+  const idPaseador = readStoredPaseadorId();
+  if (idPaseador == null) {
+    throw new Error("No se encontró id de paseador en sesión. Vuelve a iniciar sesión.");
+  }
+
+  const response = await fetch(API_ENDPOINTS.reserva.paseadorSolicitudesPendientes(idPaseador), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudieron cargar las solicitudes."));
+  }
+  if (!Array.isArray(data)) {
+    return [];
+  }
+  return (data as ReservaPaseadorSolicitudApiDTO[]).map(mapApiToSolicitud);
 }
 
 export async function responderSolicitudPaseador(
   idReserva: number,
   payload: DecisionSolicitudPayload
 ): Promise<{ idReserva: number; estado: "Aceptada" | "Rechazada" }> {
-  await wait(MOCK_DELAY_MS);
-
   if (!Number.isFinite(idReserva) || idReserva <= 0) {
     throw new Error("La solicitud seleccionada no es válida.");
   }
 
-  if (payload.decision === "ACEPTAR") {
-    return { idReserva, estado: "Aceptada" };
+  const body: { decision: "ACEPTAR" | "RECHAZAR" } = {
+    decision: payload.decision
+  };
+
+  const response = await fetch(API_ENDPOINTS.reserva.status(idReserva), {
+    method: "PATCH",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo registrar la decisión."));
   }
 
-  return { idReserva, estado: "Rechazada" };
+  const row = data as { nombreEstado?: string | null };
+  const nombre = row?.nombreEstado ?? "";
+  const estado: "Aceptada" | "Rechazada" = nombre.toUpperCase().includes("RECHAZ")
+    ? "Rechazada"
+    : "Aceptada";
 
-  /*
-   * Integración futura con backend:
-   *
-   * await fetch(API_ENDPOINTS.reserva.status(idReserva), {
-   *   method: "PATCH",
-   *   credentials: "include",
-   *   headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
-   *   body: JSON.stringify(payload)
-   * });
-   *
-   * Cuando backend soporte motivo de rechazo, enviar:
-   * { decision: "RECHAZAR", motivoRechazo, detalleRechazo }
-   */
+  return { idReserva, estado };
 }

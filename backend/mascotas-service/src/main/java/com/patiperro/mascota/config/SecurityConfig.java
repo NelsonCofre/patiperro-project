@@ -3,6 +3,7 @@ package com.patiperro.mascota.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,7 +28,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/mascotas/razas/**").permitAll()
                         .requestMatchers("/api/mascotas/especies/**").permitAll()
                         .requestMatchers("/api/mascotas/tamanos/**").permitAll()
-                        
+                        .requestMatchers(HttpMethod.GET, "/api/mascotas/interno/**").permitAll()
+
                         // 2. VIGILANCIA: Todo lo demás (Registrar, Borrar, Editar) requiere login //
                         .anyRequest().authenticated())
                 
