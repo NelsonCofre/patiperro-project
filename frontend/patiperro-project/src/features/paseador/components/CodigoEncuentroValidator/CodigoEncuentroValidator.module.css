@@ -1,0 +1,236 @@
+.card,
+.successCard {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), #ffffff);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #1d4ed8;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header h3,
+.successCard h3 {
+  margin: 0;
+  color: #172554;
+  font-size: 1.12rem;
+}
+
+.attempts {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: #dbeafe;
+  white-space: nowrap;
+}
+
+.pinRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(44px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pinInput {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  color: #172554;
+  font: inherit;
+  font-size: 2rem;
+  font-weight: 900;
+  text-align: center;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.pinInput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.pinInput:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.shake {
+  animation: shake 380ms ease;
+}
+
+.helper,
+.errorText,
+.lockText,
+.successText {
+  margin: 12px 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.errorText {
+  color: #b91c1c;
+  font-weight: 900;
+}
+
+.lockText {
+  color: #92400e;
+  font-weight: 900;
+}
+
+.validateButton {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  background: #2563eb;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.18);
+}
+
+.validateButton:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.successCard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  border-color: #86efac;
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.98), #ffffff);
+}
+
+.checkWrap {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+}
+
+.checkIcon {
+  width: 54px;
+  height: 54px;
+}
+
+.checkIcon circle {
+  fill: #dcfce7;
+  stroke: #16a34a;
+  stroke-width: 3;
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  animation: drawCircle 520ms ease forwards;
+}
+
+.checkIcon path {
+  fill: none;
+  stroke: #15803d;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  animation: drawCheck 420ms ease 420ms forwards;
+}
+
+.successText {
+  color: #166534;
+}
+
+.summaryGrid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryGrid div {
+  padding: 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.summaryGrid span {
+  color: #15803d;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.summaryGrid strong {
+  display: block;
+  margin-top: 6px;
+  color: #14532d;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-8px);
+  }
+
+  40% {
+    transform: translateX(8px);
+  }
+
+  60% {
+    transform: translateX(-5px);
+  }
+
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes drawCircle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .successCard,
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .checkWrap {
+    justify-self: center;
+  }
+}

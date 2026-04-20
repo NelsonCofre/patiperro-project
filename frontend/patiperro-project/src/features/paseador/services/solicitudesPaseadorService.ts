@@ -47,6 +47,7 @@ export type ReservaPaseadorSolicitudApiDTO = {
   /** URL relativa o absoluta desde mascotas-service (integración interna reserva ↔ mascotas). */
   mascotaFotoUrl?: string | null;
   mascotaNombre: string;
+  codigoEncuentro?: number | null;
 };
 
 function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendientePaseador["estado"] {
@@ -96,6 +97,7 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     direccionReferencia: s.direccionReferencia?.trim() || dash,
     montoTotal: Number(s.montoTotal) || 0,
     estado: mapNombreEstadoToUi(s.nombreEstado),
+    codigoEncuentro: s.codigoEncuentro ?? null,
     comentarioTutor: undefined,
     fechaSolicitud: fechaSol
   };

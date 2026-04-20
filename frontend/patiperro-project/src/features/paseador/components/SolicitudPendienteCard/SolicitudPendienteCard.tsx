@@ -2,6 +2,7 @@ import type {
   DecisionSolicitud,
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
+import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
 import styles from "./SolicitudPendienteCard.module.css";
 
 type SolicitudPendienteCardProps = {
@@ -42,6 +43,8 @@ export default function SolicitudPendienteCard({
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";
   const rejecting = processingDecision === "RECHAZAR";
+  const isSolicitada = solicitud.estado === "Solicitada";
+  const isAceptada = solicitud.estado === "Aceptada";
 
   return (
     <article className={styles.card}>
@@ -106,25 +109,31 @@ export default function SolicitudPendienteCard({
           >
             Ver detalle
           </button>
-          <button
-            type="button"
-            className={styles.rejectButton}
-            onClick={() => onReject(solicitud)}
-            disabled={isProcessing}
-          >
-            {rejecting ? <span className={styles.spinner} aria-hidden="true" /> : null}
-            {rejecting ? "Rechazando..." : "Rechazar"}
-          </button>
-          <button
-            type="button"
-            className={styles.acceptButton}
-            onClick={() => onAccept(solicitud)}
-            disabled={isProcessing}
-          >
-            {accepting ? <span className={styles.spinner} aria-hidden="true" /> : null}
-            {accepting ? "Aceptando..." : "Aceptar"}
-          </button>
+          {isSolicitada ? (
+            <>
+              <button
+                type="button"
+                className={styles.rejectButton}
+                onClick={() => onReject(solicitud)}
+                disabled={isProcessing}
+              >
+                {rejecting ? <span className={styles.spinner} aria-hidden="true" /> : null}
+                {rejecting ? "Rechazando..." : "Rechazar"}
+              </button>
+              <button
+                type="button"
+                className={styles.acceptButton}
+                onClick={() => onAccept(solicitud)}
+                disabled={isProcessing}
+              >
+                {accepting ? <span className={styles.spinner} aria-hidden="true" /> : null}
+                {accepting ? "Aceptando..." : "Aceptar"}
+              </button>
+            </>
+          ) : null}
         </div>
+
+        {isAceptada ? <CodigoEncuentroValidator solicitud={solicitud} /> : null}
       </div>
     </article>
   );

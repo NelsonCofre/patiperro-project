@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import ReservaCard from "../../components/ReservaCard/ReservaCard";
 import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
@@ -83,6 +84,10 @@ export default function TutorReservas() {
               <div className={styles.mvpNote}>
                 El paseo esta en curso. El seguimiento con mapa GPS no esta activo en este MVP.
               </div>
+            ) : null}
+
+            {selectedEstado?.key === "aceptada" ? (
+              <CodigoEncuentro codigo={selectedReserva.codigoEncuentro} />
             ) : null}
 
             <ReservaStepper reserva={selectedReserva} />

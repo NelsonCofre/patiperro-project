@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
-import styles from "./PaseadoresMap.module.css";
 import PaseadorCard from "../PaseadorCard/PaseadorCard";
+import styles from "./PaseadoresMap.module.css";
 
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -23,14 +23,28 @@ interface PaseadoresMapProps {
   centroLat: number;
   centroLng: number;
   paseadores: PaseadorHome[];
-  onVerPerfil: (p: PaseadorHome) => void; // Agregado para abrir el modal
+  onVerPerfil: (p: PaseadorHome) => void;
+  emptyTitle?: string;
+  emptyMessage?: string;
 }
 
-function MapController({ lat, lng, onZoomChange }: { lat: number, lng: number, onZoomChange: (z: number) => void }) {
+function MapController({
+  lat,
+  lng,
+  onZoomChange
+}: {
+  lat: number;
+  lng: number;
+  onZoomChange: (z: number) => void;
+}) {
   const map = useMap();
+
   useEffect(() => {
-    setTimeout(() => { map.invalidateSize(); }, 250);
+    const timer = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
     map.setView([lat, lng], map.getZoom());
+    return () => window.clearTimeout(timer);
   }, [lat, lng, map]);
 
   useMapEvents({
@@ -38,6 +52,7 @@ function MapController({ lat, lng, onZoomChange }: { lat: number, lng: number, o
       onZoomChange(event.target.getZoom());
     }
   });
+
   return null;
 }
 
@@ -76,18 +91,21 @@ function createWalkerIcon(fotoUrl: string, currentZoom: number, isSelected: bool
   });
 }
 
-export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerPerfil }: PaseadoresMapProps) {
+export default function PaseadoresMap({
+  centroLat,
+  centroLng,
+  paseadores,
+  onVerPerfil,
+  emptyTitle = "No hay paseadores en esta zona",
+  emptyMessage = "Prueba ampliando el radio o limpiando los filtros de busqueda."
+}: PaseadoresMapProps) {
   const [currentZoom, setCurrentZoom] = useState(14);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // Efecto para hacer scroll automático a la tarjeta seleccionada
   useEffect(() => {
-    if (selectedId) {
-      const cardElement = document.getElementById(`card-${selectedId}`);
-      if (cardElement) {
-        cardElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }
+    if (!selectedId) return;
+    const cardElement = document.getElementById(`card-${selectedId}`);
+    cardElement?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedId]);
 
   return (
@@ -97,7 +115,9 @@ export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerP
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <MapController lat={centroLat} lng={centroLng} onZoomChange={setCurrentZoom} />
 
-          <Marker position={[centroLat, centroLng]}><Popup>Estás aquí</Popup></Marker>
+          <Marker position={[centroLat, centroLng]}>
+            <Popup>Estas aqui</Popup>
+          </Marker>
 
           {paseadores.map((p) => (
             <Marker
@@ -105,15 +125,16 @@ export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerP
               position={[Number(p.latitud), Number(p.longitud)]}
               icon={createWalkerIcon(p.fotoUrl || "", currentZoom, selectedId === p.id)}
               eventHandlers={{
-                click: () => setSelectedId(p.id),
+                click: () => setSelectedId(p.id)
               }}
             >
               <Popup>
-                <div style={{ textAlign: 'center' }}>
-                  <strong>{p.nombre}</strong><br/>
-                  <button 
+                <div style={{ textAlign: "center" }}>
+                  <strong>{p.nombre}</strong>
+                  <br />
+                  <button
                     onClick={() => onVerPerfil(p)}
-                    style={{ marginTop: '5px', cursor: 'pointer' }}
+                    style={{ marginTop: "5px", cursor: "pointer" }}
                   >
                     Ver Perfil Completo
                   </button>
@@ -126,8 +147,8 @@ export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerP
       <div className={styles.cardsContainer}>
         {paseadores.length > 0 ? (
           paseadores.map((p) => (
-            <div 
-              id={`card-${p.id}`} 
+            <div
+              id={`card-${p.id}`}
               key={p.id}
               className={`${styles.cardWrapper} ${selectedId === p.id ? styles.selectedCard : ""}`}
               onClick={() => setSelectedId(p.id)}
@@ -137,9 +158,11 @@ export default function PaseadoresMap({ centroLat, centroLng, paseadores, onVerP
           ))
         ) : (
           <div className={styles.noWalkersMessage}>
-            <p style={{ fontSize: '2rem' }}>📍</p>
-            <p><strong>No hay paseadores en esta zona</strong></p>
-            <p>Prueba ampliando el radio o limpiando los filtros de búsqueda.</p>
+            <p className={styles.noWalkersIcon}>?</p>
+            <p>
+              <strong>{emptyTitle}</strong>
+            </p>
+            <p>{emptyMessage}</p>
           </div>
         )}
       </div>

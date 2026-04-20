@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import PerfilPaseadorModal from "../../components/PerfilPaseadorModal/PerfilPaseadorModal";
-import PaseadorCard from "../../components/PaseadorCard/PaseadorCard";
 import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/PaseadoresFilterBar";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
@@ -25,13 +24,18 @@ export default function TutorDashboard() {
     visiblePaseadores,
     hasMore,
     loadMore,
-    expandSearch,
     requestTutorLocation,
-    listError,
     needsReferencePoint,
     filteredCount,
     queryText,
     setQueryText,
+    availabilityDate,
+    setAvailabilityDate,
+    availabilityStartTime,
+    setAvailabilityStartTime,
+    availabilityEndTime,
+    setAvailabilityEndTime,
+    availabilityFilterError,
     maxDistanceFilterKm,
     setMaxDistanceFilterKm,
     sortMode,
@@ -53,7 +57,13 @@ export default function TutorDashboard() {
   [selectedPaseador]
 );
   const noFilterMatches =
-    !isLoading && !needsReferencePoint && paseadores.length > 0 && filteredCount === 0;
+    !isLoading && !needsReferencePoint && hasActiveFilters && filteredCount === 0;
+  const emptyResultsTitle = noFilterMatches
+    ? "No encontramos paseadores disponibles"
+    : "No hay paseadores en esta zona";
+  const emptyResultsMessage = noFilterMatches
+    ? "No encontramos paseadores disponibles en este horario cerca de tu ubicacion. Intenta ampliar el rango de busqueda."
+    : "Prueba ampliando el radio o ajustando los filtros de busqueda.";
   const locationMessage =
     locationStatus === "requesting"
       ? "Solicitando ubicacion..."
@@ -138,6 +148,13 @@ export default function TutorDashboard() {
             onApplySearchRadiusKm={applySearchRadiusKm}
             queryText={queryText}
             onQueryTextChange={setQueryText}
+            availabilityDate={availabilityDate}
+            onAvailabilityDateChange={setAvailabilityDate}
+            availabilityStartTime={availabilityStartTime}
+            onAvailabilityStartTimeChange={setAvailabilityStartTime}
+            availabilityEndTime={availabilityEndTime}
+            onAvailabilityEndTimeChange={setAvailabilityEndTime}
+            availabilityFilterError={availabilityFilterError}
             sortMode={sortMode}
             onSortModeChange={setSortMode}
             maxDistanceFilterKm={maxDistanceFilterKm}
@@ -157,6 +174,8 @@ export default function TutorDashboard() {
               centroLng={refLon} 
               paseadores={visiblePaseadores} 
               onVerPerfil={setSelectedPaseador}
+              emptyTitle={emptyResultsTitle}
+              emptyMessage={emptyResultsMessage}
             />
           </div>
         )}

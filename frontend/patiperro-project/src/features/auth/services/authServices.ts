@@ -84,6 +84,12 @@ function persistAccessToken(body: { accessToken?: string } | null | undefined) {
   }
 }
 
+export function clearAuthSession() {
+  sessionStorage.removeItem(ACCESS_TOKEN_SESSION_KEY);
+  sessionStorage.removeItem(TUTOR_ID_SESSION_KEY);
+  sessionStorage.removeItem(PASEADOR_ID_SESSION_KEY);
+}
+
 /**
  * Sube la imagen de perfil y devuelve la ruta a guardar en registro (relativa al gateway).
  */

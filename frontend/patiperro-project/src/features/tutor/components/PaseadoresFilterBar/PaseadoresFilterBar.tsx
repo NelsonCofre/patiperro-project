@@ -9,6 +9,13 @@ type Props = {
   onApplySearchRadiusKm: (km: number) => void;
   queryText: string;
   onQueryTextChange: (value: string) => void;
+  availabilityDate: string;
+  onAvailabilityDateChange: (value: string) => void;
+  availabilityStartTime: string;
+  onAvailabilityStartTimeChange: (value: string) => void;
+  availabilityEndTime: string;
+  onAvailabilityEndTimeChange: (value: string) => void;
+  availabilityFilterError: string;
   sortMode: PaseadoresSortMode;
   onSortModeChange: (value: PaseadoresSortMode) => void;
   maxDistanceFilterKm: number | null;
@@ -32,6 +39,13 @@ export default function PaseadoresFilterBar({
   onApplySearchRadiusKm,
   queryText,
   onQueryTextChange,
+  availabilityDate,
+  onAvailabilityDateChange,
+  availabilityStartTime,
+  onAvailabilityStartTimeChange,
+  availabilityEndTime,
+  onAvailabilityEndTimeChange,
+  availabilityFilterError,
   sortMode,
   onSortModeChange,
   maxDistanceFilterKm,
@@ -183,6 +197,36 @@ export default function PaseadoresFilterBar({
 
       <div className={styles.controls}>
         <label className={styles.field}>
+          <span className={styles.label}>Fecha</span>
+          <input
+            type="date"
+            className={styles.input}
+            value={availabilityDate}
+            onChange={(e) => onAvailabilityDateChange(e.target.value)}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>Hora de Inicio</span>
+          <input
+            type="time"
+            className={styles.input}
+            value={availabilityStartTime}
+            onChange={(e) => onAvailabilityStartTimeChange(e.target.value)}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>Hora de Termino</span>
+          <input
+            type="time"
+            className={styles.input}
+            value={availabilityEndTime}
+            onChange={(e) => onAvailabilityEndTimeChange(e.target.value)}
+          />
+        </label>
+
+        <label className={styles.field}>
           <span className={styles.label}>Ordenar por</span>
           <select
             className={styles.select}
@@ -236,6 +280,12 @@ export default function PaseadoresFilterBar({
           </div>
         </div>
       </div>
+
+      {availabilityFilterError ? (
+        <p className={styles.validationText} role="alert">
+          {availabilityFilterError}
+        </p>
+      ) : null}
     </div>
   );
 }

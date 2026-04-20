@@ -44,7 +44,9 @@ export default function PaseadorSolicitudes() {
       try {
         const data = await fetchSolicitudesPendientesPaseador();
         if (!active) return;
-        setSolicitudes(data.filter((solicitud) => solicitud.estado === "Solicitada"));
+        setSolicitudes(
+          data.filter((solicitud) => solicitud.estado === "Solicitada" || solicitud.estado === "Aceptada")
+        );
       } catch (error) {
         if (!active) return;
         setLoadError(
@@ -61,7 +63,8 @@ export default function PaseadorSolicitudes() {
     };
   }, []);
 
-  const pendingCount = solicitudes.length;
+  const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
+  const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
   const totalAmount = useMemo(
     () => solicitudes.reduce((sum, solicitud) => sum + solicitud.montoTotal, 0),
     [solicitudes]
@@ -138,6 +141,7 @@ export default function PaseadorSolicitudes() {
           <span>Solicitudes activas</span>
           <strong>{pendingCount}</strong>
           <p>
+            Aceptadas listas para validar: {acceptedCount}.{" "}
             Monto potencial:{" "}
             {new Intl.NumberFormat("es-CL", {
               style: "currency",
@@ -163,7 +167,7 @@ export default function PaseadorSolicitudes() {
         <div className={styles.sectionHeading}>
           <div>
             <p className={styles.cardEyebrow}>Panel del paseador</p>
-            <h2>Solicitudes por responder</h2>
+            <h2>Solicitudes y encuentros</h2>
           </div>
         </div>
 
@@ -201,7 +205,7 @@ export default function PaseadorSolicitudes() {
           </div>
         ) : (
           <article className={styles.emptyState}>
-            <h3>No tienes solicitudes pendientes</h3>
+            <h3>No tienes solicitudes ni encuentros pendientes</h3>
             <p>
               Cuando un tutor solicite un paseo dentro de tus bloques disponibles, aparecerá aquí
               para que puedas aceptarlo o rechazarlo.

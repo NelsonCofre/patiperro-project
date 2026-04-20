@@ -96,6 +96,29 @@
   transform: translateY(-2px);
 }
 
+.logoutButton {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: #fff7f7;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.logoutButton:hover {
+  border-color: #fca5a5;
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
 @media (max-width: 840px) {
   .headerInner {
     flex-direction: column;
@@ -125,12 +148,14 @@
   }
 
   .link,
-  .linkActive {
+  .linkActive,
+  .logoutButton {
     width: 100%;
     text-align: center;
   }
 
-  .link {
+  .link,
+  .logoutButton {
     display: inline-flex;
     align-items: center;
     justify-content: center;

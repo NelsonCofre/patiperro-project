@@ -11,6 +11,7 @@ const PAGE_SIZE = 6;
 const CERCANOS_LIMITE = 50;
 const MIN_SEARCH_RADIUS_KM = 1;
 const MAX_SEARCH_RADIUS_KM = 120;
+const ID_ESTADO_BLOQUE_DISPONIBLE = 1;
 
 function clampSearchRadiusKm(km: number): number {
   const n = Math.round(Number(km));
@@ -43,7 +44,6 @@ function parseRadioKm(value: PaseadorCercanoApi["radioCoberturaKm"]): number {
 }
 
 function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
-  console.log("DEBUG: DTO recibido del servidor:", dto); // <-- AGREGA ESTO
   const radio = parseRadioKm(dto.radioCoberturaKm);
   
   return {
@@ -82,6 +82,9 @@ export function usePaseadoresHome() {
   const [queryText, setQueryText] = useState("");
   const [maxDistanceFilterKm, setMaxDistanceFilterKm] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<PaseadoresSortMode>("distance");
+  const [availabilityDate, setAvailabilityDate] = useState("");
+  const [availabilityStartTime, setAvailabilityStartTime] = useState("");
+  const [availabilityEndTime, setAvailabilityEndTime] = useState("");
 
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [coordinates, setCoordinates] = useState<TutorCoordinates | null>(null);
@@ -100,6 +103,48 @@ export function usePaseadoresHome() {
     }
     return profileCoords?.lon ?? null;
   }, [locationStatus, coordinates, profileCoords]);
+
+  const scheduleFilterState = useMemo(() => {
+    const date = availabilityDate.trim();
+    const start = availabilityStartTime.trim();
+    const end = availabilityEndTime.trim();
+    const hasAny = Boolean(date || start || end);
+    const hasAll = Boolean(date && start && end);
+
+    if (!hasAny) {
+      return { hasAny, isComplete: false, error: "", params: null };
+    }
+
+    if (!hasAll) {
+      return {
+        hasAny,
+        isComplete: false,
+        error: "Para filtrar por horario debes seleccionar fecha, hora de inicio y hora de termino.",
+        params: null
+      };
+    }
+
+    if (start >= end) {
+      return {
+        hasAny,
+        isComplete: false,
+        error: "La hora de termino debe ser posterior a la hora de inicio.",
+        params: null
+      };
+    }
+
+    return {
+      hasAny,
+      isComplete: true,
+      error: "",
+      params: {
+        fechaDisponibilidad: date,
+        horaInicioDisponibilidad: `${date}T${start}:00`,
+        horaFinDisponibilidad: `${date}T${end}:00`,
+        idEstadoBloqueDisponible: ID_ESTADO_BLOQUE_DISPONIBLE
+      }
+    };
+  }, [availabilityDate, availabilityStartTime, availabilityEndTime]);
 
   useEffect(() => {
     const tutorId = parseTutorIdFromSession();
@@ -157,6 +202,13 @@ export function usePaseadoresHome() {
       return;
     }
 
+    if (scheduleFilterState.hasAny && !scheduleFilterState.isComplete) {
+      setPaseadores([]);
+      setListError(null);
+      setListLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setListLoading(true);
     setListError(null);
@@ -165,7 +217,8 @@ export function usePaseadoresHome() {
       latitudReferencia: refLat,
       longitudReferencia: refLon,
       radioBusquedaMaxKm: searchRadiusKm,
-      limite: CERCANOS_LIMITE
+      limite: CERCANOS_LIMITE,
+      ...(scheduleFilterState.params ?? {})
     })
       .then((rows) => {
         if (cancelled) return;
@@ -188,7 +241,7 @@ export function usePaseadoresHome() {
     return () => {
       cancelled = true;
     };
-  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce]);
+  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState]);
 
   useEffect(() => {
     if (maxDistanceFilterKm != null && maxDistanceFilterKm > searchRadiusKm) {
@@ -237,7 +290,7 @@ export function usePaseadoresHome() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [queryText, maxDistanceFilterKm, sortMode, paseadores]);
+  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime]);
 
   const visiblePaseadores = useMemo(
     () => filteredPaseadores.slice(0, visibleCount),
@@ -249,6 +302,9 @@ export function usePaseadoresHome() {
     setQueryText("");
     setMaxDistanceFilterKm(null);
     setSortMode("distance");
+    setAvailabilityDate("");
+    setAvailabilityStartTime("");
+    setAvailabilityEndTime("");
   }, []);
 
   const loadMore = useCallback(() => {
@@ -330,6 +386,13 @@ export function usePaseadoresHome() {
     requestTutorLocation,
     queryText,
     setQueryText,
+    availabilityDate,
+    setAvailabilityDate,
+    availabilityStartTime,
+    setAvailabilityStartTime,
+    availabilityEndTime,
+    setAvailabilityEndTime,
+    availabilityFilterError: scheduleFilterState.error,
     maxDistanceFilterKm,
     setMaxDistanceFilterKm,
     sortMode,
@@ -340,6 +403,7 @@ export function usePaseadoresHome() {
     hasActiveFilters:
       queryText.trim().length > 0 ||
       maxDistanceFilterKm != null ||
-      sortMode !== "distance"
+      sortMode !== "distance" ||
+      scheduleFilterState.hasAny
   };
 }

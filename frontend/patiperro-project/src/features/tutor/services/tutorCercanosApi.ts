@@ -63,6 +63,10 @@ export async function fetchPaseadoresCercanos(params: {
   longitudReferencia: number;
   radioBusquedaMaxKm: number;
   limite?: number;
+  fechaDisponibilidad?: string;
+  horaInicioDisponibilidad?: string;
+  horaFinDisponibilidad?: string;
+  idEstadoBloqueDisponible?: number;
 }): Promise<PaseadorCercanoApi[]> {
   const limite = params.limite ?? 50;
   const qs = new URLSearchParams({
@@ -71,6 +75,19 @@ export async function fetchPaseadoresCercanos(params: {
     radioBusquedaMaxKm: String(params.radioBusquedaMaxKm),
     limite: String(limite)
   });
+
+  if (params.fechaDisponibilidad) {
+    qs.set("fechaDisponibilidad", params.fechaDisponibilidad);
+  }
+  if (params.horaInicioDisponibilidad) {
+    qs.set("horaInicioDisponibilidad", params.horaInicioDisponibilidad);
+  }
+  if (params.horaFinDisponibilidad) {
+    qs.set("horaFinDisponibilidad", params.horaFinDisponibilidad);
+  }
+  if (params.idEstadoBloqueDisponible != null) {
+    qs.set("idEstadoBloqueDisponible", String(params.idEstadoBloqueDisponible));
+  }
 
   const response = await fetch(`${API_ENDPOINTS.auth.paseadores.publicCercanos}?${qs.toString()}`, {
     method: "GET"

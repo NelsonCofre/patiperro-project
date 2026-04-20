@@ -1,6 +1,7 @@
 // Navbar del espacio del tutor.
 // Ofrece navegacion directa al home y al flujo de creacion de mascota.
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { clearAuthSession } from "../../../auth/services/authServices";
 import styles from "./TutorNavbar.module.css";
 
 const NAV_ITEMS = [
@@ -10,6 +11,13 @@ const NAV_ITEMS = [
 ];
 
 export default function TutorNavbar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/login/tutor", { replace: true });
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
@@ -34,6 +42,9 @@ export default function TutorNavbar() {
               {item.label}
             </NavLink>
           ))}
+          <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+            Cerrar sesion
+          </button>
         </nav>
       </div>
     </header>

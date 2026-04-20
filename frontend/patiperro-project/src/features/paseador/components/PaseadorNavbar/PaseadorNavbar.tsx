@@ -1,6 +1,7 @@
 // Navbar del espacio del paseador.
 // Usa NavLink para resaltar automaticamente la opcion activa.
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { clearAuthSession } from "../../../auth/services/authServices";
 import styles from "./PaseadorNavbar.module.css";
 
 const NAV_ITEMS = [
@@ -11,6 +12,13 @@ const NAV_ITEMS = [
 ];
 
 export default function PaseadorNavbar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/login/paseador", { replace: true });
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
@@ -35,6 +43,9 @@ export default function PaseadorNavbar() {
               {item.label}
             </NavLink>
           ))}
+          <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+            Cerrar sesion
+          </button>
         </nav>
       </div>
     </header>

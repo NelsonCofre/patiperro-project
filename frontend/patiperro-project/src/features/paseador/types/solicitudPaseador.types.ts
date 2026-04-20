@@ -36,6 +36,7 @@ export type SolicitudPendientePaseador = {
   direccionReferencia: string;
   montoTotal: number;
   estado: "Solicitada" | "Aceptada" | "Rechazada";
+  codigoEncuentro?: number | null;
   comentarioTutor?: string;
   fechaSolicitud: string;
 };
