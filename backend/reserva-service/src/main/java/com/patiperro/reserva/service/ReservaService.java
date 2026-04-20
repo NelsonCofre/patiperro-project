@@ -12,6 +12,7 @@ import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
+import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
@@ -116,6 +117,40 @@ public class ReservaService {
         if (esEstadoRechazada(nuevo)) {
             agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
         }
+        return ReservaDtoMapper.toReservaResponse(saved);
+    }
+
+    /**
+     * {@code PATCH /status}: decisión del paseador ({@link #aplicarDecisionPaseador}) o del tutor
+     * ({@link #aplicarCancelacionTutor}).
+     */
+    @Transactional
+    public ReservaResponseDTO aplicarCambioEstado(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
+        if (dto.getTutorDecision() != null) {
+            return aplicarCancelacionTutor(idReserva, dto.getTutorDecision(), rawJwt);
+        }
+        return aplicarDecisionPaseador(idReserva, dto, rawJwt);
+    }
+
+    /**
+     * El tutor anula su solicitud pendiente; libera el bloque en agenda vía endpoint interno.
+     */
+    @Transactional
+    public ReservaResponseDTO aplicarCancelacionTutor(Integer idReserva, TutorDecision decision, String rawJwt) {
+        if (decision != TutorDecision.CANCELAR_SOLICITUD) {
+            throw new IllegalArgumentException("Decisión de tutor no soportada");
+        }
+        Reserva r = obtenerEntidad(idReserva);
+        validarTutorJwt(r.getIdTutorUsuario(), rawJwt);
+        EstadoReserva actual = r.getEstadoReserva();
+        if (!esSolicitada(actual)) {
+            throw new IllegalArgumentException("Solo puede cancelar solicitudes en estado SOLICITADA");
+        }
+        EstadoReserva cancelada =
+                estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
+        r.setEstadoReserva(cancelada);
+        Reserva saved = reservaRepository.save(r);
+        agendaIntegracionClient.marcarBloqueDisponibleInterno(saved.getIdAgendaBloque());
         return ReservaDtoMapper.toReservaResponse(saved);
     }
 

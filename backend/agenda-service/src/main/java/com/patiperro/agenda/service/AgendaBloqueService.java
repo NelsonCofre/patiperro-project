@@ -16,6 +16,7 @@ import com.patiperro.agenda.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -47,6 +48,9 @@ public class AgendaBloqueService {
 
     @Value("${patiperro.agenda.estado-bloque.nombre-reservado:Reservado}")
     private String nombreEstadoReservado;
+
+    @Value("${patiperro.agenda.interno.secret:}")
+    private String internoSecret;
 
     public List<AgendaBloqueResponseDTO> listar() {
         return agendaBloqueRepository.findAll().stream()
@@ -175,7 +179,27 @@ public class AgendaBloqueService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Solo el paseador dueño del bloque puede liberarlo");
         }
+        return pasarBloqueReservadoADisponible(bloque);
+    }
 
+    /**
+     * Liberación del bloque invocada por reserva-service (cancelación tutor u otra regla de negocio ya validada allí).
+     */
+    @Transactional
+    public AgendaBloqueResponseDTO marcarDisponibleInterno(Integer idAgenda, String secretRecibido) {
+        String esperado = internoSecret != null ? internoSecret.trim() : "";
+        if (!StringUtils.hasText(esperado)) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Interno agenda no configurado (patiperro.agenda.interno.secret)");
+        }
+        if (secretRecibido == null || !esperado.equals(secretRecibido.trim())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Credencial interna inválida");
+        }
+        AgendaBloque bloque = obtenerEntidad(idAgenda);
+        return pasarBloqueReservadoADisponible(bloque);
+    }
+
+    private AgendaBloqueResponseDTO pasarBloqueReservadoADisponible(AgendaBloque bloque) {
         EstadoBloque disponible = estadoPorNombre(nombreEstadoDisponible);
         EstadoBloque reservado = estadoPorNombre(nombreEstadoReservado);
         Integer actual = bloque.getEstadoBloque() != null ? bloque.getEstadoBloque().getIdEstado() : null;

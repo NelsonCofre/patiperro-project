@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -17,17 +18,21 @@ import java.util.List;
 public class AgendaIntegracionClient {
 
     private static final String URI_BLOQUE_POR_ID = "/api/agenda/bloques/{id}";
+    private static final String HEADER_AGENDA_INTERNO = "X-Patiperro-Interno-Secret";
 
     private final RestClient restClient;
     private final boolean enabled;
+    private final String agendaInternoSecret;
 
     public AgendaIntegracionClient(
             RestClient.Builder restClientBuilder,
             @Value("${patiperro.reserva.agenda-integracion.enabled:true}") boolean enabled,
-            @Value("${patiperro.reserva.agenda-integracion.base-url:}") String baseUrl) {
+            @Value("${patiperro.reserva.agenda-integracion.base-url:}") String baseUrl,
+            @Value("${patiperro.reserva.agenda-interno.secret:}") String agendaInternoSecret) {
         this.enabled = enabled;
         String base = baseUrl == null ? "" : baseUrl.trim();
         this.restClient = base.isEmpty() ? null : restClientBuilder.baseUrl(base).build();
+        this.agendaInternoSecret = agendaInternoSecret != null ? agendaInternoSecret.trim() : "";
     }
 
     public boolean isEnabled() {
@@ -97,6 +102,32 @@ public class AgendaIntegracionClient {
             return;
         }
         patchBloque(idAgendaBloque, rawJwt, "/api/agenda/bloques/{id}/marcar-disponible");
+    }
+
+    /**
+     * Libera el bloque tras reglas validadas en reserva-service (p. ej. cancelación por tutor).
+     * Usa credencial compartida con agenda-service ({@code patiperro.agenda.interno.secret}).
+     */
+    public void marcarBloqueDisponibleInterno(Integer idAgendaBloque) {
+        if (!isEnabled()) {
+            return;
+        }
+        if (!StringUtils.hasText(agendaInternoSecret)) {
+            throw new IllegalStateException(
+                    "Falta patiperro.reserva.agenda-interno.secret para sincronizar cancelación con agenda-service");
+        }
+        try {
+            restClient.patch()
+                    .uri("/api/agenda/interno/bloques/{id}/marcar-disponible", idAgendaBloque)
+                    .header(HEADER_AGENDA_INTERNO, agendaInternoSecret)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Agenda-service (interno) respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
+        }
     }
 
     public AgendaBloqueResumenDTO obtenerBloque(Integer idAgendaBloque, String rawJwt) {

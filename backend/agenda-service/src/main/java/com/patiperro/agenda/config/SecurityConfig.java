@@ -32,6 +32,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/agenda/bloques/busqueda/disponibles-desde-hoy")
                         .permitAll()
+                        .requestMatchers("/api/agenda/interno/**")
+                        .permitAll()
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

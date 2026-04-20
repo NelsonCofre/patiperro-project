@@ -123,8 +123,8 @@ public class ReservaController {
     }
 
     /**
-     * Misma semantica que {@code PATCH /api/bookings/{id}/status} (decision del
-     * paseador).
+     * Actualización de estado: decisión del paseador ({@code decision} / {@code idEstadoReserva})
+     * o del tutor ({@code tutorDecision}, p. ej. cancelar solicitud en SOLICITADA).
      */
     @PatchMapping("/{id}/status")
     public ReservaResponseDTO parchearEstado(
@@ -132,7 +132,7 @@ public class ReservaController {
             @Valid @RequestBody BookingStatusPatchRequestDTO body,
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
-        return service.aplicarDecisionPaseador(id, body, jwt);
+        return service.aplicarCambioEstado(id, body, jwt);
     }
 
     @DeleteMapping("/{id}")
