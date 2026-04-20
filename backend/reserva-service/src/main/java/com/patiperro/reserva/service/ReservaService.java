@@ -1,6 +1,7 @@
 package com.patiperro.reserva.service;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.AgendaBloqueResumenDTO;
 import com.patiperro.reserva.dto.MascotaResumenDTO;
@@ -69,7 +70,8 @@ public class ReservaService {
         r.setIdMascota(dto.getIdMascota());
         r.setIdAgendaBloque(dto.getIdAgendaBloque());
         r.setIdTarifa(dto.getIdTarifa());
-        r.setFechaSolicitud(dto.getFechaSolicitud());
+        // Marca de servidor para trazabilidad consistente (no depender del reloj del cliente).
+        r.setFechaSolicitud(LocalDateTime.now());
         r.setFechaAceptacion(dto.getFechaAceptacion());
         r.setMontoTotal(dto.getMontoTotal());
         r.setIdPago(dto.getIdPago());
@@ -81,6 +83,53 @@ public class ReservaService {
         Reserva saved = reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueReservado(saved.getIdAgendaBloque(), rawJwt);
         return ReservaDtoMapper.toReservaResponse(saved);
+    }
+
+    /**
+     * Endpoint legado-friendly: tutorId tomado desde claim {@code tutorId} del JWT.
+     */
+    public List<ReservaTutorDetalleResponseDTO> listarBookingsTutorDesdeJwt(String rawJwt) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT de tutor");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new IllegalArgumentException("Token inválido o expirado");
+        }
+        Long tutorId = jwtService.extractTutorId(rawJwt);
+        if (tutorId == null) {
+            throw new IllegalArgumentException("JWT sin claim tutorId");
+        }
+        return listarDetallePorTutor(tutorId.intValue(), rawJwt);
+    }
+
+    /**
+     * Timeline de estados para reserva (solicitada -> aceptada -> en curso -> finalizada).
+     */
+    public BookingTimelineResponseDTO obtenerTimelineReserva(Integer idReserva, String rawJwt) {
+        Reserva r = obtenerEntidad(idReserva);
+        validarAccesoTimeline(r, rawJwt);
+        EstadoReserva estadoActual = r.getEstadoReserva();
+
+        List<BookingTimelineResponseDTO.TimelineStepDTO> steps = List.of(
+                new BookingTimelineResponseDTO.TimelineStepDTO(
+                        "solicitada", "Solicitada", r.getFechaSolicitud() != null, r.getFechaSolicitud()),
+                new BookingTimelineResponseDTO.TimelineStepDTO(
+                        "aceptada", "Aceptada", r.getFechaAceptacion() != null, r.getFechaAceptacion()),
+                new BookingTimelineResponseDTO.TimelineStepDTO(
+                        "en_curso", "En Curso", r.getFechaInicioReal() != null, r.getFechaInicioReal()),
+                new BookingTimelineResponseDTO.TimelineStepDTO(
+                        "finalizada", "Finalizada", r.getFechaFin() != null, r.getFechaFin())
+        );
+
+        return new BookingTimelineResponseDTO(
+                r.getIdReserva(),
+                r.getIdTutorUsuario(),
+                r.getIdMascota(),
+                r.getIdAgendaBloque(),
+                estadoActual != null ? estadoActual.getIdEstadoReserva() : null,
+                estadoActual != null ? estadoActual.getNombreEstado() : null,
+                steps
+        );
     }
 
     @Transactional
@@ -337,6 +386,35 @@ public class ReservaService {
         if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
             throw new IllegalArgumentException("No tienes permiso para modificar esta reserva");
         }
+    }
+
+    private void validarAccesoTimeline(Reserva r, String rawJwt) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new IllegalArgumentException("Se requiere JWT");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new IllegalArgumentException("Token inválido o expirado");
+        }
+
+        Long tutorId = jwtService.extractTutorId(rawJwt);
+        if (tutorId != null) {
+            if (!tutorId.equals(r.getIdTutorUsuario().longValue())) {
+                throw new IllegalArgumentException("No tienes permiso para ver esta reserva");
+            }
+            return;
+        }
+
+        Long paseadorId = jwtService.extractPaseadorId(rawJwt);
+        if (paseadorId != null) {
+            AgendaBloqueReservaClientDTO bloque =
+                    agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
+                throw new IllegalArgumentException("No tienes permiso para ver esta reserva");
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException("JWT sin claim tutorId/paseadorId");
     }
 
     private ReservaPaseadorSolicitudResponseDTO mapearSolicitudPaseador(

@@ -217,7 +217,8 @@ export async function crearReservaTutor(payload: ReservaCreatePayload): Promise<
 }
 
 export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
-  const response = await fetch(API_ENDPOINTS.reserva.byTutorDetalle(idTutor), {
+  // Endpoint nuevo sin id en URL (usa tutorId del JWT).
+  const response = await fetch(API_ENDPOINTS.tutores.bookings, {
     method: "GET",
     credentials: "include",
     headers: { ...bearerAuthHeaders() }
@@ -228,7 +229,20 @@ export async function fetchReservasDetalleTutor(idTutor: number): Promise<Reserv
   }
 
   if (response.status === 404) {
-    return fetchReservasBasicasTutor(idTutor);
+    // Compatibilidad con backend previo.
+    const legacyDetalle = await fetch(API_ENDPOINTS.reserva.byTutorDetalle(idTutor), {
+      method: "GET",
+      credentials: "include",
+      headers: { ...bearerAuthHeaders() }
+    });
+    const legacyData = await parseJsonSafe(legacyDetalle);
+    if (legacyDetalle.ok) {
+      return Array.isArray(legacyData) ? (legacyData as ReservaTutorDetalleDTO[]) : [];
+    }
+    if (legacyDetalle.status === 404) {
+      return fetchReservasBasicasTutor(idTutor);
+    }
+    throw new Error(readApiErrorMessage(legacyData, "No se pudieron cargar tus reservas."));
   }
 
   throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
@@ -269,12 +283,13 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
 }
 
 export async function cancelarReservaTutor(idReserva: number): Promise<void> {
-  const response = await fetch(API_ENDPOINTS.reserva.byId(idReserva), {
-    method: "DELETE",
+  const response = await fetch(API_ENDPOINTS.reserva.status(idReserva), {
+    method: "PATCH",
     credentials: "include",
-    headers: { ...bearerAuthHeaders() }
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ tutorDecision: "CANCELAR_SOLICITUD" })
   });
-  if (response.status === 204) return;
   const data = await parseJsonSafe(response);
+  if (response.ok) return;
   throw new Error(readApiErrorMessage(data, "No se pudo cancelar la solicitud."));
 }

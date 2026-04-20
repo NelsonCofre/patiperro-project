@@ -25,6 +25,7 @@ export type ReservaEstadoKey =
   | "en_curso"
   | "finalizada"
   | "rechazada"
+  | "cancelada"
   | "desconocida";
 
 export type ReservaEstadoMeta = {

@@ -64,7 +64,11 @@ export const API_ENDPOINTS = {
   },
   /** Perfil tutor (JWT en cookie vía gateway). */
   tutores: {
-    byId: (idTutor: number) => `${API_BASE_URL}/api/tutores/${idTutor}`
+    byId: (idTutor: number) => `${API_BASE_URL}/api/tutores/${idTutor}`,
+    bookings: `${API_BASE_URL}/api/tutor/bookings`
+  },
+  bookings: {
+    timeline: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/timeline`
   },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,

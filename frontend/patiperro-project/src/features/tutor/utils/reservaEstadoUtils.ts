@@ -58,6 +58,15 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
     };
   }
 
+  if (id === 6 || normalized.includes("cancel")) {
+    return {
+      key: "cancelada",
+      label: "Cancelada",
+      helper: "Solicitud retirada por ti",
+      className: "statusRechazada"
+    };
+  }
+
   return {
     key: "desconocida",
     label: reserva.nombreEstado ?? "Sin estado",
