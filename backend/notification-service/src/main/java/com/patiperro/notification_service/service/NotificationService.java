@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.patiperro.notification_service.dto.CorreoAceptacionRequest;
+import com.patiperro.notification_service.dto.NotificacionEventoRequest;
 import com.patiperro.notification_service.model.LogEnvio;
 import com.patiperro.notification_service.model.PlantillaCorreo;
 import com.patiperro.notification_service.repository.LogEnvioRepository;
@@ -193,4 +194,51 @@ public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
 
     return registrarLogTrasEnvio(datos.idUsuario(), datos.idPlantillaBrevo(), estadoEnvio);
 }
+
+
+@Transactional
+    public LogEnvio procesarEventoUniversal(NotificacionEventoRequest request) {
+        String estadoEnvio = "EXITOSO";
+        Long brevoTemplateId = obtenerTemplateIdPorEvento(request.getTipoEvento());
+
+        // Configuración de la API de Brevo
+        WebClient webClient = WebClient.create("https://api.brevo.com/v3/smtp/email");
+        String apiKey = "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"; // Tip: ¡Mueve esto a application.properties luego!
+
+        try {
+            // Construimos el JSON dinámico para Brevo
+            Map<String, Object> body = Map.of(
+                "templateId", brevoTemplateId,
+                "to", List.of(Map.of("email", request.getEmailDestino())),
+                "params", request.getVariables() // <-- Aquí pasamos el Map completo de variables
+            );
+
+            webClient.post()
+                .header("api-key", apiKey)
+                .bodyValue(body)
+                .retrieve()
+                .toBodilessEntity()
+                .block(); // Esperamos la respuesta
+
+            System.out.println("DEBUG: Brevo API aceptó el evento: " + request.getTipoEvento());
+
+        } catch (Exception e) {
+            estadoEnvio = "FALLIDO";
+            System.out.println("Error API Brevo en evento " + request.getTipoEvento() + ": " + e.getMessage());
+        }
+
+        // Importante: Asumimos idUsuario = 1 temporalmente o lo recibes en el DTO si es necesario
+        // En este ejemplo, pasaremos '1' como ID de usuario genérico o puedes añadir idUsuario a NotificacionEventoRequest
+        return registrarLogTrasEnvio(1, brevoTemplateId.intValue(), estadoEnvio);
+    }
+
+    // Método privado que actúa como "Diccionario" de tus eventos
+    private Long obtenerTemplateIdPorEvento(String tipoEvento) {
+        return switch (tipoEvento.toUpperCase()) {
+            case "RESERVA_ACEPTADA" -> 1L;   // Conecta con tu plantilla "#1 Confirmacion de paseo"
+            case "RESERVA_RECHAZADA" -> 2L;  // Conecta con tu plantilla "#2 Rechazo de paseo"
+            case "SOLICITUD_PASEO" -> 3L;    // Conecta con tu plantilla "#3 Nueva plantilla"
+            default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
+        };
+    }
 }

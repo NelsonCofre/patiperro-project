@@ -28,6 +28,14 @@ export type MascotaTutorDTO = {
   tamanoNombre: string;
 };
 
+export type PaseadorPerfilDTO = {
+  idUsuario: number;
+  nombre: string;
+  correo: string; // ¡El campo estrella que necesitamos!
+  telefono?: string;
+  // ... puedes agregar otros campos que devuelva tu backend si los necesitas
+};
+
 export type EstadoReservaDTO = {
   idEstadoReserva: number;
   nombreEstado: string;
@@ -140,6 +148,26 @@ export async function fetchMascotasTutor(): Promise<MascotaTutorDTO[]> {
     )
   }));
 }
+
+export async function fetchPerfilPaseador(idPaseador: number): Promise<PaseadorPerfilDTO> {
+  const url = `http://localhost:8080/api/paseadores/public/${idPaseador}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  
+  const data = await parseJsonSafe(response);
+  
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo cargar el perfil del paseador para enviar la notificación."));
+  }
+  
+  return data as PaseadorPerfilDTO; 
+}
+  
+  // ... resto del código intacto ...
 
 export async function fetchTarifasPublicasPaseador(
   idPaseador: number

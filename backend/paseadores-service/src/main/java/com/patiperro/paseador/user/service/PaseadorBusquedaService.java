@@ -1,6 +1,7 @@
 package com.patiperro.paseador.user.service;
 
 import com.patiperro.paseador.client.AgendaDisponibilidadClient;
+import com.patiperro.paseador.dto.user.PaseadorPerfilDTO;
 import com.patiperro.paseador.model.Paseador;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
@@ -139,6 +140,24 @@ public class PaseadorBusquedaService {
         }
 
         return mapearCercanosDesdeCandidatos(candidatos, limiteSeguro);
+    }
+
+    // Agrégalo dentro de tu clase PaseadorBusquedaService
+
+    public PaseadorPerfilDTO obtenerPerfilPorId(Long idPaseador) {
+        /* * 1. Buscamos en la base de datos. 
+         * OJO: Cambia "usuarioRepository" y "Usuario" por el nombre 
+         * real de tu repositorio y entidad (ej: Paseador, Usuario, etc.)
+         */
+        Paseador usuario = paseadorRepository.findById(idPaseador)
+                .orElseThrow(() -> new IllegalArgumentException("Paseador no encontrado con ID: " + idPaseador));
+
+        // 2. Metemos los datos de la base de datos en nuestro "paquete" DTO
+        return PaseadorPerfilDTO.builder()
+                .idUsuario(usuario.getId())
+                .nombre(usuario.getPrimerNombre())
+                .correo(usuario.getCorreo()) // Asegúrate de usar tu getter real (getCorreo o getEmail)
+                .build();
     }
 
     /**
