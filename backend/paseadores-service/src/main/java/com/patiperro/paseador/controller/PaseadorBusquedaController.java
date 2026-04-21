@@ -1,11 +1,14 @@
 package com.patiperro.paseador.controller;
 
+import com.patiperro.paseador.dto.user.PaseadorPerfilDTO;
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
 import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorBusquedaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,7 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/paseadores/public")
 @RequiredArgsConstructor
-public class PaseadorBusquedaController {
+public class PaseadorBusquedaController {   
 
     private final PaseadorBusquedaService paseadorBusquedaService;
 
@@ -79,5 +82,16 @@ public class PaseadorBusquedaController {
                 horaInicioDisponibilidad,
                 horaFinDisponibilidad,
                 idEstadoBloqueDisponible);
+    }
+
+    // En algún controlador con @RequestMapping("/api/paseadores/public")
+
+/**
+     * Búsqueda pública del perfil básico de un paseador por su ID.
+     * Esto es usado por el Tutor para obtener el correo y enviar notificaciones.
+     */
+    @GetMapping("/{id}")
+    public PaseadorPerfilDTO obtenerPerfilPaseador(@PathVariable Long id) {
+        return paseadorBusquedaService.obtenerPerfilPorId(id);
     }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import SolicitudPendienteCard from "../../components/SolicitudPendienteCard/SolicitudPendienteCard";
@@ -13,6 +14,7 @@ import type {
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
 import styles from "./PaseadorSolicitudes.module.css";
+
 
 type ConfirmationState = {
   solicitud: SolicitudPendientePaseador;
@@ -93,12 +95,34 @@ export default function PaseadorSolicitudes() {
     setFeedback(null);
 
     try {
+      // 1. Llamada a la API de Reservas (Backend 8080)
       await responderSolicitudPaseador(solicitud.idReserva, {
         decision,
         motivoRechazo: rechazo.motivo || undefined,
         detalleRechazo: rechazo.detalle.trim() || undefined
       });
 
+      // 2. DISPARAR NOTIFICACIÓN AL TUTOR (Backend 8086) 🚀
+      try {
+        await dispararNotificacion({
+          emailDestino: solicitud.tutorCorreo, // Asegúrate de que el DTO traiga este campo
+          tipoEvento: decision === "ACEPTAR" ? "RESERVA_ACEPTADA" : "RESERVA_RECHAZADA",
+          variables: {
+            nombreTutor: solicitud.tutorNombre,
+            nombrePaseador: sessionStorage.getItem("nombreUsuario") || "Tu paseador",
+            nombreMascota: solicitud.mascotaNombre,
+            fechaPaseo: solicitud.fecha,
+            // Si es rechazo, enviamos el motivo al correo
+            motivo: decision === "RECHAZAR" ? (rechazo.motivo || "No disponible") : ""
+          }
+        });
+        console.log(`Notificación de ${decision} enviada al tutor.`);
+      } catch (emailError) {
+        // Logueamos pero no bloqueamos la UI, la reserva ya se actualizó
+        console.error("Error al enviar notificación:", emailError);
+      }
+
+      // 3. Actualizar UI Local
       setSolicitudes((prev) =>
         prev.filter((item) => item.idReserva !== solicitud.idReserva)
       );
@@ -107,8 +131,8 @@ export default function PaseadorSolicitudes() {
         type: "success",
         message:
           decision === "ACEPTAR"
-            ? "Solicitud aceptada. Se notificará el cambio de estado al tutor."
-            : "Solicitud rechazada. El bloque de agenda volvió a quedar disponible."
+            ? "Solicitud aceptada y tutor notificado por correo."
+            : "Solicitud rechazada. Se le informó al tutor el motivo."
       });
     } catch (error) {
       setFeedback({

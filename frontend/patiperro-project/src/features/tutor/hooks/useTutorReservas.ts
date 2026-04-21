@@ -6,6 +6,7 @@ import {
 } from "../services/reservaTutorApi";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 import { getReservaEstadoMeta } from "../utils/reservaEstadoUtils";
+import { dispararNotificacion } from "../services/notificacionesApi"; // o la ruta correcta
 
 const REFRESH_MS = 15000;
 

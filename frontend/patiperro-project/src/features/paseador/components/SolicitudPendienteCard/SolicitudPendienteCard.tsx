@@ -5,15 +5,15 @@ import type {
 import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
 import styles from "./SolicitudPendienteCard.module.css";
 
+// En SolicitudPendienteCard.tsx
 type SolicitudPendienteCardProps = {
-  solicitud: SolicitudPendientePaseador;
+  solicitud: SolicitudPendientePaseador; // Todas las propiedades deben estar dentro de este objeto
   processingDecision: DecisionSolicitud | null;
   onAccept: (solicitud: SolicitudPendientePaseador) => void;
   onReject: (solicitud: SolicitudPendientePaseador) => void;
   onViewTutor: (solicitud: SolicitudPendientePaseador) => void;
   onViewMap: (solicitud: SolicitudPendientePaseador) => void;
 };
-
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
   currency: "CLP",
@@ -38,7 +38,7 @@ export default function SolicitudPendienteCard({
   onAccept,
   onReject,
   onViewTutor,
-  onViewMap
+  onViewMap,
 }: SolicitudPendienteCardProps) {
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";

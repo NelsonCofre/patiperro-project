@@ -9,6 +9,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import com.patiperro.notification_service.dto.CorreoAceptacionRequest;
+import com.patiperro.notification_service.dto.NotificacionEventoRequest;
 import com.patiperro.notification_service.model.LogEnvio;
 import com.patiperro.notification_service.model.PlantillaCorreo;
 import com.patiperro.notification_service.service.NotificationService;
@@ -104,6 +105,23 @@ public ResponseEntity<LogEnvio> enviarCorreoAceptacion(@Valid @RequestBody Corre
         LogEnvio resultado = notificationService.procesarYEnviarViaBrevo(request);
         
         // Retornamos el log generado (Éxito o Fallido) con el status correspondiente
+        return new ResponseEntity<>(resultado, HttpStatus.CREATED);
+    }
+
+    // =========================================================================
+    // ENDPOINT UNIVERSAL DE EVENTOS
+    // =========================================================================
+
+    /**
+     * Endpoint maestro para disparar cualquier notificación basada en un evento.
+     * El Service se encargará de traducir el "tipoEvento" al ID de plantilla de Brevo correcto.
+     */
+    @PostMapping("/disparar-evento")
+    public ResponseEntity<LogEnvio> dispararNotificacionGlobal(@Valid @RequestBody NotificacionEventoRequest request) {
+        System.out.println("DEBUG: Recibida petición de notificación para: " + request.getEmailDestino());
+        // Integridad: Delegamos toda la lógica de ruteo y envío al Service
+        LogEnvio resultado = notificationService.procesarEventoUniversal(request);
+        
         return new ResponseEntity<>(resultado, HttpStatus.CREATED);
     }
 

@@ -9,11 +9,13 @@ import {
   fetchMascotasTutor,
   fetchTarifasPublicasPaseador,
   readTutorIdFromSession,
+  fetchPerfilPaseador,
   type AgendaBloqueOfertaDTO,
   type MascotaTutorDTO,
   type TarifaConfiguracionPublicaDTO
 } from "../../services/reservaTutorApi";
 import styles from "./SolicitudPaseo.module.css";
+import { dispararNotificacion } from "../../services/notificacionesApi"; // <-- Agrega esto
 
 type FormErrors = {
   mascotaId?: string;
@@ -80,6 +82,7 @@ export default function SolicitudPaseo() {
   const [loadingData, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [correoPaseador, setCorreoPaseador] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -101,16 +104,19 @@ export default function SolicitudPaseo() {
         const desde = today.toISOString().slice(0, 10);
         const hasta = until.toISOString().slice(0, 10);
 
-        const [mascotasData, bloquesData, tarifasData] = await Promise.all([
+        // 👇 Modificamos el Promise.all para incluir fetchPerfilPaseador 👇
+        const [mascotasData, bloquesData, tarifasData, perfilPaseador] = await Promise.all([
           fetchMascotasTutor(),
           fetchAgendaOfertaPaseador(paseadorId, desde, hasta),
-          fetchTarifasPublicasPaseador(paseadorId)
+          fetchTarifasPublicasPaseador(paseadorId),
+          fetchPerfilPaseador(paseadorId) // <-- NUEVO
         ]);
 
         if (!active) return;
         setMascotas(mascotasData);
         setBloques(bloquesData);
         setTarifasPaseador(tarifasData);
+        setCorreoPaseador(perfilPaseador.correo); // <-- NUEVO: Guardamos el correo
 
         if (agendaIdParam && bloquesData.some((b) => b.idAgenda === agendaIdParam)) {
           setBloqueId(String(agendaIdParam));
@@ -245,10 +251,16 @@ export default function SolicitudPaseo() {
       const idEstadoSolicitada = await fetchEstadoSolicitadaId();
       const agenda = parsePositiveInt(bloqueId);
       const mascota = parsePositiveInt(mascotaId);
+
+      // 👇 SOLUCIÓN ERROR 2: Declaramos el nombreTutor leyendo la sesión.
+      // (Si en tu login no guardas el nombre, dirá "Tutor" por defecto)
+      const nombreTutor = sessionStorage.getItem("nombreTutor") || "Tutor"; 
+      
       if (!selectedTarifa || !agenda || !mascota) {
         throw new Error("Hay campos inválidos para crear la reserva.");
       }
 
+      // 1. CREA LA RESERVA
       await crearReservaTutor({
         idTutorUsuario: idTutor,
         idMascota: mascota,
@@ -258,7 +270,27 @@ export default function SolicitudPaseo() {
         montoTotal: total,
         idEstadoReserva: idEstadoSolicitada
       });
+
+      // 2. DISPARA EL CORREO AL PASEADOR 🚀
+      try {
+        await dispararNotificacion({
+          emailDestino: correoPaseador, 
+          tipoEvento: "SOLICITUD_PASEO", 
+          variables: {
+            nombrePaseador: getPaseadorName(paseadorNombre),
+            nombreMascota: selectedMascota?.nombre || "tu mascota",
+            montoTotal: total.toString(),
+            nombreTutor: nombreTutor // <-- ¡Ahora sí existe y no dará error!
+          }
+        });
+        console.log("Notificación enviada con éxito a Brevo");
+      } catch (emailError) {
+        console.error("Reserva creada, pero la notificación falló:", emailError);
+      }
+      
       setIsSubmitted(true);
+
+    // 👇 SOLUCIÓN ERROR 1: Aquí está el catch y finally que faltaba para cerrar el try principal
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo crear la reserva.";
       setErrors({ general: message });
