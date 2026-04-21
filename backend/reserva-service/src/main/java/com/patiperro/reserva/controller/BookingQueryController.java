@@ -1,11 +1,16 @@
 package com.patiperro.reserva.controller;
 
+import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
+import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +46,17 @@ public class BookingQueryController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return reservaService.obtenerTimelineReserva(id, jwt);
+    }
+
+    /**
+     * Validación de código de encuentro (paseador).
+     */
+    @PostMapping("/reservas/codigo/validar")
+    public CodigoReservaValidarResponseDTO validarCodigoReserva(
+            @Valid @RequestBody CodigoReservaValidarRequestDTO body,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return reservaService.validarCodigoEncuentro(body, jwt);
     }
 }
 

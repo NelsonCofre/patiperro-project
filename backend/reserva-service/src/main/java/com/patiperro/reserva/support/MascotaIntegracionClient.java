@@ -1,6 +1,7 @@
 package com.patiperro.reserva.support;
 
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
+import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.MascotaResumenDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -75,6 +76,28 @@ public class MascotaIntegracionClient {
             }
             throw new IllegalStateException(
                     "Mascotas-service (interno) respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(),
+                    e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar mascotas-service: " + e.getMessage(), e);
+        }
+    }
+
+    public MascotaInternoDetalleResponseDTO obtenerDetalleInterno(Integer idMascota) {
+        if (idMascota == null || !StringUtils.hasText(internoSecret)) {
+            return null;
+        }
+        try {
+            return restClient.get()
+                    .uri("/api/mascotas/interno/{id}/detalle", idMascota.longValue())
+                    .header(HEADER_INTERNO, internoSecret)
+                    .retrieve()
+                    .body(MascotaInternoDetalleResponseDTO.class);
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                return null;
+            }
+            throw new IllegalStateException(
+                    "Mascotas-service (interno detalle) respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(),
                     e);
         } catch (RestClientException e) {
             throw new IllegalStateException("No se pudo contactar mascotas-service: " + e.getMessage(), e);

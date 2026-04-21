@@ -65,4 +65,10 @@ public class Reserva {
 
     @Column(name = "codigo_encuentro")
     private Integer codigoEncuentro;
+
+    @Column(name = "motivo_rechazo", length = 120)
+    private String motivoRechazo;
+
+    @Column(name = "detalle_rechazo", length = 500)
+    private String detalleRechazo;
 }

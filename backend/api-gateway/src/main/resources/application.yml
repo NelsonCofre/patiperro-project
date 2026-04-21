@@ -32,6 +32,10 @@ spring:
               uri: http://localhost:8085
               predicates:
                 - Path=/api/tutor/**,/api/bookings/**
+            - id: reserva-plural-routes
+              uri: http://localhost:8085
+              predicates:
+                - Path=/api/reservas/**
             # Login/registro/logout tutor: /api/auth/tutores (subida de foto usa /api/tutores/auth/...).
             - id: tutores-auth-service
               uri: http://localhost:8081

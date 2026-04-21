@@ -47,6 +47,13 @@ export type ReservaPaseadorSolicitudApiDTO = {
   /** URL relativa o absoluta desde mascotas-service (integración interna reserva ↔ mascotas). */
   mascotaFotoUrl?: string | null;
   mascotaNombre: string;
+  mascotaRaza?: string | null;
+  mascotaTamano?: string | null;
+  mascotaEdad?: string | null;
+  mascotaPeso?: string | null;
+  mascotaSexo?: string | null;
+  mascotaCaracter?: string | null;
+  mascotaCuidados?: string | null;
   codigoEncuentro?: number | null;
 };
 
@@ -83,13 +90,13 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     tutorNotas: s.tutorNotas?.trim() || undefined,
     mascotaNombre: s.mascotaNombre || `Mascota #${s.idMascota}`,
     mascotaFotoUrl: mascotaFotoDesdeApi(s),
-    mascotaRaza: dash,
-    mascotaTamano: dash,
-    mascotaEdad: dash,
-    mascotaPeso: dash,
-    mascotaSexo: dash,
-    mascotaCaracter: dash,
-    mascotaCuidados: dash,
+    mascotaRaza: s.mascotaRaza?.trim() || dash,
+    mascotaTamano: s.mascotaTamano?.trim() || dash,
+    mascotaEdad: s.mascotaEdad?.trim() || dash,
+    mascotaPeso: s.mascotaPeso?.trim() || dash,
+    mascotaSexo: s.mascotaSexo?.trim() || dash,
+    mascotaCaracter: s.mascotaCaracter?.trim() || dash,
+    mascotaCuidados: s.mascotaCuidados?.trim() || dash,
     fecha: s.fechaAgenda?.trim() || "",
     horaInicio: s.horaInicio?.trim() || "",
     horaFin: s.horaFin?.trim() || "",
@@ -132,9 +139,21 @@ export async function responderSolicitudPaseador(
     throw new Error("La solicitud seleccionada no es válida.");
   }
 
-  const body: { decision: "ACEPTAR" | "RECHAZAR" } = {
+  const body: {
+    decision: "ACEPTAR" | "RECHAZAR";
+    motivoRechazo?: string;
+    detalleRechazo?: string;
+  } = {
     decision: payload.decision
   };
+  if (payload.decision === "RECHAZAR") {
+    if (payload.motivoRechazo && payload.motivoRechazo.trim()) {
+      body.motivoRechazo = payload.motivoRechazo.trim();
+    }
+    if (payload.detalleRechazo && payload.detalleRechazo.trim()) {
+      body.detalleRechazo = payload.detalleRechazo.trim();
+    }
+  }
 
   const response = await fetch(API_ENDPOINTS.reserva.status(idReserva), {
     method: "PATCH",
@@ -154,4 +173,29 @@ export async function responderSolicitudPaseador(
     : "Aceptada";
 
   return { idReserva, estado };
+}
+
+export async function validarCodigoEncuentroPaseador(
+  idReserva: number,
+  codigoIngresado: string
+): Promise<{ idReserva: number; estado: string; fechaInicioReal?: string | null }> {
+  const response = await fetch(API_ENDPOINTS.reservas.validarCodigo, {
+    method: "POST",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      idReserva,
+      codigoIngresado
+    })
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo validar el código."));
+  }
+  const row = data as { idReserva: number; nombreEstado?: string; fechaInicioReal?: string | null };
+  return {
+    idReserva: row.idReserva,
+    estado: row.nombreEstado ?? "EN CURSO",
+    fechaInicioReal: row.fechaInicioReal ?? null
+  };
 }

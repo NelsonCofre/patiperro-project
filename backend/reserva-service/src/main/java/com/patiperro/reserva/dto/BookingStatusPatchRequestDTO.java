@@ -20,6 +20,12 @@ public class BookingStatusPatchRequestDTO {
     /** Acción del tutor (p. ej. anular solicitud pendiente). */
     private TutorDecision tutorDecision;
 
+    /** Texto corto opcional cuando el paseador rechaza. */
+    private String motivoRechazo;
+
+    /** Texto libre opcional para explicar el rechazo. */
+    private String detalleRechazo;
+
     @AssertTrue(message = "Debe enviar exactamente uno: decision, idEstadoReserva o tutorDecision")
     public boolean isCuerpoValido() {
         int n = 0;
