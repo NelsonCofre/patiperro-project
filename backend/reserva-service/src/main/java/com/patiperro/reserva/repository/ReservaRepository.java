@@ -39,31 +39,4 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Reserva> findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
             Collection<Integer> idsAgendaBloque,
             Integer idEstadoReserva);
-
-    /**
-     * Pasa a EN_CURSO, fija inicio real y limpia contador/bloqueo, solo si sigue ACEPTADA (una fila, atómico).
-     */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.estadoReserva = :enCurso, r.fechaInicioReal = :inicio, r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null "
-            + "WHERE r.idReserva = :idReserva AND r.estadoReserva.idEstadoReserva = :idAceptada")
-    int marcarEnCursoTrasValidarCodigo(
-            @Param("enCurso") EstadoReserva enCurso,
-            @Param("inicio") LocalDateTime inicio,
-            @Param("idReserva") Integer idReserva,
-            @Param("idAceptada") Integer idAceptada);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = COALESCE(r.codigoIntentosFallidos, 0) + 1 WHERE r.idReserva = :idReserva")
-    int incrementarIntentosFallidosCodigo(@Param("idReserva") Integer idReserva);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.codigoBloqueadoHasta = :hasta WHERE r.idReserva = :idReserva")
-    int fijarBloqueoCodigoHasta(@Param("idReserva") Integer idReserva, @Param("hasta") LocalDateTime hasta);
-
-    /**
-     * Tras éxito atómico ya se pone 0; útil al regenerar código (tutor) o para consistencia.
-     */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
-    int reiniciarContadoresBloqueoCodigo(@Param("idReserva") Integer idReserva);
 }

@@ -9,6 +9,10 @@
   box-shadow: 0 16px 34px rgba(31, 41, 55, 0.06);
 }
 
+.cardAccepted {
+  align-items: start;
+}
+
 .photoColumn {
   position: relative;
   align-self: stretch;
@@ -17,6 +21,12 @@
   border: 1px solid #e1ebe2;
   border-radius: 8px;
   background: #eef7ef;
+}
+
+.photoColumnAccepted {
+  align-self: stretch;
+  min-height: 0;
+  aspect-ratio: auto;
 }
 
 .petPhoto {
@@ -126,6 +136,7 @@
 
 .acceptButton,
 .rejectButton,
+.codeButton,
 .tutorButton,
 .mapButton {
   display: inline-flex;
@@ -144,6 +155,7 @@
 
 .acceptButton,
 .rejectButton,
+.codeButton,
 .tutorButton {
   min-height: 38px;
   min-width: 112px;
@@ -179,8 +191,16 @@
   background: #edf8ef;
 }
 
+.codeButton {
+  border: none;
+  color: #ffffff;
+  background: #2563eb;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.18);
+}
+
 .acceptButton:hover:not(:disabled),
 .rejectButton:hover:not(:disabled),
+.codeButton:hover:not(:disabled),
 .tutorButton:hover:not(:disabled),
 .mapButton:hover {
   transform: translateY(-1px);
@@ -188,9 +208,58 @@
 
 .acceptButton:disabled,
 .rejectButton:disabled,
+.codeButton:disabled,
 .tutorButton:disabled {
   cursor: wait;
   opacity: 0.74;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.34);
+  backdrop-filter: blur(5px);
+}
+
+.modalCard {
+  width: min(100%, 560px);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #d8e8da;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: #163020;
+  font-size: 1.2rem;
+}
+
+.modalClose {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #d8e7da;
+  border-radius: 8px;
+  color: #2d4d38;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  background: #ffffff;
 }
 
 .spinner {
@@ -221,6 +290,11 @@
   .photoColumn {
     height: 220px;
   }
+
+  .photoColumnAccepted {
+    min-height: 0;
+    aspect-ratio: auto;
+  }
 }
 
 @media (max-width: 720px) {
@@ -241,6 +315,7 @@
 
   .acceptButton,
   .rejectButton,
+  .codeButton,
   .tutorButton,
   .mapButton {
     width: 100%;
