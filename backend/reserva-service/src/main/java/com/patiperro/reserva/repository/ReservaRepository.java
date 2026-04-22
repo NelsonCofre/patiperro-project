@@ -48,11 +48,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
      * Pasa a EN_CURSO, fija inicio real y limpia contador/bloqueo, solo si sigue ACEPTADA (una fila, atómico).
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.estadoReserva = :enCurso, r.fechaInicioReal = :inicio, r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null "
+    @Query("UPDATE Reserva r SET r.estadoReserva = :enCurso, r.fechaInicioReal = CURRENT_TIMESTAMP, r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null "
             + "WHERE r.idReserva = :idReserva AND r.estadoReserva.idEstadoReserva = :idAceptada")
     int marcarEnCursoTrasValidarCodigo(
             @Param("enCurso") EstadoReserva enCurso,
-            @Param("inicio") LocalDateTime inicio,
             @Param("idReserva") Integer idReserva,
             @Param("idAceptada") Integer idAceptada);
 

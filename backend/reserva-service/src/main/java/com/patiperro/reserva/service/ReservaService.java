@@ -237,7 +237,6 @@ public class ReservaService {
         EstadoReserva enCurso = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_EN_CURSO);
         int afectados = reservaRepository.marcarEnCursoTrasValidarCodigo(
                 enCurso,
-                ahora,
                 r.getIdReserva(),
                 EstadoReservaCatalogo.ID_ACEPTADA);
         if (afectados != 1) {
