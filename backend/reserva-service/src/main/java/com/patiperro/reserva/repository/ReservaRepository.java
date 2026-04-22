@@ -45,6 +45,16 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
             Collection<Integer> idsEstadoReserva);
 
     /**
+     * Otra reserva "activa" (estados en curso de uso del código) con el mismo {@code codigoEncuentro}.
+     */
+    @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM Reserva r "
+            + "WHERE r.codigoEncuentro = :codigo AND r.idReserva <> :excludeId AND r.estadoReserva.idEstadoReserva IN :estados")
+    boolean existsOtraActivaConCodigo(
+            @Param("codigo") Integer codigo,
+            @Param("excludeId") Integer excludeId,
+            @Param("estados") Collection<Integer> estados);
+
+    /**
      * Pasa a EN_CURSO, fija inicio real y limpia contador/bloqueo, solo si sigue ACEPTADA (una fila, atómico).
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -66,4 +76,24 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
     int reiniciarContadoresBloqueoCodigo(@Param("idReserva") Integer idReserva);
+
+    /**
+     * ACEPTADA, sin paseo iniciado, con PIN y sin expiración calculada: backfill (listado / job, sin JWT).
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva = :idAceptada AND r.fechaInicioReal IS NULL AND "
+            + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NULL")
+    List<Integer> findIdReservasAceptadaConCodigoSinExpiracion(
+            @Param("idAceptada") Integer idAceptada);
+
+    /**
+     * ACEPTADA, sin inicio de paseo, con ventana de PIN ya vencida: cancelar y liberar bloque (no regenerar PIN).
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva = :idAceptada AND r.fechaInicioReal IS NULL AND "
+            + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NOT NULL AND "
+            + "r.codigoEncuentroExpiraEn < :ahora")
+    List<Integer> findIdReservasAceptadaParaCancelarPorEncuentroVencido(
+            @Param("idAceptada") Integer idAceptada,
+            @Param("ahora") LocalDateTime ahora);
 }
