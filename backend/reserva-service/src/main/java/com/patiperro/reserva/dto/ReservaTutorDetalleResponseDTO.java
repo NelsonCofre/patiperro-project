@@ -30,4 +30,6 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime fechaInicioReal;
     private LocalDateTime fechaFin;
     private Integer codigoEncuentro;
+    private String tutorNombre;
+    private String tutorCorreo;
 }

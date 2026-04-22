@@ -75,6 +75,9 @@ export type AuthResponse = {
   idTutor?: number;
   /** Mismo JWT que la cookie; para Authorization: Bearer en desarrollo (Vite). */
   accessToken?: string;
+  nombrePaseador?: string;
+  nombreTutor?: string; 
+  // También puedes agregar nombrePaseador si quieres ser más específico
 };
 
 function persistAccessToken(body: { accessToken?: string } | null | undefined) {
@@ -88,6 +91,7 @@ export function clearAuthSession() {
   sessionStorage.removeItem(ACCESS_TOKEN_SESSION_KEY);
   sessionStorage.removeItem(TUTOR_ID_SESSION_KEY);
   sessionStorage.removeItem(PASEADOR_ID_SESSION_KEY);
+  sessionStorage.removeItem("patiperro_nombre_usuario");
 }
 
 /**
@@ -212,6 +216,10 @@ export async function registerPaseador(
   const idPaseador =
     typeof body.idPaseador === "number" && Number.isFinite(body.idPaseador) ? body.idPaseador : undefined;
   persistAccessToken(body);
+  // 👇 AGREGA ESTO:
+  if (body.nombrePaseador) {
+    sessionStorage.setItem("patiperro_nombre_usuario", body.nombrePaseador);
+  }
   return {
     mensaje: body.mensaje ?? body.message,
     correo: body.correo,
@@ -236,9 +244,9 @@ export async function loginTutor(credentials: {
     })
   });
 
-  let data: (AuthResponse & { message?: string }) | null = null;
+  let data: (AuthResponse & { message?: string; nombreTutor?: string }) | null = null;
   try {
-    data = (await response.json()) as AuthResponse & { message?: string };
+    data = (await response.json()) as AuthResponse & { message?: string; nombreTutor?: string };
   } catch {
     data = null;
   }
@@ -247,22 +255,29 @@ export async function loginTutor(credentials: {
     throw new Error(readApiErrorMessage(data, "Correo o contraseña incorrectos."));
   }
 
-  const body = data as AuthResponse & { message?: string; idTutor?: number };
-  const idTutor =
-    typeof body.idTutor === "number" && Number.isFinite(body.idTutor) ? body.idTutor : undefined;
+  const body = data as AuthResponse & { message?: string; idTutor?: number; nombreTutor?: string };
+  
+  // Guardamos el ID del tutor (Esto ya lo tenías)
+  const idTutor = typeof body.idTutor === "number" && Number.isFinite(body.idTutor) ? body.idTutor : undefined;
   if (idTutor != null) {
     sessionStorage.setItem(TUTOR_ID_SESSION_KEY, String(idTutor));
   }
+
+  // 👇 ESTO ES LO QUE FALTA: Guardar el nombre en el Session Storage
+  if (body.nombreTutor) {
+    sessionStorage.setItem("patiperro_nombre_usuario", body.nombreTutor);
+  }
+
   persistAccessToken(body);
 
   return {
     mensaje: body.mensaje ?? body.message,
     correo: body.correo,
     idTutor,
-    accessToken: body.accessToken
+    accessToken: body.accessToken,
+    nombreTutor: body.nombreTutor // Lo devolvemos también en el objeto
   };
 }
-
 export async function loginPaseador(credentials: {
   correo: string;
   contrasena: string;
@@ -296,6 +311,11 @@ export async function loginPaseador(credentials: {
       : undefined;
   if (idPaseador != null) {
     sessionStorage.setItem(PASEADOR_ID_SESSION_KEY, String(idPaseador));
+  }
+
+  // 👇 AGREGA ESTO: Guardar el nombre que viene del backend
+  if (data?.nombrePaseador) {
+    sessionStorage.setItem("patiperro_nombre_usuario", data.nombrePaseador);
   }
   persistAccessToken(data ?? undefined);
 

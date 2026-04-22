@@ -254,7 +254,9 @@ export default function SolicitudPaseo() {
 
       // 👇 SOLUCIÓN ERROR 2: Declaramos el nombreTutor leyendo la sesión.
       // (Si en tu login no guardas el nombre, dirá "Tutor" por defecto)
-      const nombreTutor = sessionStorage.getItem("nombreTutor") || "Tutor"; 
+      // Por esto (usando la clave real y limpiando el nombre):
+const nombreTutorRaw = sessionStorage.getItem("patiperro_nombre_usuario");
+const nombreTutorFinal = nombreTutorRaw ? nombreTutorRaw.split(" ")[0] : "Un tutor";
       
       if (!selectedTarifa || !agenda || !mascota) {
         throw new Error("Hay campos inválidos para crear la reserva.");
@@ -273,16 +275,18 @@ export default function SolicitudPaseo() {
 
       // 2. DISPARA EL CORREO AL PASEADOR 🚀
       try {
-        await dispararNotificacion({
-          emailDestino: correoPaseador, 
-          tipoEvento: "SOLICITUD_PASEO", 
-          variables: {
-            nombrePaseador: getPaseadorName(paseadorNombre),
-            nombreMascota: selectedMascota?.nombre || "tu mascota",
-            montoTotal: total.toString(),
-            nombreTutor: nombreTutor // <-- ¡Ahora sí existe y no dará error!
-          }
-        });
+        // En el bloque de dispararNotificacion:
+await dispararNotificacion({
+  emailDestino: correoPaseador, 
+  tipoEvento: "SOLICITUD_PASEO", 
+  variables: {
+    nombrePaseador: getPaseadorName(paseadorNombre).split(" ")[0], // Limpiamos también el del paseador
+    nombreMascota: selectedMascota?.nombre || "tu mascota",
+    montoTotal: total.toString(),
+    nombreTutor: nombreTutorFinal, // <-- Usamos la variable con el nombre real
+    urlReserva: "http://localhost:5173/login/paseador"
+  }
+});
         console.log("Notificación enviada con éxito a Brevo");
       } catch (emailError) {
         console.error("Reserva creada, pero la notificación falló:", emailError);

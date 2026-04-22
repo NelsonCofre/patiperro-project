@@ -39,6 +39,9 @@ export type SolicitudPendientePaseador = {
   codigoEncuentro?: number | null;
   comentarioTutor?: string;
   fechaSolicitud: string;
+  // 👇 AGREGA ESTAS DOS LÍNEAS AQUÍ 👇
+  latitud?: number;  // El '?' es por si alguna reserva vieja no las tiene
+  longitud?: number;
 };
 
 export type DecisionSolicitudPayload = {

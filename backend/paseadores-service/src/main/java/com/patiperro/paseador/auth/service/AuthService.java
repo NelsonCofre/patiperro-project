@@ -38,7 +38,16 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
 
-        return new LoginResponseDTO("Login exitoso", paseador.getCorreo(), paseador.getId(), null);
+        // Construimos el nombre completo para el DTO
+        String nombreCompleto = paseador.getPrimerNombre() + " " + paseador.getApellidoPaterno();
+
+        return new LoginResponseDTO(
+            "Login exitoso", 
+            paseador.getCorreo(), 
+            paseador.getId(), 
+            null, 
+            nombreCompleto // Nuevo parámetro
+        );
     }
 
     @Transactional
@@ -77,6 +86,7 @@ public class AuthService {
                 .biografia(request.getBiografia())
                 .direccion(direccion)
                 .build();
+        
         if (paseador.getFotos() == null) {
             paseador.setFotos(new ArrayList<>());
         }
@@ -87,7 +97,16 @@ public class AuthService {
             fotoRepository.save(Foto.builder().url(url).paseador(paseador).build());
         }
 
-        return new LoginResponseDTO("Registro exitoso", paseador.getCorreo(), paseador.getId(), null);
+        // También enviamos el nombre en el registro exitoso
+        String nombreCompleto = paseador.getPrimerNombre() + " " + paseador.getApellidoPaterno();
+
+        return new LoginResponseDTO(
+            "Registro exitoso", 
+            paseador.getCorreo(), 
+            paseador.getId(), 
+            null, 
+            nombreCompleto // Nuevo parámetro
+        );
     }
 
     private Set<String> collectGaleriaUrls(RegisterRequestDTO request) {

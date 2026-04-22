@@ -27,6 +27,7 @@ import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -615,34 +616,56 @@ public class ReservaService {
                 && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
     }
 
-    private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
-        AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
-        MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
-        PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
-        EstadoReserva estado = r.getEstadoReserva();
-
-        return new ReservaTutorDetalleResponseDTO(
-                r.getIdReserva(),
-                r.getIdTutorUsuario(),
-                r.getIdMascota(),
-                mascota != null && mascota.getNombre() != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
-                r.getIdAgendaBloque(),
-                bloque != null ? bloque.getIdUsuario() : null,
-                paseador != null && paseador.getNombreCompleto() != null && !paseador.getNombreCompleto().isBlank()
-                        ? paseador.getNombreCompleto()
-                        : bloque != null ? "Paseador #" + bloque.getIdUsuario() : "Paseador no disponible",
-                bloque != null ? bloque.getFecha() : null,
-                bloque != null ? bloque.getHoraInicio() : null,
-                bloque != null ? bloque.getHoraFinal() : null,
-                r.getMontoTotal(),
-                r.getIdPago(),
-                estado != null ? estado.getIdEstadoReserva() : null,
-                estado != null ? estado.getNombreEstado() : null,
-                r.getFechaSolicitud(),
-                r.getFechaInicioReal(),
-                r.getFechaFin(),
-                r.getCodigoEncuentro());
+    private TutorReservaClientDTO obtenerTutorSeguro(Integer idTutor, String rawJwt) {
+    try {
+        return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
+    } catch (Exception e) {
+        System.err.println("DEBUG: No se pudo obtener datos del tutor " + idTutor);
+        return null;
     }
+}
+
+   private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
+    AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
+    MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
+    PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
+    EstadoReserva estado = r.getEstadoReserva();
+
+    // Buscamos al tutor usando el cliente que ya tenías
+    TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
+
+    // Formateamos los datos para el DTO
+    String nombreTutorFinal = (tutor != null) 
+        ? (tutor.getPrimerNombre() + " " + (tutor.getApellidoPaterno() != null ? tutor.getApellidoPaterno() : "")) 
+        : "Tutor #" + r.getIdTutorUsuario();
+            
+    String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
+
+    return new ReservaTutorDetalleResponseDTO(
+            r.getIdReserva(),
+            r.getIdTutorUsuario(),
+            r.getIdMascota(),
+            mascota != null && mascota.getNombre() != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
+            r.getIdAgendaBloque(),
+            bloque != null ? bloque.getIdUsuario() : null,
+            paseador != null && paseador.getNombreCompleto() != null && !paseador.getNombreCompleto().isBlank()
+                    ? paseador.getNombreCompleto()
+                    : bloque != null ? "Paseador #" + bloque.getIdUsuario() : "Paseador no disponible",
+            bloque != null ? bloque.getFecha() : null,
+            bloque != null ? bloque.getHoraInicio() : null,
+            bloque != null ? bloque.getHoraFinal() : null,
+            r.getMontoTotal(),
+            r.getIdPago(),
+            estado != null ? estado.getIdEstadoReserva() : null,
+            estado != null ? estado.getNombreEstado() : null,
+            r.getFechaSolicitud(),
+            r.getFechaInicioReal(),
+            r.getFechaFin(),
+            r.getCodigoEncuentro(),
+            nombreTutorFinal.trim(), // Parámetro 19
+            correoTutorFinal        // Parámetro 20
+    );
+}
 
     private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {
         try {

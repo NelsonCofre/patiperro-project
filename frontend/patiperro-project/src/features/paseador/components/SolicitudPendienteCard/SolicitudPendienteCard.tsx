@@ -5,15 +5,15 @@ import type {
 import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
 import styles from "./SolicitudPendienteCard.module.css";
 
-// En SolicitudPendienteCard.tsx
 type SolicitudPendienteCardProps = {
-  solicitud: SolicitudPendientePaseador; // Todas las propiedades deben estar dentro de este objeto
+  solicitud: SolicitudPendientePaseador;
   processingDecision: DecisionSolicitud | null;
   onAccept: (solicitud: SolicitudPendientePaseador) => void;
   onReject: (solicitud: SolicitudPendientePaseador) => void;
   onViewTutor: (solicitud: SolicitudPendientePaseador) => void;
-  onViewMap: (solicitud: SolicitudPendientePaseador) => void;
+  onViewMap: (solicitud: SolicitudPendientePaseador) => void; // Esta es la que usa el padre
 };
+
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
   currency: "CLP",
@@ -86,18 +86,19 @@ export default function SolicitudPendienteCard({
           </div>
         </div>
 
-        <div className={styles.locationBox}>
-          <div className={styles.locationHeader}>
-            <span>{solicitud.comuna}</span>
-            <button
-              type="button"
-              className={styles.mapButton}
-              onClick={() => onViewMap(solicitud)}
-            >
-              Ver mapa
-            </button>
+        {/* Sección de Dirección y Mapa */}
+        <div className={styles.locationSection}>
+          <div className={styles.addressInfo}>
+            <span>{solicitud.comuna.toUpperCase()}</span>
+            <p>{solicitud.direccionReferencia || "Sin dirección de referencia"}</p>
           </div>
-          <p>{solicitud.direccionReferencia}</p>
+          <button 
+            type="button"
+            className={styles.verMapaBtn} 
+            onClick={() => onViewMap(solicitud)}
+          >
+            Ver mapa
+          </button>
         </div>
 
         <div className={styles.actions}>
@@ -109,6 +110,7 @@ export default function SolicitudPendienteCard({
           >
             Ver detalle
           </button>
+          
           {isSolicitada ? (
             <>
               <button

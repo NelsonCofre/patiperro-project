@@ -1,0 +1,35 @@
+.verMapaBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f0f4f8; /* Un gris/azul muy claro */
+  color: #2c5282; /* Un azul corporativo */
+  border: 1px solid #cbd5e0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.verMapaBtn:hover {
+  background-color: #e2e8f0;
+  border-color: #a0aec0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.verMapaBtn:active {
+  transform: translateY(0);
+}
+
+/* Opcional: Estilo para el contenedor de la dirección */
+.locationSection {
+  margin: 12px 0;
+  padding: 10px;
+  background-color: #f9fafb;
+  border-left: 3px solid #3182ce; /* Detalle lateral azul */
+  border-radius: 4px;
+}
