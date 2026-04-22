@@ -34,4 +34,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Reserva> findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
             Collection<Integer> idsAgendaBloque,
             Integer idEstadoReserva);
+
+    List<Reserva> findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
+            Collection<Integer> idsAgendaBloque,
+            Collection<Integer> idsEstadoReserva);
 }

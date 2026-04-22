@@ -357,7 +357,8 @@ public class ReservaService {
     }
 
     /**
-     * Reservas en estado SOLICITADA cuyo bloque de agenda pertenece al paseador (JWT {@code paseadorId}).
+     * Reservas visibles en el panel del paseador cuyo bloque de agenda pertenece al paseador
+     * (JWT {@code paseadorId}). Incluye SOLICITADA, ACEPTADA, RECHAZADA y EN_CURSO.
      */
     public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
             Integer idPaseador, String rawJwt) {
@@ -375,8 +376,13 @@ public class ReservaService {
                 .collect(Collectors.toMap(AgendaBloqueReservaClientDTO::getIdAgenda, b -> b, (a, b) -> a));
 
         List<Integer> idsBloque = new ArrayList<>(bloquePorId.keySet());
-        List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
-                idsBloque, EstadoReservaCatalogo.ID_SOLICITADA);
+        List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
+                idsBloque,
+                List.of(
+                        EstadoReservaCatalogo.ID_SOLICITADA,
+                        EstadoReservaCatalogo.ID_ACEPTADA,
+                        EstadoReservaCatalogo.ID_RECHAZADA,
+                        EstadoReservaCatalogo.ID_EN_CURSO));
 
         List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
         for (Reserva r : reservas) {

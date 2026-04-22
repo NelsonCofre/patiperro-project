@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   DecisionSolicitud,
   SolicitudPendientePaseador
@@ -45,6 +46,7 @@ export default function SolicitudPendienteCard({
   onStartPaseo,
   onOpenChat
 }: SolicitudPendienteCardProps) {
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";
   const rejecting = processingDecision === "RECHAZAR";
@@ -53,8 +55,8 @@ export default function SolicitudPendienteCard({
   const isEnCurso = solicitud.estado === "En Curso";
 
   return (
-    <article className={styles.card}>
-      <div className={styles.photoColumn}>
+    <article className={`${styles.card} ${isAceptada ? styles.cardAccepted : ""}`}>
+      <div className={`${styles.photoColumn} ${isAceptada ? styles.photoColumnAccepted : ""}`}>
         <img
           src={solicitud.mascotaFotoUrl}
           alt={`Foto de ${solicitud.mascotaNombre}`}
@@ -137,14 +139,16 @@ export default function SolicitudPendienteCard({
               </button>
             </>
           ) : null}
+          {isAceptada ? (
+            <button
+              type="button"
+              className={styles.codeButton}
+              onClick={() => setCodeModalOpen(true)}
+            >
+              Ingresar Codigo
+            </button>
+          ) : null}
         </div>
-
-        {isAceptada ? (
-          <CodigoEncuentroValidator
-            solicitud={solicitud}
-            onSuccess={(item, startTime) => onStartPaseo(item, startTime)}
-          />
-        ) : null}
 
         {isEnCurso ? (
           <PaseoEnCursoCard
@@ -161,6 +165,34 @@ export default function SolicitudPendienteCard({
           />
         ) : null}
       </div>
+
+      {isAceptada && codeModalOpen ? (
+        <div className={styles.modalOverlay}>
+          <section className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.eyebrow}>Confirmar encuentro</p>
+                <h3>Ingresa el codigo del tutor</h3>
+              </div>
+              <button
+                type="button"
+                className={styles.modalClose}
+                onClick={() => setCodeModalOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <CodigoEncuentroValidator
+              solicitud={solicitud}
+              onSuccess={(item, startTime) => {
+                setCodeModalOpen(false);
+                onStartPaseo(item, startTime);
+              }}
+            />
+          </section>
+        </div>
+      ) : null}
     </article>
   );
 }

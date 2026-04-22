@@ -30,6 +30,9 @@ export default function AppRoutes() {
         element={<PaseadorConfiguracion />}
       />
       <Route path="/paseador/dashboard/solicitudes" element={<PaseadorSolicitudes />} />
+      <Route path="/paseador/dashboard/solicitudes/aceptadas" element={<PaseadorSolicitudes />} />
+      <Route path="/paseador/dashboard/solicitudes/en-curso" element={<PaseadorSolicitudes />} />
+      <Route path="/paseador/dashboard/solicitudes/rechazadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
       {/* Primeras rutas del espacio del tutor. */}
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />

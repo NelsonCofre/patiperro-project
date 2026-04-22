@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -15,7 +16,6 @@ import type {
 } from "../../types/solicitudPaseador.types";
 import styles from "./PaseadorSolicitudes.module.css";
 
-
 type ConfirmationState = {
   solicitud: SolicitudPendientePaseador;
   decision: DecisionSolicitud;
@@ -26,7 +26,68 @@ type FeedbackState = {
   message: string;
 };
 
+type ViewKey = "solicitadas" | "aceptadas" | "en-curso" | "rechazadas";
+
+type ViewConfig = {
+  key: ViewKey;
+  title: string;
+  description: string;
+  emptyTitle: string;
+  emptyText: string;
+  filter: (solicitud: SolicitudPendientePaseador) => boolean;
+  route: string;
+};
+
+const VIEW_CONFIGS: ViewConfig[] = [
+  {
+    key: "solicitadas",
+    title: "Solicitudes por responder",
+    description: "Reservas nuevas que aun esperan tu decision.",
+    emptyTitle: "No tienes solicitudes por responder",
+    emptyText: "Cuando un tutor envie una reserva dentro de tus bloques disponibles, aparecera aqui.",
+    filter: (solicitud) => solicitud.estado === "Solicitada",
+    route: "/paseador/dashboard/solicitudes"
+  },
+  {
+    key: "aceptadas",
+    title: "Reservas aceptadas",
+    description: "Reservas listas para validar el codigo e iniciar el paseo.",
+    emptyTitle: "No tienes reservas aceptadas",
+    emptyText: "Las reservas que aceptes apareceran aqui para continuar con el encuentro.",
+    filter: (solicitud) => solicitud.estado === "Aceptada",
+    route: "/paseador/dashboard/solicitudes/aceptadas"
+  },
+  {
+    key: "en-curso",
+    title: "Paseos en curso",
+    description: "Servicios que ya fueron confirmados y se estan realizando ahora.",
+    emptyTitle: "No tienes paseos en curso",
+    emptyText: "Cuando confirmes el inicio de un paseo, quedara visible aqui con acceso al chat.",
+    filter: (solicitud) => solicitud.estado === "En Curso",
+    route: "/paseador/dashboard/solicitudes/en-curso"
+  },
+  {
+    key: "rechazadas",
+    title: "Solicitudes rechazadas",
+    description: "Historial reciente de reservas que decidiste no tomar.",
+    emptyTitle: "No tienes solicitudes rechazadas",
+    emptyText: "Las solicitudes rechazadas seguiran visibles aqui como referencia.",
+    filter: (solicitud) => solicitud.estado === "Rechazada",
+    route: "/paseador/dashboard/solicitudes/rechazadas"
+  }
+];
+
+function getActiveView(pathname: string): ViewConfig {
+  if (pathname.endsWith("/aceptadas")) return VIEW_CONFIGS[1];
+  if (pathname.endsWith("/en-curso")) return VIEW_CONFIGS[2];
+  if (pathname.endsWith("/rechazadas")) return VIEW_CONFIGS[3];
+  return VIEW_CONFIGS[0];
+}
+
 export default function PaseadorSolicitudes() {
+  const location = useLocation();
+  const activeView = useMemo(() => getActiveView(location.pathname), [location.pathname]);
+
   const [solicitudes, setSolicitudes] = useState<SolicitudPendientePaseador[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -46,14 +107,7 @@ export default function PaseadorSolicitudes() {
       try {
         const data = await fetchSolicitudesPendientesPaseador();
         if (!active) return;
-        setSolicitudes(
-          data.filter(
-            (solicitud) =>
-              solicitud.estado === "Solicitada" ||
-              solicitud.estado === "Aceptada" ||
-              solicitud.estado === "En Curso"
-          )
-        );
+        setSolicitudes(data);
       } catch (error) {
         if (!active) return;
         setLoadError(
@@ -64,7 +118,7 @@ export default function PaseadorSolicitudes() {
       }
     }
 
-    loadSolicitudes();
+    void loadSolicitudes();
     return () => {
       active = false;
     };
@@ -73,9 +127,14 @@ export default function PaseadorSolicitudes() {
   const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
   const inProgressCount = solicitudes.filter((solicitud) => solicitud.estado === "En Curso").length;
+  const rejectedCount = solicitudes.filter((solicitud) => solicitud.estado === "Rechazada").length;
   const totalAmount = useMemo(
     () => solicitudes.reduce((sum, solicitud) => sum + solicitud.montoTotal, 0),
     [solicitudes]
+  );
+  const visibleSolicitudes = useMemo(
+    () => solicitudes.filter(activeView.filter),
+    [activeView, solicitudes]
   );
 
   const processingId = processing?.solicitud.idReserva ?? null;
@@ -122,36 +181,37 @@ export default function PaseadorSolicitudes() {
     setFeedback(null);
 
     try {
-      // 1. Llamada a la API de Reservas (Backend 8080)
       await responderSolicitudPaseador(solicitud.idReserva, {
         decision,
         motivoRechazo: rechazo.motivo || undefined,
         detalleRechazo: rechazo.detalle.trim() || undefined
       });
 
-      // 2. DISPARAR NOTIFICACIÓN AL TUTOR (Backend 8086) 🚀
       try {
         await dispararNotificacion({
-          emailDestino: solicitud.tutorCorreo, // Asegúrate de que el DTO traiga este campo
+          emailDestino: solicitud.tutorCorreo,
           tipoEvento: decision === "ACEPTAR" ? "RESERVA_ACEPTADA" : "RESERVA_RECHAZADA",
           variables: {
             nombreTutor: solicitud.tutorNombre,
             nombrePaseador: sessionStorage.getItem("nombreUsuario") || "Tu paseador",
             nombreMascota: solicitud.mascotaNombre,
             fechaPaseo: solicitud.fecha,
-            // Si es rechazo, enviamos el motivo al correo
-            motivo: decision === "RECHAZAR" ? (rechazo.motivo || "No disponible") : ""
+            motivo: decision === "RECHAZAR" ? rechazo.motivo || "No disponible" : ""
           }
         });
-        console.log(`Notificación de ${decision} enviada al tutor.`);
       } catch (emailError) {
-        // Logueamos pero no bloqueamos la UI, la reserva ya se actualizó
-        console.error("Error al enviar notificación:", emailError);
+        console.error("Error al enviar notificacion:", emailError);
       }
 
-      // 3. Actualizar UI Local
       setSolicitudes((prev) =>
-        prev.filter((item) => item.idReserva !== solicitud.idReserva)
+        prev.map((item) =>
+          item.idReserva === solicitud.idReserva
+            ? {
+                ...item,
+                estado: decision === "ACEPTAR" ? "Aceptada" : "Rechazada"
+              }
+            : item
+        )
       );
       setConfirmation(null);
       setFeedback({
@@ -159,7 +219,7 @@ export default function PaseadorSolicitudes() {
         message:
           decision === "ACEPTAR"
             ? "Solicitud aceptada y tutor notificado por correo."
-            : "Solicitud rechazada. Se le informó al tutor el motivo."
+            : "Solicitud rechazada. Se informo al tutor el motivo."
       });
     } catch (error) {
       setFeedback({
@@ -167,7 +227,7 @@ export default function PaseadorSolicitudes() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudo procesar la decisión. Inténtalo nuevamente."
+            : "No se pudo procesar la decision. Intentalo nuevamente."
       });
     } finally {
       setProcessing(null);
@@ -180,27 +240,50 @@ export default function PaseadorSolicitudes() {
 
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Solicitudes pendientes</p>
-          <h1 className={styles.title}>Acepta o rechaza paseos con seguridad</h1>
+          <p className={styles.eyebrow}>Solicitudes del paseador</p>
+          <h1 className={styles.title}>Resumen de solicitudes</h1>
           <p className={styles.description}>
-            Revisa cada solicitud antes de confirmar. Al aceptar se prepara el flujo de pago; al
-            rechazar se deja listo el motivo para informar al tutor.
+            Revisa el estado general de tus reservas y entra a cada vista para responder,
+            validar encuentros o seguir el progreso del paseo.
           </p>
         </div>
 
         <div className={styles.summaryPanel}>
-          <span>Solicitudes activas</span>
-          <strong>{pendingCount}</strong>
-          <p>
-            Aceptadas listas para validar: {acceptedCount}.{" "}
-            Paseos en curso: {inProgressCount}.{" "}
-            Monto potencial:{" "}
-            {new Intl.NumberFormat("es-CL", {
-              style: "currency",
-              currency: "CLP",
-              maximumFractionDigits: 0
-            }).format(totalAmount)}
-          </p>
+          <div className={styles.summaryHeader}>
+            <span>Dashboard de solicitudes</span>
+            <strong>{solicitudes.length}</strong>
+            <p>Vista general de tus reservas y su estado actual.</p>
+          </div>
+
+          <div className={styles.metricsGrid}>
+            <article className={styles.metricCard}>
+              <span>Pendientes</span>
+              <strong>{pendingCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>Aceptadas</span>
+              <strong>{acceptedCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>En curso</span>
+              <strong>{inProgressCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>Rechazadas</span>
+              <strong>{rejectedCount}</strong>
+            </article>
+          </div>
+
+          <div className={styles.summaryFooter}>
+            <span>Monto potencial</span>
+            <strong>
+              {new Intl.NumberFormat("es-CL", {
+                style: "currency",
+                currency: "CLP",
+                maximumFractionDigits: 0
+              }).format(totalAmount)}
+            </strong>
+          </div>
         </div>
       </section>
 
@@ -219,12 +302,25 @@ export default function PaseadorSolicitudes() {
         <div className={styles.sectionHeading}>
           <div>
             <p className={styles.cardEyebrow}>Panel del paseador</p>
-            <h2>Solicitudes y encuentros</h2>
+            <h2>{activeView.title}</h2>
           </div>
         </div>
 
+        <nav className={styles.stateTabs} aria-label="Estados de solicitudes">
+          {VIEW_CONFIGS.map((view) => (
+            <NavLink
+              key={view.key}
+              to={view.route}
+              end={view.key === "solicitadas"}
+              className={({ isActive }) => `${styles.stateTab} ${isActive ? styles.stateTabActive : ""}`}
+            >
+              {view.title}
+            </NavLink>
+          ))}
+        </nav>
+
         {isLoading ? (
-          <div className={styles.skeletonList} aria-label="Cargando solicitudes pendientes">
+          <div className={styles.skeletonList} aria-label="Cargando solicitudes">
             {["skeleton-1", "skeleton-2", "skeleton-3"].map((item) => (
               <article key={item} className={styles.skeletonCard}>
                 <span />
@@ -239,9 +335,9 @@ export default function PaseadorSolicitudes() {
             <h3>No pudimos cargar tus solicitudes</h3>
             <p>{loadError}</p>
           </article>
-        ) : solicitudes.length > 0 ? (
+        ) : visibleSolicitudes.length > 0 ? (
           <div className={styles.cardsList}>
-            {solicitudes.map((solicitud) => (
+            {visibleSolicitudes.map((solicitud) => (
               <SolicitudPendienteCard
                 key={solicitud.idReserva}
                 solicitud={solicitud}
@@ -259,11 +355,8 @@ export default function PaseadorSolicitudes() {
           </div>
         ) : (
           <article className={styles.emptyState}>
-            <h3>No tienes solicitudes ni encuentros pendientes</h3>
-            <p>
-              Cuando un tutor solicite un paseo dentro de tus bloques disponibles, aparecerá aquí
-              para que puedas aceptarlo o rechazarlo.
-            </p>
+            <h3>{activeView.emptyTitle}</h3>
+            <p>{activeView.emptyText}</p>
           </article>
         )}
       </section>

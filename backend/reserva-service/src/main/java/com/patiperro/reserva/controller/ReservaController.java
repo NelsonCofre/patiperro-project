@@ -69,7 +69,8 @@ public class ReservaController {
     }
 
     /**
-     * Solicitudes pendientes (estado SOLICITADA) para bloques de agenda del paseador.
+     * Reservas visibles en el panel del paseador para bloques de agenda del paseador.
+     * Incluye SOLICITADA, ACEPTADA, RECHAZADA y EN_CURSO.
      * El {@code idPaseador} debe coincidir con el claim {@code paseadorId} del JWT.
      */
     @GetMapping("/paseador/{idPaseador}/solicitudes-pendientes")
