@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ public class ReservaService {
     private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final TutorIntegracionClient tutorIntegracionClient;
     private final JwtService jwtService;
+    private final Clock clock;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
@@ -87,7 +89,7 @@ public class ReservaService {
         r.setIdAgendaBloque(dto.getIdAgendaBloque());
         r.setIdTarifa(dto.getIdTarifa());
         // Marca de servidor para trazabilidad consistente (no depender del reloj del cliente).
-        r.setFechaSolicitud(LocalDateTime.now());
+        r.setFechaSolicitud(LocalDateTime.now(clock));
         r.setFechaAceptacion(dto.getFechaAceptacion());
         r.setMontoTotal(dto.getMontoTotal());
         r.setIdPago(dto.getIdPago());
@@ -198,27 +200,35 @@ public class ReservaService {
         validarPaseadorPropietarioReserva(r, rawJwt);
 
         if (esEnCurso(r.getEstadoReserva())) {
-            throw new IllegalArgumentException("El código de encuentro ya fue validado");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "El código de encuentro ya fue validado");
         }
         if (!esAceptada(r.getEstadoReserva())) {
-            throw new IllegalArgumentException("La reserva no está en estado válido para validar código");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "La reserva no está en estado válido para validar código");
         }
 
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(clock);
         if (r.getCodigoBloqueadoHasta() != null && ahora.isBefore(r.getCodigoBloqueadoHasta())) {
-            throw new IllegalArgumentException("Demasiados intentos fallidos. Vuelve a intentar cuando termine el bloqueo");
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Demasiados intentos fallidos. Vuelve a intentar cuando termine el bloqueo");
         }
 
         if (r.getCodigoEncuentro() == null) {
-            throw new IllegalArgumentException("La reserva aún no tiene código de encuentro");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "La reserva aún no tiene código de encuentro");
         }
 
         LocalDateTime base = r.getFechaAceptacion() != null ? r.getFechaAceptacion() : r.getFechaSolicitud();
         if (base == null) {
-            throw new IllegalArgumentException("No se pudo validar vigencia del código");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "No se pudo validar vigencia del código");
         }
         if (ahora.isAfter(base.plusMinutes(Math.max(1, codigoExpiraMinutos)))) {
-            throw new IllegalArgumentException("El código ha expirado, solicita al Tutor que actualice el código");
+            throw new ResponseStatusException(
+                    HttpStatus.GONE,
+                    "El código ha expirado, solicita al Tutor que actualice el código");
         }
 
         String esperado = String.format("%04d", Math.abs(r.getCodigoEncuentro() % 10000));
@@ -231,7 +241,8 @@ public class ReservaService {
                 reservaRepository.fijarBloqueoCodigoHasta(
                         r.getIdReserva(), ahora.plusMinutes(Math.max(1, codigoBloqueoMinutos)));
             }
-            throw new IllegalArgumentException("Código incorrecto, inténtalo nuevamente");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Código incorrecto, inténtalo nuevamente");
         }
 
         EstadoReserva enCurso = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_EN_CURSO);
@@ -240,7 +251,9 @@ public class ReservaService {
                 r.getIdReserva(),
                 EstadoReservaCatalogo.ID_ACEPTADA);
         if (afectados != 1) {
-            throw new IllegalArgumentException("No se pudo completar la validación; reintenta o verifica el estado de la reserva");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "No se pudo completar la validación; reintenta o verifica el estado de la reserva");
         }
         Reserva saved = reservaRepository.findById(r.getIdReserva())
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
@@ -338,7 +351,7 @@ public class ReservaService {
                     .toList();
         }
         validarTutorJwt(idTutorUsuario, rawJwt);
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(clock);
         List<ReservaConInicio> conInicio = new ArrayList<>(reservas.size());
         for (Reserva r : reservas) {
             AgendaBloqueReservaClientDTO bloque =
@@ -824,7 +837,7 @@ public class ReservaService {
     }
 
     private void aplicarMarcaTiempoTransicion(Reserva r, EstadoReserva nuevo) {
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(clock);
         if (esAceptada(nuevo) && r.getFechaAceptacion() == null) {
             r.setFechaAceptacion(ahora);
             if (r.getFechaInicioReal() == null) {
