@@ -70,6 +70,9 @@ export const API_ENDPOINTS = {
   bookings: {
     timeline: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/timeline`
   },
+  reservas: {
+    validarCodigo: `${API_BASE_URL}/api/reservas/codigo/validar`
+  },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,
     estados: `${API_BASE_URL}/api/reserva/estados`,

@@ -205,7 +205,14 @@ export async function fetchAgendaOfertaPaseador(
   if (!response.ok) {
     throw new Error(readApiErrorMessage(data, "No se pudo cargar la agenda de disponibilidad del paseador."));
   }
-  return Array.isArray(data) ? (data as AgendaBloqueOfertaDTO[]) : [];
+  if (!Array.isArray(data)) return [];
+  const bloques = data as AgendaBloqueOfertaDTO[];
+  // Capa de seguridad en frontend: el tutor solo debe ver bloques en estado DISPONIBLE.
+  return bloques.filter((b) => {
+    const estado = b.estadoBloque?.nombre?.trim().toUpperCase() ?? "";
+    const idEstado = b.estadoBloque?.idEstado;
+    return estado.includes("DISPON") || idEstado === 1;
+  });
 }
 
 export async function fetchEstadoSolicitadaId(): Promise<number> {

@@ -2,6 +2,8 @@ package com.patiperro.reserva.service;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
+import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
+import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.AgendaBloqueResumenDTO;
 import com.patiperro.reserva.dto.MascotaResumenDTO;
@@ -11,6 +13,7 @@ import com.patiperro.reserva.dto.ReservaDtoMapper;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
+import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
@@ -25,6 +28,7 @@ import com.patiperro.reserva.support.MascotaIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -35,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,6 +54,9 @@ public class ReservaService {
     private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final TutorIntegracionClient tutorIntegracionClient;
     private final JwtService jwtService;
+
+    @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
+    private int codigoExpiraMinutos;
 
     public List<ReservaResponseDTO> listarTodas() {
         return reservaRepository.findAll().stream()
@@ -80,6 +88,8 @@ public class ReservaService {
         r.setFechaInicioReal(dto.getFechaInicioReal());
         r.setFechaFin(dto.getFechaFin());
         r.setCodigoEncuentro(dto.getCodigoEncuentro());
+        r.setMotivoRechazo(dto.getMotivoRechazo());
+        r.setDetalleRechazo(dto.getDetalleRechazo());
 
         Reserva saved = reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueReservado(saved.getIdAgendaBloque(), rawJwt);
@@ -149,6 +159,8 @@ public class ReservaService {
         r.setFechaInicioReal(dto.getFechaInicioReal());
         r.setFechaFin(dto.getFechaFin());
         r.setCodigoEncuentro(dto.getCodigoEncuentro());
+        r.setMotivoRechazo(dto.getMotivoRechazo());
+        r.setDetalleRechazo(dto.getDetalleRechazo());
         return ReservaDtoMapper.toReservaResponse(reservaRepository.save(r));
     }
 
@@ -162,12 +174,55 @@ public class ReservaService {
 
         r.setEstadoReserva(nuevo);
         aplicarMarcaTiempoTransicion(r, nuevo);
+        aplicarDatosDecisionPaseador(r, dto, nuevo);
         Reserva saved = reservaRepository.save(r);
 
         if (esEstadoRechazada(nuevo)) {
             agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
         }
         return ReservaDtoMapper.toReservaResponse(saved);
+    }
+
+    @Transactional
+    public CodigoReservaValidarResponseDTO validarCodigoEncuentro(CodigoReservaValidarRequestDTO dto, String rawJwt) {
+        Reserva r = obtenerEntidad(dto.getIdReserva());
+        validarPaseadorPropietarioReserva(r, rawJwt);
+
+        if (!esAceptada(r.getEstadoReserva()) && !esEnCurso(r.getEstadoReserva())) {
+            throw new IllegalArgumentException("La reserva no está en estado válido para validar código");
+        }
+
+        if (r.getCodigoEncuentro() == null) {
+            throw new IllegalArgumentException("La reserva aún no tiene código de encuentro");
+        }
+
+        String esperado = String.format("%04d", Math.abs(r.getCodigoEncuentro() % 10000));
+        if (!esperado.equals(dto.getCodigoIngresado())) {
+            throw new IllegalArgumentException("Código incorrecto");
+        }
+
+        LocalDateTime base = r.getFechaAceptacion() != null ? r.getFechaAceptacion() : r.getFechaSolicitud();
+        if (base == null) {
+            throw new IllegalArgumentException("No se pudo validar vigencia del código");
+        }
+        if (LocalDateTime.now().isAfter(base.plusMinutes(Math.max(1, codigoExpiraMinutos)))) {
+            throw new IllegalArgumentException("El código de encuentro expiró");
+        }
+
+        EstadoReserva enCurso = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_EN_CURSO);
+        r.setEstadoReserva(enCurso);
+        if (r.getFechaInicioReal() == null) {
+            r.setFechaInicioReal(LocalDateTime.now());
+        }
+        Reserva saved = reservaRepository.save(r);
+        EstadoReserva estado = saved.getEstadoReserva();
+        return new CodigoReservaValidarResponseDTO(
+                saved.getIdReserva(),
+                true,
+                estado != null ? estado.getIdEstadoReserva() : null,
+                estado != null ? estado.getNombreEstado() : null,
+                saved.getFechaInicioReal()
+        );
     }
 
     /**
@@ -477,12 +532,34 @@ public class ReservaService {
 
         String mascotaNombre = "Mascota #" + r.getIdMascota();
         String mascotaFotoUrl = null;
+        String mascotaRaza = "";
+        String mascotaTamano = "";
+        String mascotaEdad = "";
+        String mascotaPeso = "";
+        String mascotaSexo = "";
+        String mascotaCaracter = "";
+        String mascotaCuidados = "";
         try {
-            MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(r.getIdMascota());
-            if (portada != null) {
-                mascotaFotoUrl = portada.getUrl();
-                if (portada.getNombre() != null && !portada.getNombre().isBlank()) {
-                    mascotaNombre = portada.getNombre();
+            MascotaInternoDetalleResponseDTO detalleMascota = mascotaIntegracionClient.obtenerDetalleInterno(r.getIdMascota());
+            if (detalleMascota != null) {
+                mascotaFotoUrl = detalleMascota.getFotoPerfil();
+                if (detalleMascota.getNombre() != null && !detalleMascota.getNombre().isBlank()) {
+                    mascotaNombre = detalleMascota.getNombre();
+                }
+                mascotaRaza = detalleMascota.getRaza() != null ? detalleMascota.getRaza() : "";
+                mascotaTamano = detalleMascota.getTamano() != null ? detalleMascota.getTamano() : "";
+                mascotaEdad = detalleMascota.getEdad() != null ? detalleMascota.getEdad() : "";
+                mascotaPeso = detalleMascota.getPeso() != null ? detalleMascota.getPeso() : "";
+                mascotaSexo = detalleMascota.getSexo() != null ? detalleMascota.getSexo() : "";
+                mascotaCaracter = detalleMascota.getCaracter() != null ? detalleMascota.getCaracter() : "";
+                mascotaCuidados = detalleMascota.getCuidados() != null ? detalleMascota.getCuidados() : "";
+            } else {
+                MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(r.getIdMascota());
+                if (portada != null) {
+                    mascotaFotoUrl = portada.getUrl();
+                    if (portada.getNombre() != null && !portada.getNombre().isBlank()) {
+                        mascotaNombre = portada.getNombre();
+                    }
                 }
             }
         } catch (RuntimeException ignored) {
@@ -508,7 +585,15 @@ public class ReservaService {
                 tutorFoto,
                 tutorNotas,
                 mascotaFotoUrl,
-                mascotaNombre);
+                mascotaNombre,
+                r.getCodigoEncuentro(),
+                mascotaRaza,
+                mascotaTamano,
+                mascotaEdad,
+                mascotaPeso,
+                mascotaSexo,
+                mascotaCaracter,
+                mascotaCuidados);
     }
 
     private static String formatearHoraMinuto(LocalDateTime t) {
@@ -616,57 +701,63 @@ public class ReservaService {
                 && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
     }
 
+    // 1. Corregimos el método obtenerTutorSeguro (faltaba cerrar el catch)
     private TutorReservaClientDTO obtenerTutorSeguro(Integer idTutor, String rawJwt) {
-    try {
-        return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
-    } catch (Exception e) {
-        System.err.println("DEBUG: No se pudo obtener datos del tutor " + idTutor);
-        return null;
+        try {
+            return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
+        } catch (Exception e) {
+            System.err.println("DEBUG: No se pudo obtener datos del tutor " + idTutor);
+            return null;
+        } // <-- Faltaba esta llave
     }
-}
 
-   private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
-    AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
-    MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
-    PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
-    EstadoReserva estado = r.getEstadoReserva();
+    // 2. Método toTutorDetalle unificado y corregido
+    private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
+        AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
+        MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
+        PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
+        EstadoReserva estado = r.getEstadoReserva();
 
-    // Buscamos al tutor usando el cliente que ya tenías
-    TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
+        // Buscamos al tutor para obtener nombre y correo
+        TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
 
-    // Formateamos los datos para el DTO
-    String nombreTutorFinal = (tutor != null) 
-        ? (tutor.getPrimerNombre() + " " + (tutor.getApellidoPaterno() != null ? tutor.getApellidoPaterno() : "")) 
-        : "Tutor #" + r.getIdTutorUsuario();
+        // Lógica de fallback para nombres y correos
+        String nombreTutorFinal = (tutor != null) 
+            ? (tutor.getPrimerNombre() + " " + (tutor.getApellidoPaterno() != null ? tutor.getApellidoPaterno() : "")) 
+            : "Tutor #" + r.getIdTutorUsuario();
             
-    String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
+        String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
 
-    return new ReservaTutorDetalleResponseDTO(
-            r.getIdReserva(),
-            r.getIdTutorUsuario(),
-            r.getIdMascota(),
-            mascota != null && mascota.getNombre() != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
-            r.getIdAgendaBloque(),
-            bloque != null ? bloque.getIdUsuario() : null,
-            paseador != null && paseador.getNombreCompleto() != null && !paseador.getNombreCompleto().isBlank()
-                    ? paseador.getNombreCompleto()
-                    : bloque != null ? "Paseador #" + bloque.getIdUsuario() : "Paseador no disponible",
-            bloque != null ? bloque.getFecha() : null,
-            bloque != null ? bloque.getHoraInicio() : null,
-            bloque != null ? bloque.getHoraFinal() : null,
-            r.getMontoTotal(),
-            r.getIdPago(),
-            estado != null ? estado.getIdEstadoReserva() : null,
-            estado != null ? estado.getNombreEstado() : null,
-            r.getFechaSolicitud(),
-            r.getFechaInicioReal(),
-            r.getFechaFin(),
-            r.getCodigoEncuentro(),
-            nombreTutorFinal.trim(), // Parámetro 19
-            correoTutorFinal        // Parámetro 20
-    );
-}
+        // IMPORTANTE: El constructor debe seguir el orden exacto del DTO (22 campos)
+        return new ReservaTutorDetalleResponseDTO(
+                r.getIdReserva(),                 // 1
+                r.getIdTutorUsuario(),            // 2
+                r.getIdMascota(),                 // 3
+                mascota != null && mascota.getNombre() != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(), // 4
+                r.getIdAgendaBloque(),            // 5
+                bloque != null ? bloque.getIdUsuario() : null, // 6
+                paseador != null && paseador.getNombreCompleto() != null && !paseador.getNombreCompleto().isBlank()
+                        ? paseador.getNombreCompleto()
+                        : bloque != null ? "Paseador #" + bloque.getIdUsuario() : "Paseador no disponible", // 7
+                bloque != null ? bloque.getFecha() : null,     // 8
+                bloque != null ? bloque.getHoraInicio() : null, // 9
+                bloque != null ? bloque.getHoraFinal() : null,  // 10
+                r.getMontoTotal(),                // 11
+                r.getIdPago(),                    // 12
+                estado != null ? estado.getIdEstadoReserva() : null, // 13
+                estado != null ? estado.getNombreEstado() : null,    // 14
+                r.getFechaSolicitud(),            // 15
+                r.getFechaInicioReal(),           // 16
+                r.getFechaFin(),                  // 17
+                r.getCodigoEncuentro(),           // 18
+                nombreTutorFinal.trim(),          // 19: tutorNombre
+                correoTutorFinal,                 // 20: tutorCorreo
+                r.getMotivoRechazo(),             // 21: motivoRechazo
+                r.getDetalleRechazo()             // 22: detalleRechazo
+        );
+    }
 
+   
     private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {
         try {
             return agendaIntegracionClient.obtenerBloque(idAgendaBloque, rawJwt);
@@ -722,12 +813,35 @@ public class ReservaService {
         LocalDateTime ahora = LocalDateTime.now();
         if (esAceptada(nuevo) && r.getFechaAceptacion() == null) {
             r.setFechaAceptacion(ahora);
+            if (r.getFechaInicioReal() == null) {
+                r.setFechaInicioReal(ahora);
+            }
         }
         if (esEnCurso(nuevo) && r.getFechaInicioReal() == null) {
             r.setFechaInicioReal(ahora);
         }
         if (esFinalizada(nuevo) && r.getFechaFin() == null) {
             r.setFechaFin(ahora);
+        }
+        if ((esRechazada(nuevo) || esCancelada(nuevo)) && r.getFechaFin() == null) {
+            r.setFechaFin(ahora);
+        }
+    }
+
+    private void aplicarDatosDecisionPaseador(Reserva r, BookingStatusPatchRequestDTO dto, EstadoReserva nuevo) {
+        if (esAceptada(nuevo)) {
+            if (r.getCodigoEncuentro() == null || r.getCodigoEncuentro() <= 0) {
+                r.setCodigoEncuentro(ThreadLocalRandom.current().nextInt(1000, 10000));
+            }
+            r.setMotivoRechazo(null);
+            r.setDetalleRechazo(null);
+            return;
+        }
+        if (esRechazada(nuevo)) {
+            String motivo = dto.getMotivoRechazo();
+            String detalle = dto.getDetalleRechazo();
+            r.setMotivoRechazo(motivo != null && !motivo.isBlank() ? motivo.trim() : null);
+            r.setDetalleRechazo(detalle != null && !detalle.isBlank() ? detalle.trim() : null);
         }
     }
 
@@ -761,6 +875,10 @@ public class ReservaService {
 
     private static boolean esFinalizada(EstadoReserva e) {
         return coincideIdONombre(e, EstadoReservaCatalogo.ID_FINALIZADA, EstadoReservaCatalogo.NOMBRE_FINALIZADA);
+    }
+
+    private static boolean esCancelada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_CANCELADA, EstadoReservaCatalogo.NOMBRE_CANCELADA);
     }
 
     private Reserva obtenerEntidad(Integer id) {

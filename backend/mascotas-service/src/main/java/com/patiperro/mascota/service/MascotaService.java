@@ -1,6 +1,7 @@
 package com.patiperro.mascota.service;
 
 import com.patiperro.mascota.dto.PortadaIntegracion;
+import com.patiperro.mascota.dto.MascotaInternoDetalleResponse;
 import com.patiperro.mascota.exception.ForbiddenOperationException;
 import com.patiperro.mascota.model.Foto;
 import com.patiperro.mascota.model.Mascota;
@@ -183,5 +184,39 @@ public class MascotaService {
                 .findFirst()
                 .orElse(null);
         return new PortadaIntegracion(url, nombre);
+    }
+
+    /**
+     * Detalle interno para el panel del paseador (reserva-service).
+     */
+    @Transactional(readOnly = true)
+    public MascotaInternoDetalleResponse obtenerDetalleParaIntegracion(Long idMascota) {
+        Optional<Mascota> opt = mascotaRepository.findById(idMascota);
+        if (opt.isEmpty()) {
+            return null;
+        }
+        Mascota m = opt.get();
+        String foto = m.getFotoPerfil();
+        if (foto == null || foto.isBlank()) {
+            foto = fotoRepository.findByMascota_IdMascota(idMascota).stream()
+                    .map(Foto::getUrl)
+                    .filter(u -> u != null && !u.isBlank())
+                    .map(String::trim)
+                    .findFirst()
+                    .orElse(null);
+        }
+        String peso = m.getPeso() != null ? m.getPeso().stripTrailingZeros().toPlainString() + " kg" : "";
+        return new MascotaInternoDetalleResponse(
+                m.getIdMascota(),
+                m.getNombre(),
+                foto,
+                m.getRaza() != null ? m.getRaza().getNombre() : "",
+                m.getTamano() != null ? m.getTamano().getNombre() : "",
+                m.getEdadFormateada(),
+                peso,
+                m.getSexo(),
+                m.getComportamiento(),
+                m.getCuidadosEspeciales()
+        );
     }
 }

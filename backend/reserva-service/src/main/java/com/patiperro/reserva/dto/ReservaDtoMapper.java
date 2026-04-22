@@ -40,6 +40,8 @@ public final class ReservaDtoMapper {
                 r.getFechaInicioReal(),
                 r.getFechaFin(),
                 r.getCodigoEncuentro(),
+                r.getMotivoRechazo(),
+                r.getDetalleRechazo(),
                 b != null ? b.getHoraInicio() : null,
                 b != null ? b.getHoraFinal() : null,
                 b != null ? b.getIdUsuario() : null);

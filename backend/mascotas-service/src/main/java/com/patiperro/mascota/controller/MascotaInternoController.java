@@ -1,6 +1,7 @@
 package com.patiperro.mascota.controller;
 
 import com.patiperro.mascota.dto.PortadaIntegracion;
+import com.patiperro.mascota.dto.MascotaInternoDetalleResponse;
 import com.patiperro.mascota.service.MascotaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,5 +54,22 @@ public class MascotaInternoController {
         }
         String nombre = StringUtils.hasText(datos.nombre()) ? datos.nombre() : "";
         return ResponseEntity.ok(Map.of("url", datos.url().trim(), "nombre", nombre));
+    }
+
+    @GetMapping("/{idMascota}/detalle")
+    public ResponseEntity<MascotaInternoDetalleResponse> detalle(
+            @PathVariable Long idMascota,
+            @RequestHeader(value = HEADER_SECRETO, required = false) String secretoHeader) {
+        if (!StringUtils.hasText(internoSecret)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!internoSecret.equals(secretoHeader)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        MascotaInternoDetalleResponse detalle = mascotaService.obtenerDetalleParaIntegracion(idMascota);
+        if (detalle == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(detalle);
     }
 }

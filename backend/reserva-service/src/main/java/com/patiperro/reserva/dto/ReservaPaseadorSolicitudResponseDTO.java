@@ -44,4 +44,12 @@ public class ReservaPaseadorSolicitudResponseDTO {
 
     /** Nombre legible; si no hay integración con mascotas, puede ser "Mascota #id". */
     private String mascotaNombre;
+    private Integer codigoEncuentro;
+    private String mascotaRaza;
+    private String mascotaTamano;
+    private String mascotaEdad;
+    private String mascotaPeso;
+    private String mascotaSexo;
+    private String mascotaCaracter;
+    private String mascotaCuidados;
 }

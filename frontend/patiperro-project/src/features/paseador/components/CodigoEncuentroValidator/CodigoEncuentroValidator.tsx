@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SolicitudPendientePaseador } from "../../types/solicitudPaseador.types";
+import { validarCodigoEncuentroPaseador } from "../../services/solicitudesPaseadorService";
 import styles from "./CodigoEncuentroValidator.module.css";
 
 type Props = {
@@ -11,27 +12,17 @@ const EMPTY_DIGITS = ["", "", "", ""];
 const MAX_ATTEMPTS = 3;
 const LOCK_SECONDS = 5 * 60;
 
-function normalizeExpectedCode(value?: number | string | null): string | null {
-  if (value == null) return null;
-  const digits = String(value).replace(/\D/g, "");
-  if (!digits) return null;
-  return digits.padStart(4, "0").slice(-4);
-}
-
 function formatTime(value: string): string {
   return value || "--:--";
 }
 
 export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props) {
-  const expectedCode = useMemo(
-    () => normalizeExpectedCode(solicitud.codigoEncuentro),
-    [solicitud.codigoEncuentro]
-  );
   const [digits, setDigits] = useState(EMPTY_DIGITS);
   const [attempts, setAttempts] = useState(0);
   const [error, setError] = useState("");
   const [isShaking, setIsShaking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
@@ -110,25 +101,37 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
     }
   }
 
-  function handleSubmit() {
-    if (isLocked || isSuccess) return;
-    if (!expectedCode) {
-      triggerError("Validacion pendiente de backend: aun no se recibio un codigo para esta reserva.", false);
-      return;
-    }
+  async function handleSubmit() {
+    if (isLocked || isSuccess || isValidating) return;
     if (!isComplete) {
       triggerError("Ingresa los 4 digitos del codigo.", false);
       return;
     }
-    if (code !== expectedCode) {
-      triggerError("Codigo incorrecto, intentalo nuevamente");
+    if (!/^\d{4}$/.test(code)) {
+      triggerError("El codigo debe tener 4 digitos.", false);
       return;
     }
 
-    setError("");
-    setIsSuccess(true);
-    onSuccess?.(solicitud);
+    setIsValidating(true);
+    try {
+      await validarCodigoEncuentroPaseador(solicitud.idReserva, code);
+      setError("");
+      setIsSuccess(true);
+      onSuccess?.(solicitud);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Codigo incorrecto, intentalo nuevamente";
+      triggerError(msg, true);
+    } finally {
+      setIsValidating(false);
+    }
   }
+
+  useEffect(() => {
+    if (!isLocked && !isSuccess && !isValidating && isComplete) {
+      void handleSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComplete, code, isLocked, isSuccess, isValidating]);
 
   if (isSuccess) {
     return (
@@ -194,7 +197,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
             maxLength={4}
             aria-label={`Digito ${index + 1}`}
             className={styles.pinInput}
-            disabled={isLocked}
+            disabled={isLocked || isValidating}
             onChange={(event) => handleDigitChange(index, event.target.value)}
             onKeyDown={(event) => handleKeyDown(index, event.key)}
           />
@@ -218,13 +221,8 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
         </p>
       ) : null}
 
-      <button
-        type="button"
-        className={styles.validateButton}
-        onClick={handleSubmit}
-        disabled={isLocked}
-      >
-        Validar codigo
+      <button type="button" className={styles.validateButton} onClick={() => void handleSubmit()} disabled={isLocked || isValidating}>
+        {isValidating ? "Validando..." : "Validar codigo"}
       </button>
     </section>
   );

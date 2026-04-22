@@ -32,4 +32,6 @@ public class ReservaTutorDetalleResponseDTO {
     private Integer codigoEncuentro;
     private String tutorNombre;
     private String tutorCorreo;
+    private String motivoRechazo;
+    private String detalleRechazo;
 }

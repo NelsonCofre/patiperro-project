@@ -52,4 +52,8 @@ public class ReservaRequestDTO {
     private LocalDateTime fechaFin;
 
     private Integer codigoEncuentro;
+
+    private String motivoRechazo;
+
+    private String detalleRechazo;
 }
