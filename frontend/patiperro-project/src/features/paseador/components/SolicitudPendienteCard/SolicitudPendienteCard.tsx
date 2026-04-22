@@ -3,6 +3,7 @@ import type {
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
 import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
+import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
 import styles from "./SolicitudPendienteCard.module.css";
 
 // En SolicitudPendienteCard.tsx
@@ -13,6 +14,8 @@ type SolicitudPendienteCardProps = {
   onReject: (solicitud: SolicitudPendientePaseador) => void;
   onViewTutor: (solicitud: SolicitudPendientePaseador) => void;
   onViewMap: (solicitud: SolicitudPendientePaseador) => void;
+  onStartPaseo: (solicitud: SolicitudPendientePaseador, startTime: string) => void;
+  onOpenChat: (solicitud: SolicitudPendientePaseador) => void;
 };
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -39,12 +42,15 @@ export default function SolicitudPendienteCard({
   onReject,
   onViewTutor,
   onViewMap,
+  onStartPaseo,
+  onOpenChat
 }: SolicitudPendienteCardProps) {
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";
   const rejecting = processingDecision === "RECHAZAR";
   const isSolicitada = solicitud.estado === "Solicitada";
   const isAceptada = solicitud.estado === "Aceptada";
+  const isEnCurso = solicitud.estado === "En Curso";
 
   return (
     <article className={styles.card}>
@@ -133,7 +139,27 @@ export default function SolicitudPendienteCard({
           ) : null}
         </div>
 
-        {isAceptada ? <CodigoEncuentroValidator solicitud={solicitud} /> : null}
+        {isAceptada ? (
+          <CodigoEncuentroValidator
+            solicitud={solicitud}
+            onSuccess={(item, startTime) => onStartPaseo(item, startTime)}
+          />
+        ) : null}
+
+        {isEnCurso ? (
+          <PaseoEnCursoCard
+            statusMessage="Paseo iniciado correctamente"
+            actorLabel="Tutor"
+            actorNombre={solicitud.tutorNombre}
+            actorFotoUrl={solicitud.tutorFotoUrl}
+            mascotaNombre={solicitud.mascotaNombre}
+            horaInicioRegistrada={solicitud.fechaInicioReal ?? solicitud.horaInicio}
+            locationLabel="Direccion de inicio"
+            locationValue={solicitud.direccionReferencia}
+            chatLabel="Abrir chat del paseo"
+            onOpenChat={() => onOpenChat(solicitud)}
+          />
+        ) : null}
       </div>
     </article>
   );

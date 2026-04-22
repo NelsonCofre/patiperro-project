@@ -47,7 +47,12 @@ export default function PaseadorSolicitudes() {
         const data = await fetchSolicitudesPendientesPaseador();
         if (!active) return;
         setSolicitudes(
-          data.filter((solicitud) => solicitud.estado === "Solicitada" || solicitud.estado === "Aceptada")
+          data.filter(
+            (solicitud) =>
+              solicitud.estado === "Solicitada" ||
+              solicitud.estado === "Aceptada" ||
+              solicitud.estado === "En Curso"
+          )
         );
       } catch (error) {
         if (!active) return;
@@ -67,6 +72,7 @@ export default function PaseadorSolicitudes() {
 
   const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
+  const inProgressCount = solicitudes.filter((solicitud) => solicitud.estado === "En Curso").length;
   const totalAmount = useMemo(
     () => solicitudes.reduce((sum, solicitud) => sum + solicitud.montoTotal, 0),
     [solicitudes]
@@ -84,6 +90,27 @@ export default function PaseadorSolicitudes() {
     setFeedback({
       type: "success",
       message: `Mapa pendiente de integrar para ${solicitud.direccionReferencia}.`
+    });
+  }
+
+  function handleStartPaseo(solicitud: SolicitudPendientePaseador, startTime: string) {
+    setSolicitudes((prev) =>
+      prev.map((item) =>
+        item.idReserva === solicitud.idReserva
+          ? { ...item, estado: "En Curso", fechaInicioReal: startTime }
+          : item
+      )
+    );
+    setFeedback({
+      type: "success",
+      message: `Paseo iniciado correctamente para ${solicitud.mascotaNombre}.`
+    });
+  }
+
+  function handleOpenChat(solicitud: SolicitudPendientePaseador) {
+    setFeedback({
+      type: "success",
+      message: `El chat del paseo para ${solicitud.mascotaNombre} quedo habilitado para una siguiente etapa del MVP.`
     });
   }
 
@@ -166,6 +193,7 @@ export default function PaseadorSolicitudes() {
           <strong>{pendingCount}</strong>
           <p>
             Aceptadas listas para validar: {acceptedCount}.{" "}
+            Paseos en curso: {inProgressCount}.{" "}
             Monto potencial:{" "}
             {new Intl.NumberFormat("es-CL", {
               style: "currency",
@@ -224,6 +252,8 @@ export default function PaseadorSolicitudes() {
                 onReject={(nextSolicitud) => openConfirmation(nextSolicitud, "RECHAZAR")}
                 onViewTutor={setSelectedTutorSolicitud}
                 onViewMap={handleViewMap}
+                onStartPaseo={handleStartPaseo}
+                onOpenChat={handleOpenChat}
               />
             ))}
           </div>

@@ -35,10 +35,11 @@ export type SolicitudPendientePaseador = {
   comuna: string;
   direccionReferencia: string;
   montoTotal: number;
-  estado: "Solicitada" | "Aceptada" | "Rechazada";
+  estado: "Solicitada" | "Aceptada" | "En Curso" | "Rechazada";
   codigoEncuentro?: number | null;
   comentarioTutor?: string;
   fechaSolicitud: string;
+  fechaInicioReal?: string | null;
 };
 
 export type DecisionSolicitudPayload = {

@@ -55,12 +55,14 @@ export type ReservaPaseadorSolicitudApiDTO = {
   mascotaCaracter?: string | null;
   mascotaCuidados?: string | null;
   codigoEncuentro?: number | null;
+  fechaInicioReal?: string | null;
 };
 
 function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendientePaseador["estado"] {
   const u = (nombre ?? "").toUpperCase();
   if (u.includes("SOLICIT")) return "Solicitada";
   if (u.includes("ACEPT")) return "Aceptada";
+  if (u.includes("CURSO")) return "En Curso";
   if (u.includes("RECHAZ")) return "Rechazada";
   return "Solicitada";
 }
@@ -106,7 +108,8 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     estado: mapNombreEstadoToUi(s.nombreEstado),
     codigoEncuentro: s.codigoEncuentro ?? null,
     comentarioTutor: undefined,
-    fechaSolicitud: fechaSol
+    fechaSolicitud: fechaSol,
+    fechaInicioReal: s.fechaInicioReal ?? null
   };
 }
 
