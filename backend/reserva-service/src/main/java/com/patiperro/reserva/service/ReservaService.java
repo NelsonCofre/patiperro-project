@@ -29,8 +29,10 @@ import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,6 +58,12 @@ public class ReservaService {
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
+
+    @Value("${patiperro.reserva.codigo.max-intentos:3}")
+    private int codigoMaxIntentos;
+
+    @Value("${patiperro.reserva.codigo.bloqueo-minutos:5}")
+    private int codigoBloqueoMinutos;
 
     public List<ReservaResponseDTO> listarTodas() {
         return reservaRepository.findAll().stream()
@@ -87,6 +95,8 @@ public class ReservaService {
         r.setFechaInicioReal(dto.getFechaInicioReal());
         r.setFechaFin(dto.getFechaFin());
         r.setCodigoEncuentro(dto.getCodigoEncuentro());
+        r.setCodigoIntentosFallidos(0);
+        r.setCodigoBloqueadoHasta(null);
         r.setMotivoRechazo(dto.getMotivoRechazo());
         r.setDetalleRechazo(dto.getDetalleRechazo());
 
@@ -187,33 +197,54 @@ public class ReservaService {
         Reserva r = obtenerEntidad(dto.getIdReserva());
         validarPaseadorPropietarioReserva(r, rawJwt);
 
-        if (!esAceptada(r.getEstadoReserva()) && !esEnCurso(r.getEstadoReserva())) {
+        if (esEnCurso(r.getEstadoReserva())) {
+            throw new IllegalArgumentException("El código de encuentro ya fue validado");
+        }
+        if (!esAceptada(r.getEstadoReserva())) {
             throw new IllegalArgumentException("La reserva no está en estado válido para validar código");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        if (r.getCodigoBloqueadoHasta() != null && ahora.isBefore(r.getCodigoBloqueadoHasta())) {
+            throw new IllegalArgumentException("Demasiados intentos fallidos. Vuelve a intentar cuando termine el bloqueo");
         }
 
         if (r.getCodigoEncuentro() == null) {
             throw new IllegalArgumentException("La reserva aún no tiene código de encuentro");
         }
 
-        String esperado = String.format("%04d", Math.abs(r.getCodigoEncuentro() % 10000));
-        if (!esperado.equals(dto.getCodigoIngresado())) {
-            throw new IllegalArgumentException("Código incorrecto");
-        }
-
         LocalDateTime base = r.getFechaAceptacion() != null ? r.getFechaAceptacion() : r.getFechaSolicitud();
         if (base == null) {
             throw new IllegalArgumentException("No se pudo validar vigencia del código");
         }
-        if (LocalDateTime.now().isAfter(base.plusMinutes(Math.max(1, codigoExpiraMinutos)))) {
-            throw new IllegalArgumentException("El código de encuentro expiró");
+        if (ahora.isAfter(base.plusMinutes(Math.max(1, codigoExpiraMinutos)))) {
+            throw new IllegalArgumentException("El código ha expirado, solicita al Tutor que actualice el código");
+        }
+
+        String esperado = String.format("%04d", Math.abs(r.getCodigoEncuentro() % 10000));
+        if (!esperado.equals(dto.getCodigoIngresado())) {
+            reservaRepository.incrementarIntentosFallidosCodigo(r.getIdReserva());
+            Reserva trasFallo = reservaRepository.findById(r.getIdReserva())
+                    .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+            int intentos = intentosConFallback(trasFallo);
+            if (intentos >= Math.max(1, codigoMaxIntentos)) {
+                reservaRepository.fijarBloqueoCodigoHasta(
+                        r.getIdReserva(), ahora.plusMinutes(Math.max(1, codigoBloqueoMinutos)));
+            }
+            throw new IllegalArgumentException("Código incorrecto, inténtalo nuevamente");
         }
 
         EstadoReserva enCurso = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_EN_CURSO);
-        r.setEstadoReserva(enCurso);
-        if (r.getFechaInicioReal() == null) {
-            r.setFechaInicioReal(LocalDateTime.now());
+        int afectados = reservaRepository.marcarEnCursoTrasValidarCodigo(
+                enCurso,
+                ahora,
+                r.getIdReserva(),
+                EstadoReservaCatalogo.ID_ACEPTADA);
+        if (afectados != 1) {
+            throw new IllegalArgumentException("No se pudo completar la validación; reintenta o verifica el estado de la reserva");
         }
-        Reserva saved = reservaRepository.save(r);
+        Reserva saved = reservaRepository.findById(r.getIdReserva())
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
         EstadoReserva estado = saved.getEstadoReserva();
         return new CodigoReservaValidarResponseDTO(
                 saved.getIdReserva(),
@@ -222,6 +253,11 @@ public class ReservaService {
                 estado != null ? estado.getNombreEstado() : null,
                 saved.getFechaInicioReal()
         );
+    }
+
+    private static int intentosConFallback(Reserva r) {
+        Integer n = r.getCodigoIntentosFallidos();
+        return n == null ? 0 : n;
     }
 
     /**
@@ -439,7 +475,7 @@ public class ReservaService {
         AgendaBloqueReservaClientDTO bloque =
                 agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
         if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
-            throw new IllegalArgumentException("No tienes permiso para modificar esta reserva");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para modificar esta reserva");
         }
     }
 
@@ -806,6 +842,8 @@ public class ReservaService {
             if (r.getCodigoEncuentro() == null || r.getCodigoEncuentro() <= 0) {
                 r.setCodigoEncuentro(ThreadLocalRandom.current().nextInt(1000, 10000));
             }
+            r.setCodigoIntentosFallidos(0);
+            r.setCodigoBloqueadoHasta(null);
             r.setMotivoRechazo(null);
             r.setDetalleRechazo(null);
             return;

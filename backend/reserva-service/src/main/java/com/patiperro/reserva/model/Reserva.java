@@ -66,6 +66,14 @@ public class Reserva {
     @Column(name = "codigo_encuentro")
     private Integer codigoEncuentro;
 
+    /** Intentos fallidos con PIN incorrecto; {@code null} equivale a 0 en negocio. */
+    @Column(name = "codigo_intentos_fallidos")
+    private Integer codigoIntentosFallidos;
+
+    /** Tras superar el máximo de intentos: instante hasta el cual no se permiten nuevos intentos. */
+    @Column(name = "codigo_bloqueado_hasta")
+    private LocalDateTime codigoBloqueadoHasta;
+
     @Column(name = "motivo_rechazo", length = 120)
     private String motivoRechazo;
 
