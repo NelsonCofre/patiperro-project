@@ -3,6 +3,7 @@ package com.patiperro.reserva.controller;
 import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
+import com.patiperro.reserva.dto.EstadoEncuentroResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
@@ -57,6 +58,14 @@ public class BookingQueryController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return reservaService.validarCodigoEncuentro(body, jwt);
+    }
+
+    @GetMapping("/reservas/{id}/estado-encuentro")
+    public EstadoEncuentroResponseDTO estadoEncuentro(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return reservaService.obtenerEstadoEncuentro(id, jwt);
     }
 }
 

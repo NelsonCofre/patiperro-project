@@ -71,4 +71,10 @@ public class Reserva {
 
     @Column(name = "detalle_rechazo", length = 500)
     private String detalleRechazo;
+
+    @Column(name = "codigo_intentos_fallidos")
+    private Integer codigoIntentosFallidos;
+
+    @Column(name = "codigo_bloqueado_hasta")
+    private LocalDateTime codigoBloqueadoHasta;
 }
