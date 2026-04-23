@@ -82,7 +82,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
      */
     @Query("SELECT r.idReserva FROM Reserva r "
             + "WHERE r.estadoReserva.idEstadoReserva = :idAceptada AND r.fechaInicioReal IS NULL AND "
-            + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NULL")
+            + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NULL "
+            + "ORDER BY r.idReserva")
     List<Integer> findIdReservasAceptadaConCodigoSinExpiracion(
             @Param("idAceptada") Integer idAceptada);
 
@@ -92,7 +93,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     @Query("SELECT r.idReserva FROM Reserva r "
             + "WHERE r.estadoReserva.idEstadoReserva = :idAceptada AND r.fechaInicioReal IS NULL AND "
             + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NOT NULL AND "
-            + "r.codigoEncuentroExpiraEn < :ahora")
+            + "r.codigoEncuentroExpiraEn < :ahora "
+            + "ORDER BY r.idReserva")
     List<Integer> findIdReservasAceptadaParaRegenerarCodigoPorEncuentroVencido(
             @Param("idAceptada") Integer idAceptada,
             @Param("ahora") LocalDateTime ahora);
