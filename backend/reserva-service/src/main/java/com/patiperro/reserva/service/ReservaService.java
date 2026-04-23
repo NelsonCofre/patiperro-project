@@ -5,6 +5,8 @@ import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
 import com.patiperro.reserva.dto.CodigoReservaActivoResponseDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
+import com.patiperro.reserva.dto.EncuentroConfirmadoEventDTO;
+import com.patiperro.reserva.dto.EstadoEncuentroResponseDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.AgendaBloqueResumenDTO;
 import com.patiperro.reserva.dto.MascotaResumenDTO;
@@ -31,6 +33,7 @@ import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,6 +42,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -59,17 +63,12 @@ public class ReservaService {
     private final TutorIntegracionClient tutorIntegracionClient;
     private final JwtService jwtService;
     private final Clock clock;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * Minutos de validez del PIN de encuentro desde el inicio programado del paseo
-     * (o desde "ahora" si ese instante ya pasó; ver {@code calcularExpiracionCodigoDesdeInicio}).
-     */
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
-
     @Value("${patiperro.reserva.codigo.max-intentos:3}")
     private int codigoMaxIntentos;
-
     @Value("${patiperro.reserva.codigo.bloqueo-minutos:5}")
     private int codigoBloqueoMinutos;
 
@@ -277,6 +276,10 @@ public class ReservaService {
         }
 
         if (r.getCodigoEncuentroExpiraEn() == null) {
+            rellenarCodigoEncuentroExpiraSiAplica(r.getIdReserva(), rawJwt);
+            r = obtenerEntidad(r.getIdReserva());
+        }
+        if (r.getCodigoEncuentroExpiraEn() == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "No se pudo validar la vigencia del código de encuentro");
         }
@@ -312,6 +315,7 @@ public class ReservaService {
         }
         Reserva saved = reservaRepository.findById(r.getIdReserva())
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+        notificarEncuentroConfirmado(saved, rawJwt);
         EstadoReserva estado = saved.getEstadoReserva();
         return new CodigoReservaValidarResponseDTO(
                 saved.getIdReserva(),
@@ -325,6 +329,39 @@ public class ReservaService {
     private static int intentosConFallback(Reserva r) {
         Integer n = r.getCodigoIntentosFallidos();
         return n == null ? 0 : n;
+    }
+
+    public EstadoEncuentroResponseDTO obtenerEstadoEncuentro(Integer idReserva, String rawJwt) {
+        Reserva r = obtenerEntidad(idReserva);
+        validarAccesoTimeline(r, rawJwt);
+        EstadoReserva estado = r.getEstadoReserva();
+
+        String estadoEncuentro = "PENDIENTE";
+        String mensaje = "Pendiente de validación del código de encuentro";
+        Long segundos = null;
+
+        if (esEnCurso(estado) || esFinalizada(estado)) {
+            estadoEncuentro = "CONFIRMADO";
+            mensaje = "Código validado y paseo iniciado";
+        } else if (isCodigoBloqueado(r)) {
+            estadoEncuentro = "FALLIDO";
+            segundos = ChronoUnit.SECONDS.between(LocalDateTime.now(), r.getCodigoBloqueadoHasta());
+            mensaje = "Intentos agotados. Reintenta en " + Math.max(1, segundos) + " segundos";
+        } else if (r.getCodigoIntentosFallidos() != null && r.getCodigoIntentosFallidos() > 0) {
+            estadoEncuentro = "FALLIDO";
+            mensaje = "Hay intentos fallidos recientes";
+        }
+
+        return new EstadoEncuentroResponseDTO(
+                r.getIdReserva(),
+                estadoEncuentro,
+                estado != null ? estado.getIdEstadoReserva() : null,
+                estado != null ? estado.getNombreEstado() : null,
+                r.getCodigoIntentosFallidos() != null ? r.getCodigoIntentosFallidos() : 0,
+                r.getCodigoBloqueadoHasta(),
+                segundos != null ? Math.max(1, segundos) : null,
+                mensaje
+        );
     }
 
     /**
@@ -438,7 +475,6 @@ public class ReservaService {
 
     private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {}
 
-    @Transactional
     public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(Integer idTutorUsuario, String rawJwt) {
         validarTutorJwt(idTutorUsuario, rawJwt);
         return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
@@ -461,8 +497,7 @@ public class ReservaService {
     }
 
     /**
-     * Reservas visibles en el panel del paseador cuyo bloque de agenda pertenece al paseador
-     * (JWT {@code paseadorId}). Incluye SOLICITADA, ACEPTADA, RECHAZADA y EN_CURSO.
+     * Reservas en estado SOLICITADA cuyo bloque de agenda pertenece al paseador (JWT {@code paseadorId}).
      */
     public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
             Integer idPaseador, String rawJwt) {
@@ -480,13 +515,8 @@ public class ReservaService {
                 .collect(Collectors.toMap(AgendaBloqueReservaClientDTO::getIdAgenda, b -> b, (a, b) -> a));
 
         List<Integer> idsBloque = new ArrayList<>(bloquePorId.keySet());
-        List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
-                idsBloque,
-                List.of(
-                        EstadoReservaCatalogo.ID_SOLICITADA,
-                        EstadoReservaCatalogo.ID_ACEPTADA,
-                        EstadoReservaCatalogo.ID_RECHAZADA,
-                        EstadoReservaCatalogo.ID_EN_CURSO));
+        List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
+                idsBloque, EstadoReservaCatalogo.ID_SOLICITADA);
 
         List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
         for (Reserva r : reservas) {
@@ -549,7 +579,7 @@ public class ReservaService {
         AgendaBloqueReservaClientDTO bloque =
                 agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
         if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para modificar esta reserva");
+            throw new IllegalArgumentException("No tienes permiso para modificar esta reserva");
         }
     }
 
@@ -580,6 +610,61 @@ public class ReservaService {
         }
 
         throw new IllegalArgumentException("JWT sin claim tutorId/paseadorId");
+    }
+
+    private boolean isCodigoBloqueado(Reserva r) {
+        return r.getCodigoBloqueadoHasta() != null && LocalDateTime.now().isBefore(r.getCodigoBloqueadoHasta());
+    }
+
+    private void registrarIntentoFallidoCodigo(Reserva r) {
+        int current = r.getCodigoIntentosFallidos() != null ? r.getCodigoIntentosFallidos() : 0;
+        int next = current + 1;
+        r.setCodigoIntentosFallidos(next);
+        if (next >= Math.max(1, codigoMaxIntentos)) {
+            r.setCodigoBloqueadoHasta(LocalDateTime.now().plusMinutes(Math.max(1, codigoBloqueoMinutos)));
+            r.setCodigoIntentosFallidos(0);
+        }
+        reservaRepository.save(r);
+    }
+
+    private void notificarEncuentroConfirmado(Reserva reserva, String rawJwt) {
+        try {
+            AgendaBloqueReservaClientDTO bloque =
+                    agendaIntegracionClient.obtenerBloquePorId(reserva.getIdAgendaBloque(), rawJwt);
+            TutorReservaClientDTO tutor =
+                    tutorIntegracionClient.obtenerTutor(reserva.getIdTutorUsuario().longValue(), rawJwt);
+            MascotaInternoDetalleResponseDTO mascota =
+                    mascotaIntegracionClient.obtenerDetalleInterno(reserva.getIdMascota());
+
+            Integer idPaseador = bloque != null ? bloque.getIdUsuario() : null;
+            String mascotaNombre = mascota != null && mascota.getNombre() != null && !mascota.getNombre().isBlank()
+                    ? mascota.getNombre()
+                    : "Mascota #" + reserva.getIdMascota();
+            String direccionInicio = tutor != null && tutor.getDireccion() != null
+                    ? lineaDireccionTutor(tutor.getDireccion())
+                    : "";
+            EncuentroConfirmadoEventDTO event = new EncuentroConfirmadoEventDTO(
+                    "ENCUENTRO_CONFIRMADO",
+                    reserva.getIdReserva(),
+                    reserva.getIdTutorUsuario(),
+                    idPaseador,
+                    "¡El paseo ha comenzado! Tu mascota está en buenas manos",
+                    "Paseo iniciado correctamente",
+                    mascotaNombre,
+                    direccionInicio,
+                    reserva.getFechaInicioReal(),
+                    true,
+                    true
+            );
+
+            messagingTemplate.convertAndSend("/topic/reservas/" + reserva.getIdReserva() + "/encuentro", event);
+            messagingTemplate.convertAndSend("/topic/tutor/" + reserva.getIdTutorUsuario() + "/encuentro", event);
+            if (idPaseador != null) {
+                messagingTemplate.convertAndSend("/topic/paseador/" + idPaseador + "/encuentro", event);
+            }
+        } catch (RuntimeException ignored) {
+            // No interrumpir el flujo transaccional por falla de push.
+        }
     }
 
     private ReservaPaseadorSolicitudResponseDTO mapearSolicitudPaseador(
