@@ -26,13 +26,13 @@ import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.security.JwtService;
 import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
+import com.patiperro.reserva.event.ReservaEventPublisher;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,7 +63,7 @@ public class ReservaService {
     private final TutorIntegracionClient tutorIntegracionClient;
     private final JwtService jwtService;
     private final Clock clock;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ReservaEventPublisher reservaEventPublisher;
     private final PaseoInicioSideEffectsService paseoInicioSideEffectsService;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
@@ -337,7 +337,7 @@ public class ReservaService {
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
         PaseoIniciadoDomainEvent evt = new PaseoIniciadoDomainEvent(saved.getIdReserva(), rawJwt);
         if (paseoEfectosDespuesDeCommit) {
-            eventPublisher.publishEvent(evt);
+            reservaEventPublisher.publicarPaseoIniciado(saved.getIdReserva(), rawJwt);
         } else {
             paseoInicioSideEffectsService.ejecutar(evt);
         }
