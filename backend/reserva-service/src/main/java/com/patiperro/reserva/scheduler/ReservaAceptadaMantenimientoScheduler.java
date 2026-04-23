@@ -15,9 +15,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 1) Cancela reservas ACEPTADAS sin inicio de paseo cuya ventana de PIN venció (libera bloque en agenda). 2) Rellena
- * {@code codigoEncuentroExpiraEn} si faltaba. La cancelación va antes para no competir con un “relleno” previo a la
- * heurística de expiración.
+ * 1) Regenera el PIN de reservas ACEPTADAS sin inicio de paseo cuya ventana de PIN venció. 2) Rellena
+ * {@code codigoEncuentroExpiraEn} si faltaba.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,12 +38,12 @@ public class ReservaAceptadaMantenimientoScheduler {
         LocalDateTime ahora = LocalDateTime.now(clock);
         int idAceptada = EstadoReservaCatalogo.ID_ACEPTADA;
 
-        List<Integer> cancelar = reservaRepository.findIdReservasAceptadaParaCancelarPorEncuentroVencido(idAceptada, ahora);
-        for (Integer id : cancelar) {
+        List<Integer> regenerar = reservaRepository.findIdReservasAceptadaParaRegenerarCodigoPorEncuentroVencido(idAceptada, ahora);
+        for (Integer id : regenerar) {
             try {
-                reservaService.cancelarAceptadaPorEncuentroVencidoJobItem(id);
+                reservaService.regenerarCodigoEncuentroPorExpiracionJobItem(id);
             } catch (Exception e) {
-                log.warn("Cancelación automática por PIN vencido fallida, idReserva={}", id, e);
+                log.warn("Regeneración automática de PIN fallida, idReserva={}", id, e);
             }
         }
 

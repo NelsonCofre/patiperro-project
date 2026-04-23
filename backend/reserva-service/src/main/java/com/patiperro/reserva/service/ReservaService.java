@@ -2,6 +2,7 @@ package com.patiperro.reserva.service;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
+import com.patiperro.reserva.dto.CodigoReservaActivoResponseDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -155,6 +157,56 @@ public class ReservaService {
                 estadoActual != null ? estadoActual.getIdEstadoReserva() : null,
                 estadoActual != null ? estadoActual.getNombreEstado() : null,
                 steps
+        );
+    }
+
+    /**
+     * Retorna el PIN activo de una reserva para el tutor propietario.
+     * Si está vencido, regenera un nuevo PIN y reinicia su expiración.
+     */
+    @Transactional
+    public CodigoReservaActivoResponseDTO obtenerCodigoActivoReserva(Integer idReserva, String rawJwt) {
+        if (rawJwt == null || rawJwt.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Se requiere autenticación");
+        }
+        if (!jwtService.isTokenValid(rawJwt)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token inválido o expirado");
+        }
+        Long tutorId = jwtService.extractTutorId(rawJwt);
+        if (tutorId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "JWT sin claim tutorId");
+        }
+
+        Reserva r = obtenerEntidad(idReserva);
+        if (!tutorId.equals(r.getIdTutorUsuario().longValue())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para ver esta reserva");
+        }
+        if (!esAceptada(r.getEstadoReserva())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La reserva no está en estado válido para mostrar código");
+        }
+        if (r.getCodigoEncuentro() == null || r.getCodigoEncuentroExpiraEn() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La reserva aún no tiene código activo");
+        }
+
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        boolean regenerado = false;
+        if (ahora.isAfter(r.getCodigoEncuentroExpiraEn())) {
+            r.setCodigoEncuentro(generarCodigoEncuentroUnicoExcluyendo(r.getIdReserva()));
+            r.setCodigoEncuentroExpiraEn(ahora.plusMinutes(Math.max(1, codigoExpiraMinutos)));
+            r.setCodigoIntentosFallidos(0);
+            r.setCodigoBloqueadoHasta(null);
+            r = reservaRepository.save(r);
+            regenerado = true;
+        }
+
+        String codigo4 = String.format("%04d", Math.abs(r.getCodigoEncuentro() % 10000));
+        long segundos = Math.max(0, Duration.between(ahora, r.getCodigoEncuentroExpiraEn()).getSeconds());
+        return new CodigoReservaActivoResponseDTO(
+                r.getIdReserva(),
+                codigo4,
+                r.getCodigoEncuentroExpiraEn(),
+                segundos,
+                regenerado
         );
     }
 
@@ -930,10 +982,10 @@ public class ReservaService {
     }
 
     /**
-     * Tras vencer el PIN: la reserva pasa a CANCELADA y se libera el bloque (agenda interno). Misma transacción que cancelación por tutor.
+     * Tras vencer el PIN (sin inicio real): regenera un nuevo PIN y reinicia su expiración.
      */
     @Transactional
-    public void cancelarAceptadaPorEncuentroVencidoJobItem(Integer idReserva) {
+    public void regenerarCodigoEncuentroPorExpiracionJobItem(Integer idReserva) {
         Reserva r = obtenerEntidad(idReserva);
         if (!esAceptada(r.getEstadoReserva()) || r.getFechaInicioReal() != null) {
             return;
@@ -942,21 +994,15 @@ public class ReservaService {
         if (r.getCodigoEncuentroExpiraEn() == null || !ahora.isAfter(r.getCodigoEncuentroExpiraEn())) {
             return;
         }
-        EstadoReserva cancelada =
-                estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
-        r.setEstadoReserva(cancelada);
-        r.setFechaFin(ahora);
-        r.setCodigoEncuentro(null);
-        r.setCodigoEncuentroExpiraEn(null);
+        r.setCodigoEncuentro(generarCodigoEncuentroUnicoExcluyendo(r.getIdReserva()));
+        r.setCodigoEncuentroExpiraEn(ahora.plusMinutes(Math.max(1, codigoExpiraMinutos)));
         r.setCodigoIntentosFallidos(0);
         r.setCodigoBloqueadoHasta(null);
-        Reserva saved = reservaRepository.save(r);
-        agendaIntegracionClient.marcarBloqueDisponibleInterno(saved.getIdAgendaBloque());
+        reservaRepository.save(r);
     }
 
     /**
-     * Si aún aceptada y faltaba solo la expiración del PIN, la calcula (listado tutor / job). El PIN vencido no se renueva: la
-     * cancelación automática aplica vía job.
+     * Si aún aceptada y faltaba solo la expiración del PIN, la calcula (listado tutor / job).
      */
     private Reserva rellenarCodigoEncuentroExpiraSiAplica(Integer idReserva, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);

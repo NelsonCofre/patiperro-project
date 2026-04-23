@@ -87,13 +87,13 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
             @Param("idAceptada") Integer idAceptada);
 
     /**
-     * ACEPTADA, sin inicio de paseo, con ventana de PIN ya vencida: cancelar y liberar bloque (no regenerar PIN).
+     * ACEPTADA, sin inicio de paseo, con ventana de PIN ya vencida: regenerar PIN automáticamente.
      */
     @Query("SELECT r.idReserva FROM Reserva r "
             + "WHERE r.estadoReserva.idEstadoReserva = :idAceptada AND r.fechaInicioReal IS NULL AND "
             + "r.codigoEncuentro IS NOT NULL AND r.codigoEncuentroExpiraEn IS NOT NULL AND "
             + "r.codigoEncuentroExpiraEn < :ahora")
-    List<Integer> findIdReservasAceptadaParaCancelarPorEncuentroVencido(
+    List<Integer> findIdReservasAceptadaParaRegenerarCodigoPorEncuentroVencido(
             @Param("idAceptada") Integer idAceptada,
             @Param("ahora") LocalDateTime ahora);
 }

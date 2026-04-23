@@ -1,5 +1,6 @@
 package com.patiperro.reserva.controller;
 
+import com.patiperro.reserva.dto.CodigoReservaActivoResponseDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
@@ -80,6 +81,24 @@ public class BookingQueryController {
             @Valid @RequestBody CodigoReservaValidarRequestDTO body,
             HttpServletRequest request) {
         return reservaService.validarCodigoEncuentro(body, exigirJwt(request));
+    }
+
+    @GetMapping("/reservas/{id}/codigo")
+    @Operation(
+            summary = "Obtener código activo de una reserva (tutor)",
+            description = "Retorna el PIN activo (4 dígitos) para la reserva en estado ACEPTADA. "
+                    + "Requiere JWT de tutor y que el tutor sea propietario de la reserva.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Código activo"),
+            @ApiResponse(responseCode = "401", description = "Sin token"),
+            @ApiResponse(responseCode = "403", description = "Tutor no es propietario"),
+            @ApiResponse(responseCode = "400", description = "Estado inválido"),
+            @ApiResponse(responseCode = "409", description = "Reserva sin código activo")
+    })
+    public CodigoReservaActivoResponseDTO obtenerCodigoActivoReserva(
+            @PathVariable Integer id,
+            HttpServletRequest request) {
+        return reservaService.obtenerCodigoActivoReserva(id, exigirJwt(request));
     }
 
     private static String exigirJwt(HttpServletRequest request) {
