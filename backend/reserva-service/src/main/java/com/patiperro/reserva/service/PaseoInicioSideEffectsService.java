@@ -4,7 +4,7 @@ import com.patiperro.reserva.dto.EncuentroConfirmadoEventDTO;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
-import com.patiperro.reserva.event.PaseoIniciadoEvent;
+import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
@@ -51,16 +51,16 @@ public class PaseoInicioSideEffectsService {
     @Value("${patiperro.reserva.integracion.chat.base-url:}")
     private String chatBaseUrl;
 
-    public void ejecutar(PaseoIniciadoEvent event) {
-        if (event == null || event.getIdReserva() == null) {
+    public void ejecutar(PaseoIniciadoDomainEvent event) {
+        if (event == null || event.idReserva() == null) {
             return;
         }
-        Reserva reserva = reservaRepository.findById(event.getIdReserva()).orElse(null);
+        Reserva reserva = reservaRepository.findById(event.idReserva()).orElse(null);
         if (reserva == null) {
-            log.warn("PaseoIniciado: reserva {} no encontrada para efectos secundarios", event.getIdReserva());
+            log.warn("PaseoIniciado: reserva {} no encontrada para efectos secundarios", event.idReserva());
             return;
         }
-        notificarEncuentroConfirmado(reserva, event.getRawJwtPaseador());
+        notificarEncuentroConfirmado(reserva, event.rawJwtPaseador());
         invocarTrackingSiConfigurado(reserva.getIdReserva());
         invocarChatSiConfigurado(reserva.getIdReserva());
     }

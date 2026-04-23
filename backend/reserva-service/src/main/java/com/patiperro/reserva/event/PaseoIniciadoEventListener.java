@@ -13,7 +13,7 @@ public class PaseoIniciadoEventListener {
     private final PaseoInicioSideEffectsService paseoInicioSideEffectsService;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onPaseoIniciado(PaseoIniciadoEvent event) {
+    public void onPaseoIniciado(PaseoIniciadoDomainEvent event) {
         paseoInicioSideEffectsService.ejecutar(event);
     }
 }

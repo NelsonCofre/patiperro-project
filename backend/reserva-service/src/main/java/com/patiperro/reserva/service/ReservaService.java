@@ -25,7 +25,7 @@ import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.security.JwtService;
-import com.patiperro.reserva.event.PaseoIniciadoEvent;
+import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
@@ -335,7 +335,7 @@ public class ReservaService {
         }
         Reserva saved = reservaRepository.findById(r.getIdReserva())
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
-        PaseoIniciadoEvent evt = new PaseoIniciadoEvent(saved.getIdReserva(), rawJwt);
+        PaseoIniciadoDomainEvent evt = new PaseoIniciadoDomainEvent(saved.getIdReserva(), rawJwt);
         if (paseoEfectosDespuesDeCommit) {
             eventPublisher.publishEvent(evt);
         } else {
