@@ -8,16 +8,16 @@ import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
+import com.patiperro.reserva.support.ChatIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
+import com.patiperro.reserva.support.NotificacionPaseoIntegracionClient;
+import com.patiperro.reserva.support.TrackingIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,19 +37,9 @@ public class PaseoInicioSideEffectsService {
     private final MascotaIntegracionClient mascotaIntegracionClient;
     private final TutorIntegracionClient tutorIntegracionClient;
     private final SimpMessagingTemplate messagingTemplate;
-    private final RestClient.Builder restClientBuilder;
-
-    @Value("${patiperro.reserva.integracion.tracking.enabled:false}")
-    private boolean trackingIntegracionEnabled;
-
-    @Value("${patiperro.reserva.integracion.chat.enabled:false}")
-    private boolean chatIntegracionEnabled;
-
-    @Value("${patiperro.reserva.integracion.tracking.base-url:}")
-    private String trackingBaseUrl;
-
-    @Value("${patiperro.reserva.integracion.chat.base-url:}")
-    private String chatBaseUrl;
+    private final TrackingIntegracionClient trackingIntegracionClient;
+    private final ChatIntegracionClient chatIntegracionClient;
+    private final NotificacionPaseoIntegracionClient notificacionPaseoIntegracionClient;
 
     public void ejecutar(PaseoIniciadoDomainEvent event) {
         if (event == null || event.idReserva() == null) {
@@ -61,8 +51,9 @@ public class PaseoInicioSideEffectsService {
             return;
         }
         notificarEncuentroConfirmado(reserva, event.rawJwtPaseador());
-        invocarTrackingSiConfigurado(reserva.getIdReserva());
-        invocarChatSiConfigurado(reserva.getIdReserva());
+        trackingIntegracionClient.crearSesionInicioPaseo(reserva.getIdReserva());
+        chatIntegracionClient.crearSesionInicioPaseo(reserva.getIdReserva());
+        notificacionPaseoIntegracionClient.notificarInicioPaseo(reserva.getIdReserva());
     }
 
     private void notificarEncuentroConfirmado(Reserva reserva, String rawJwt) {
@@ -102,50 +93,6 @@ public class PaseoInicioSideEffectsService {
             }
         } catch (RuntimeException e) {
             log.warn("Fallo en notificación STOMP post-inicio, idReserva={}", reserva.getIdReserva(), e);
-        }
-    }
-
-    private void invocarTrackingSiConfigurado(Integer idReserva) {
-        if (!trackingIntegracionEnabled) {
-            return;
-        }
-        if (trackingBaseUrl == null || trackingBaseUrl.isBlank()) {
-            log.info("Tracking integración habilitada pero sin base-url; no se invoca (reserva={})", idReserva);
-            return;
-        }
-        try {
-            String json = "{\"idReserva\":" + idReserva + "}";
-            restClientBuilder.build()
-                    .post()
-                    .uri(trackingBaseUrl + "/internal/tracking/sesiones")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(json)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RuntimeException e) {
-            log.warn("Tracking: llamada no completada para reserva {}", idReserva, e);
-        }
-    }
-
-    private void invocarChatSiConfigurado(Integer idReserva) {
-        if (!chatIntegracionEnabled) {
-            return;
-        }
-        if (chatBaseUrl == null || chatBaseUrl.isBlank()) {
-            log.info("Chat integración habilitada pero sin base-url; no se invoca (reserva={})", idReserva);
-            return;
-        }
-        try {
-            String json = "{\"idReserva\":" + idReserva + "}";
-            restClientBuilder.build()
-                    .post()
-                    .uri(chatBaseUrl + "/internal/chat/sesiones")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(json)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RuntimeException e) {
-            log.warn("Chat: llamada no completada para reserva {}", idReserva, e);
         }
     }
 
