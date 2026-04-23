@@ -1,4 +1,3 @@
-import { API_ENDPOINTS } from "../../../config/api";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
 
 // 1. Definimos cómo luce nuestro DTO en TypeScript

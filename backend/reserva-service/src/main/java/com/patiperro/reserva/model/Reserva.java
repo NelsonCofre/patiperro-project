@@ -66,6 +66,21 @@ public class Reserva {
     @Column(name = "codigo_encuentro")
     private Integer codigoEncuentro;
 
+    /**
+     * Instante hasta el cual el PIN de encuentro es válido (p. ej. inicio programado del paseo + ventana de minutos).
+     * {@code null} si aún no hay código o no aplica.
+     */
+    @Column(name = "codigo_encuentro_expira_en")
+    private LocalDateTime codigoEncuentroExpiraEn;
+
+    /** Intentos fallidos con PIN incorrecto; {@code null} equivale a 0 en negocio. */
+    @Column(name = "codigo_intentos_fallidos")
+    private Integer codigoIntentosFallidos;
+
+    /** Tras superar el máximo de intentos: instante hasta el cual no se permiten nuevos intentos. */
+    @Column(name = "codigo_bloqueado_hasta")
+    private LocalDateTime codigoBloqueadoHasta;
+
     @Column(name = "motivo_rechazo", length = 120)
     private String motivoRechazo;
 

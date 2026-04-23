@@ -5,6 +5,7 @@ import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
+import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
 import {
   formatReservaDate,
   formatReservaMoney,
@@ -81,9 +82,17 @@ export default function TutorReservas() {
             </div>
 
             {selectedEstado?.key === "en_curso" ? (
-              <div className={styles.mvpNote}>
-                El paseo esta en curso. El seguimiento con mapa GPS no esta activo en este MVP.
-              </div>
+              <PaseoEnCursoCard
+                statusMessage="¡El paseo ha comenzado! Tu mascota esta en buenas manos"
+                actorLabel="Paseador"
+                actorNombre={selectedReserva.paseadorNombre}
+                mascotaNombre={selectedReserva.mascotaNombre}
+                horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
+                chatLabel="Abrir chat del paseo"
+                onOpenChat={() =>
+                  setNotice("El chat durante el paseo quedara disponible en una siguiente etapa del MVP.")
+                }
+              />
             ) : null}
 
             {selectedEstado?.key === "aceptada" ? (

@@ -1,8 +1,10 @@
+import { useState } from "react";
 import type {
   DecisionSolicitud,
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
 import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
+import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
 import styles from "./SolicitudPendienteCard.module.css";
 
 // En SolicitudPendienteCard.tsx
@@ -13,6 +15,8 @@ type SolicitudPendienteCardProps = {
   onReject: (solicitud: SolicitudPendientePaseador) => void;
   onViewTutor: (solicitud: SolicitudPendientePaseador) => void;
   onViewMap: (solicitud: SolicitudPendientePaseador) => void;
+  onStartPaseo: (solicitud: SolicitudPendientePaseador, startTime: string) => void;
+  onOpenChat: (solicitud: SolicitudPendientePaseador) => void;
 };
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -39,16 +43,20 @@ export default function SolicitudPendienteCard({
   onReject,
   onViewTutor,
   onViewMap,
+  onStartPaseo,
+  onOpenChat
 }: SolicitudPendienteCardProps) {
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";
   const rejecting = processingDecision === "RECHAZAR";
   const isSolicitada = solicitud.estado === "Solicitada";
   const isAceptada = solicitud.estado === "Aceptada";
+  const isEnCurso = solicitud.estado === "En Curso";
 
   return (
-    <article className={styles.card}>
-      <div className={styles.photoColumn}>
+    <article className={`${styles.card} ${isAceptada ? styles.cardAccepted : ""}`}>
+      <div className={`${styles.photoColumn} ${isAceptada ? styles.photoColumnAccepted : ""}`}>
         <img
           src={solicitud.mascotaFotoUrl}
           alt={`Foto de ${solicitud.mascotaNombre}`}
@@ -131,10 +139,60 @@ export default function SolicitudPendienteCard({
               </button>
             </>
           ) : null}
+          {isAceptada ? (
+            <button
+              type="button"
+              className={styles.codeButton}
+              onClick={() => setCodeModalOpen(true)}
+            >
+              Ingresar Codigo
+            </button>
+          ) : null}
         </div>
 
-        {isAceptada ? <CodigoEncuentroValidator solicitud={solicitud} /> : null}
+        {isEnCurso ? (
+          <PaseoEnCursoCard
+            statusMessage="Paseo iniciado correctamente"
+            actorLabel="Tutor"
+            actorNombre={solicitud.tutorNombre}
+            actorFotoUrl={solicitud.tutorFotoUrl}
+            mascotaNombre={solicitud.mascotaNombre}
+            horaInicioRegistrada={solicitud.fechaInicioReal ?? solicitud.horaInicio}
+            locationLabel="Direccion de inicio"
+            locationValue={solicitud.direccionReferencia}
+            chatLabel="Abrir chat del paseo"
+            onOpenChat={() => onOpenChat(solicitud)}
+          />
+        ) : null}
       </div>
+
+      {isAceptada && codeModalOpen ? (
+        <div className={styles.modalOverlay}>
+          <section className={styles.modalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.eyebrow}>Confirmar encuentro</p>
+                <h3>Ingresa el codigo del tutor</h3>
+              </div>
+              <button
+                type="button"
+                className={styles.modalClose}
+                onClick={() => setCodeModalOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <CodigoEncuentroValidator
+              solicitud={solicitud}
+              onSuccess={(item, startTime) => {
+                setCodeModalOpen(false);
+                onStartPaseo(item, startTime);
+              }}
+            />
+          </section>
+        </div>
+      ) : null}
     </article>
   );
 }

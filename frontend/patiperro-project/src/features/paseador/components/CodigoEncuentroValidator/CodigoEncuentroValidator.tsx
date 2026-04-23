@@ -5,7 +5,7 @@ import styles from "./CodigoEncuentroValidator.module.css";
 
 type Props = {
   solicitud: SolicitudPendientePaseador;
-  onSuccess?: (solicitud: SolicitudPendientePaseador) => void;
+  onSuccess?: (solicitud: SolicitudPendientePaseador, startTime: string) => void;
 };
 
 const EMPTY_DIGITS = ["", "", "", ""];
@@ -32,6 +32,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   const isLocked = lockedRemainingSeconds > 0;
   const code = digits.join("");
   const isComplete = code.length === 4;
+  const [successStartTime, setSuccessStartTime] = useState<string | null>(null);
 
   useEffect(() => {
     if (!lockedUntil) return;
@@ -46,6 +47,14 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
       setError("");
     }
   }, [lockedRemainingSeconds, lockedUntil]);
+
+  useEffect(() => {
+    if (!isSuccess || !successStartTime || !onSuccess) return;
+    const timer = window.setTimeout(() => {
+      onSuccess(solicitud, successStartTime);
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [isSuccess, onSuccess, solicitud, successStartTime]);
 
   function focusInput(index: number) {
     window.setTimeout(() => inputsRef.current[index]?.focus(), 0);
@@ -115,9 +124,10 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
     setIsValidating(true);
     try {
       await validarCodigoEncuentroPaseador(solicitud.idReserva, code);
+      const startTime = new Date().toISOString();
       setError("");
+      setSuccessStartTime(startTime);
       setIsSuccess(true);
-      onSuccess?.(solicitud);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Codigo incorrecto, intentalo nuevamente";
       triggerError(msg, true);
@@ -165,7 +175,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
           </div>
           <div>
             <span>Hora programada</span>
-            <strong>{formatTime(solicitud.horaInicio)}</strong>
+            <strong>{formatTime(successStartTime ?? solicitud.horaInicio)}</strong>
           </div>
         </div>
       </section>
