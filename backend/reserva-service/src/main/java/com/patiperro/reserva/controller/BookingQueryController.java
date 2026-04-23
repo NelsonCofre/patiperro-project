@@ -28,12 +28,12 @@ import java.util.List;
 
 /**
  * Endpoints orientados a flujos de reserva (booking) para el cliente web: consultas
- * y la acción de validar el código de encuentro (cambia el estado a EN_CURSO).
+ * (tutor/paseador) y acciones de encuentro: obtener PIN, validar PIN, estado del encuentro.
  */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Tag(name = "Booking (consultas y código de encuentro)")
+@Tag(name = "Booking (encuentro y consultas)")
 public class BookingQueryController {
 
     private static final String MSG_SE_REQUIERE_JWT =
@@ -46,7 +46,7 @@ public class BookingQueryController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Listado de reservas con detalle"),
             @ApiResponse(responseCode = "401", description = "Sin token"),
-            @ApiResponse(responseCode = "400", description = "Token inválido o claim faltante")
+            @ApiResponse(responseCode = "400", description = "Solicitud inválida o token/claim inválido")
     })
     public List<ReservaTutorDetalleResponseDTO> tutorBookings(HttpServletRequest request) {
         return reservaService.listarBookingsTutorDesdeJwt(exigirJwt(request));
@@ -56,8 +56,8 @@ public class BookingQueryController {
     @Operation(summary = "Línea de tiempo de estados de una reserva", description = "Requiere JWT de tutor o paseador con acceso a la reserva.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Etapas solicitada, aceptada, en curso, finalizada"),
-            @ApiResponse(responseCode = "401", description = "Sin token"),
-            @ApiResponse(responseCode = "400", description = "Sin permiso o token inválido")
+            @ApiResponse(responseCode = "401", description = "Sin token o token inválido/expirado"),
+            @ApiResponse(responseCode = "400", description = "Sin acceso a la reserva o JWT sin claims esperados")
     })
     public BookingTimelineResponseDTO bookingTimeline(
             @PathVariable Integer id,
@@ -103,6 +103,15 @@ public class BookingQueryController {
     }
 
     @GetMapping("/reservas/{id}/estado-encuentro")
+    @Operation(
+            summary = "Estado del encuentro (tutor o paseador)",
+            description = "Resumen de estado de la etapa de encuentro por PIN: pendiente, confirmado, o fallas/bloqueo por intentos. "
+                    + "Requiere JWT de tutor o paseador con acceso a la reserva.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Estado calculado"),
+            @ApiResponse(responseCode = "401", description = "Sin token o token inválido/expirado"),
+            @ApiResponse(responseCode = "400", description = "Sin acceso a la reserva o JWT sin claims esperados")
+    })
     public EstadoEncuentroResponseDTO estadoEncuentro(
             @PathVariable Integer id,
             HttpServletRequest request) {
