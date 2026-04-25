@@ -86,5 +86,4 @@ public class Reserva {
 
     @Column(name = "detalle_rechazo", length = 500)
     private String detalleRechazo;
-
 }

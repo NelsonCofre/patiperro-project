@@ -107,7 +107,6 @@ export default function LoginPaseador() {
       buttonText="Ingresar"
       isSubmitting={isSubmitting}
       isSubmitDisabled={isSubmitDisabled}
-      reverseLayout
     >
       <div className={styles.header}>
         <p>Accede con tu cuenta de paseador para gestionar servicios y reservas.</p>

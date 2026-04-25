@@ -305,7 +305,7 @@ export default function RegisterTutor() {
   };
 
   return (
-    <div className={authStyles.container}>
+    <div className={`${authStyles.container} ${authStyles.containerReverse}`}>
       <div className={authStyles.left}>
         <div className={authStyles.leftContent}>
           <h1 className={authStyles.logo}>Patiperro</h1>
@@ -318,6 +318,12 @@ export default function RegisterTutor() {
 
       <div className={authStyles.right}>
         <div className={authStyles.card}>
+          <div className={authStyles.topActions}>
+            <Link to="/" className={authStyles.backHomeButton}>
+              Volver al inicio
+            </Link>
+          </div>
+
           <div className={styles.header}>
             <h2 className={authStyles.title}>Registro de tutor</h2>
             <p>
