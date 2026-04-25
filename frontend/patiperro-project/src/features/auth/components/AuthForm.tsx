@@ -1,5 +1,6 @@
 // Layout compartido de las pantallas de login.
 // Se encarga del branding visual y del contenedor del formulario.
+import { Link } from "react-router-dom";
 import styles from "../styles/auth.module.css";
 
 type Props = {
@@ -38,6 +39,12 @@ export default function AuthForm({
       {/* Tarjeta principal donde se renderiza el formulario. */}
       <div className={styles.right}>
         <div className={styles.card}>
+          <div className={styles.topActions}>
+            <Link to="/" className={styles.backHomeButton}>
+              Volver al inicio
+            </Link>
+          </div>
+
           <h2 className={styles.title}>{title}</h2>
 
           <form onSubmit={onSubmit}>
