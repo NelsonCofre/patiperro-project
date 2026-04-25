@@ -7,6 +7,16 @@ import type {
 } from "../types/solicitudPaseador.types";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
+type EstadoEncuentroApiDTO = {
+  idReserva?: number;
+  estadoEncuentro?: "PENDIENTE" | "CONFIRMADO" | "FALLIDO" | string;
+  idEstadoReserva?: number | null;
+  nombreEstadoReserva?: string | null;
+  intentosFallidos?: number | null;
+  bloqueadoHasta?: string | null;
+  puedeReintentarEnSegundos?: number | null;
+  mensaje?: string | null;
+};
 
 function readApiErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object") {
@@ -109,7 +119,9 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     codigoEncuentro: s.codigoEncuentro ?? null,
     comentarioTutor: undefined,
     fechaSolicitud: fechaSol,
-    fechaInicioReal: s.fechaInicioReal ?? null
+    fechaInicioReal: s.fechaInicioReal ?? null,
+    trackingActivo: false,
+    chatActivo: false
   };
 }
 
@@ -193,12 +205,50 @@ export async function validarCodigoEncuentroPaseador(
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
-    throw new Error(readApiErrorMessage(data, "No se pudo validar el código."));
+    throw new Error(readApiErrorMessage(data, "No se pudo validar el codigo."));
   }
   const row = data as { idReserva: number; nombreEstado?: string; fechaInicioReal?: string | null };
   return {
     idReserva: row.idReserva,
     estado: row.nombreEstado ?? "EN CURSO",
     fechaInicioReal: row.fechaInicioReal ?? null
+  };
+}
+
+export type EstadoEncuentroReservaDTO = {
+  idReserva: number;
+  estadoEncuentro: "PENDIENTE" | "CONFIRMADO" | "FALLIDO";
+  nombreEstadoReserva: string;
+  intentosFallidos: number;
+  bloqueadoHasta: string | null;
+  puedeReintentarEnSegundos: number | null;
+  mensaje: string | null;
+};
+
+export async function obtenerEstadoEncuentroReserva(
+  idReserva: number
+): Promise<EstadoEncuentroReservaDTO> {
+  const response = await fetch(API_ENDPOINTS.reservas.estadoEncuentro(idReserva), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo consultar el estado del encuentro."));
+  }
+  const row = (data ?? {}) as EstadoEncuentroApiDTO;
+  const estadoRaw = String(row.estadoEncuentro ?? "PENDIENTE").toUpperCase();
+  const estado =
+    estadoRaw === "CONFIRMADO" || estadoRaw === "FALLIDO" ? estadoRaw : "PENDIENTE";
+  return {
+    idReserva: row.idReserva ?? idReserva,
+    estadoEncuentro: estado,
+    nombreEstadoReserva: row.nombreEstadoReserva?.trim() || "",
+    intentosFallidos: Number(row.intentosFallidos ?? 0),
+    bloqueadoHasta: row.bloqueadoHasta ?? null,
+    puedeReintentarEnSegundos:
+      row.puedeReintentarEnSegundos == null ? null : Number(row.puedeReintentarEnSegundos),
+    mensaje: row.mensaje?.trim() || null
   };
 }

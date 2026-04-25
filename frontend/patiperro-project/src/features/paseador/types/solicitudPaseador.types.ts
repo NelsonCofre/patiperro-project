@@ -40,6 +40,8 @@ export type SolicitudPendientePaseador = {
   comentarioTutor?: string;
   fechaSolicitud: string;
   fechaInicioReal?: string | null;
+  trackingActivo?: boolean;
+  chatActivo?: boolean;
 };
 
 export type DecisionSolicitudPayload = {

@@ -9,6 +9,8 @@ import {
   fetchSolicitudesPendientesPaseador,
   responderSolicitudPaseador
 } from "../../services/solicitudesPaseadorService";
+import { PASEADOR_ID_SESSION_KEY } from "../../../../config/api";
+import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
 import type {
   DecisionSolicitud,
   RechazoSolicitudForm,
@@ -76,6 +78,7 @@ const VIEW_CONFIGS: ViewConfig[] = [
     route: "/paseador/dashboard/solicitudes/rechazadas"
   }
 ];
+const REFRESH_MS = 15000;
 
 function getActiveView(pathname: string): ViewConfig {
   if (pathname.endsWith("/aceptadas")) return VIEW_CONFIGS[1];
@@ -97,31 +100,71 @@ export default function PaseadorSolicitudes() {
   const [selectedTutorSolicitud, setSelectedTutorSolicitud] =
     useState<SolicitudPendientePaseador | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadSolicitudes() {
+  async function loadSolicitudes(silent = false) {
+    if (!silent) {
       setIsLoading(true);
-      setLoadError("");
-
-      try {
-        const data = await fetchSolicitudesPendientesPaseador();
-        if (!active) return;
-        setSolicitudes(data);
-      } catch (error) {
-        if (!active) return;
-        setLoadError(
-          error instanceof Error ? error.message : "No se pudieron cargar las solicitudes."
-        );
-      } finally {
-        if (active) setIsLoading(false);
+    }
+    setLoadError("");
+    try {
+      const data = await fetchSolicitudesPendientesPaseador();
+      setSolicitudes(data);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "No se pudieron cargar las solicitudes."
+      );
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
       }
     }
+  }
 
+  useEffect(() => {
     void loadSolicitudes();
-    return () => {
-      active = false;
-    };
+    const timer = window.setInterval(() => void loadSolicitudes(true), REFRESH_MS);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY);
+    const idPaseador = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(idPaseador) || idPaseador <= 0) {
+      return;
+    }
+
+    return subscribeEncuentroTopic({
+      topic: `/topic/paseador/${idPaseador}/encuentro`,
+      onEvent: (event) => {
+        if (!event.idReserva) return;
+        const horaInicio = event.horaInicioRegistrada ?? new Date().toISOString();
+        setSolicitudes((prev) =>
+          prev.map((item) =>
+            item.idReserva === event.idReserva
+              ? {
+                  ...item,
+                  estado: "En Curso",
+                  fechaInicioReal: horaInicio,
+                  trackingActivo: Boolean(event.trackingActivo),
+                  chatActivo: Boolean(event.chatActivo)
+                }
+              : item
+          )
+        );
+        setFeedback({
+          type: "success",
+          message:
+            event.mensajePaseador?.trim() ||
+            `Paseo iniciado correctamente para ${event.mascotaNombre ?? "la mascota"}.`
+        });
+      },
+      onError: (message) => {
+        setFeedback({
+          type: "error",
+          message
+        });
+      }
+    });
   }, []);
 
   const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
@@ -156,7 +199,13 @@ export default function PaseadorSolicitudes() {
     setSolicitudes((prev) =>
       prev.map((item) =>
         item.idReserva === solicitud.idReserva
-          ? { ...item, estado: "En Curso", fechaInicioReal: startTime }
+          ? {
+              ...item,
+              estado: "En Curso",
+              fechaInicioReal: startTime,
+              trackingActivo: true,
+              chatActivo: true
+            }
           : item
       )
     );
@@ -167,9 +216,16 @@ export default function PaseadorSolicitudes() {
   }
 
   function handleOpenChat(solicitud: SolicitudPendientePaseador) {
+    if (solicitud.chatActivo) {
+      setFeedback({
+        type: "success",
+        message: `Chat habilitado para ${solicitud.mascotaNombre}. Integraremos la sala en la siguiente historia.`
+      });
+      return;
+    }
     setFeedback({
-      type: "success",
-      message: `El chat del paseo para ${solicitud.mascotaNombre} quedo habilitado para una siguiente etapa del MVP.`
+      type: "error",
+      message: `El chat aun no esta habilitado para ${solicitud.mascotaNombre}. Espera la confirmacion del encuentro.`
     });
   }
 
