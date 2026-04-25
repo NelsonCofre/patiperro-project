@@ -41,4 +41,11 @@ public class GlobalExceptionHandler {
         String msg = ex.getMessage() != null ? ex.getMessage() : "Fallo en integración con otro servicio";
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", msg));
     }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatus(ResponseStatusException ex) {
+        String msg = ex.getReason() != null ? ex.getReason() : "Solicitud no permitida";
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("message", msg));
+    }
 }

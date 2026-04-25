@@ -22,6 +22,7 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults()) 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/notificaciones/**").permitAll()
+                .requestMatchers("/internal/paseo/**").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();
