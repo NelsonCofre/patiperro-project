@@ -278,6 +278,64 @@ public class ReservaService {
     }
 
     /**
+     * Scheduler: completa {@code codigoEncuentroExpiraEn} para reservas ACEPTADAS con PIN.
+     * No requiere JWT (job interno).
+     */
+    @Transactional
+    public void rellenarCodigoEncuentroExpiraJobItem(Integer idReserva) {
+        Reserva r = obtenerEntidad(idReserva);
+        if (!esAceptada(r.getEstadoReserva())) {
+            return;
+        }
+        if (r.getCodigoEncuentro() == null) {
+            return;
+        }
+        if (r.getCodigoEncuentroExpiraEn() != null) {
+            return;
+        }
+        LocalDateTime base = r.getFechaAceptacion() != null ? r.getFechaAceptacion() : r.getFechaSolicitud();
+        if (base == null) {
+            base = LocalDateTime.now();
+        }
+        r.setCodigoEncuentroExpiraEn(base.plusMinutes(Math.max(1, codigoExpiraMinutos)));
+        reservaRepository.save(r);
+    }
+
+    /**
+     * Scheduler: cancela ACEPTADAS sin inicio real cuyo PIN venció, y libera bloque en agenda.
+     */
+    @Transactional
+    public void cancelarAceptadaPorEncuentroVencidoJobItem(Integer idReserva) {
+        Reserva r = obtenerEntidad(idReserva);
+        if (!esAceptada(r.getEstadoReserva())) {
+            return;
+        }
+        if (r.getFechaInicioReal() != null) {
+            return;
+        }
+        if (r.getCodigoEncuentro() == null || r.getCodigoEncuentroExpiraEn() == null) {
+            return;
+        }
+        if (!r.getCodigoEncuentroExpiraEn().isBefore(LocalDateTime.now())) {
+            return;
+        }
+
+        EstadoReserva cancelada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
+        r.setEstadoReserva(cancelada);
+        if (r.getFechaFin() == null) {
+            r.setFechaFin(LocalDateTime.now());
+        }
+        if (r.getMotivoRechazo() == null || r.getMotivoRechazo().isBlank()) {
+            r.setMotivoRechazo("Código de encuentro expirado");
+        }
+        if (r.getDetalleRechazo() == null || r.getDetalleRechazo().isBlank()) {
+            r.setDetalleRechazo("La reserva fue cancelada automáticamente por expiración del código de encuentro.");
+        }
+        reservaRepository.save(r);
+        agendaIntegracionClient.marcarBloqueDisponibleInterno(r.getIdAgendaBloque());
+    }
+
+    /**
      * {@code PATCH /status}: decisión del paseador ({@link #aplicarDecisionPaseador}) o del tutor
      * ({@link #aplicarCancelacionTutor}).
      */
@@ -835,6 +893,7 @@ public class ReservaService {
                 r.getFechaInicioReal(),
                 r.getFechaFin(),
                 r.getCodigoEncuentro(),
+                r.getCodigoEncuentroExpiraEn(),
                 r.getMotivoRechazo(),
                 r.getDetalleRechazo());
     }
@@ -914,6 +973,8 @@ public class ReservaService {
             if (r.getCodigoEncuentro() == null || r.getCodigoEncuentro() <= 0) {
                 r.setCodigoEncuentro(ThreadLocalRandom.current().nextInt(1000, 10000));
             }
+            LocalDateTime base = r.getFechaAceptacion() != null ? r.getFechaAceptacion() : LocalDateTime.now();
+            r.setCodigoEncuentroExpiraEn(base.plusMinutes(Math.max(1, codigoExpiraMinutos)));
             r.setMotivoRechazo(null);
             r.setDetalleRechazo(null);
             return;
