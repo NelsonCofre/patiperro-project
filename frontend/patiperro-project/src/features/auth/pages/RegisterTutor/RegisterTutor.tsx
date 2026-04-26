@@ -69,6 +69,17 @@ function validateTutorField(
     }
   }
 
+  // Dentro de RegisterTutor.tsx -> función validateTutorField
+if (name === "biografia") {
+  const bio = String(value).trim();
+  if (!bio) {
+    return "La biografía es obligatoria";
+  }
+  if (bio.length > 250) {
+    return "La biografía no puede exceder los 250 caracteres";
+  }
+}
+
   if (name === "contrasena") {
     return getPasswordSecurityError(String(value)) ?? undefined;
   }
@@ -183,6 +194,11 @@ export default function RegisterTutor() {
   ) => {
     const { name } = event.target;
     let { value } = event.target;
+
+    // --- NUEVA REGLA PARA BIOGRAFÍA ---
+  if (name === "biografia") {
+    if (value.length > 250) return; // Bloquea la actualización si excede el límite
+  }
 
     if (name === "telefono" || name === "numeracion") {
       value = keepOnlyDigits(value);

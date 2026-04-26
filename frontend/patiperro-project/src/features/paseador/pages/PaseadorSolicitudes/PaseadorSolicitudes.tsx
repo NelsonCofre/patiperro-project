@@ -196,7 +196,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
             fechaPaseo: solicitud.fecha,
             montoTotal: String(solicitud.montoTotal || "0"),
             motivo: decision === "RECHAZAR" ? (rechazo.motivo || "No disponible") : "",
-            urlReserva: "http://localhost:5173/tutor/reservas"
+            urlReserva: "http://localhost:5173/login/tutor"
           }
         });
         console.log(`Notificación de ${decision} enviada al tutor.`);
