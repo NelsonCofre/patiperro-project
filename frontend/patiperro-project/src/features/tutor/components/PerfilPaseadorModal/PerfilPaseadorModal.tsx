@@ -2,12 +2,59 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
 import { fetchAgendaOfertaPaseador, type AgendaBloqueOfertaDTO } from "../../services/reservaTutorApi";
+import { formatDistanceFromKm } from "../../utils/distanceFormat";
 import styles from "./PerfilPaseadorModal.module.css";
 
 type PerfilPaseadorModalProps = {
   paseador: PaseadorHome;
   onClose: () => void;
 };
+
+type ResenaMock = {
+  id: string;
+  nombreTutor: string;
+  nota: number;
+  comentario: string;
+  fecha: string;
+};
+
+const RESENAS_MOCK_RECIENTES: ResenaMock[] = [
+  {
+    id: "resena-1",
+    nombreTutor: "Camila Rojas",
+    nota: 5,
+    comentario: "Muy puntual y atento con mi perrito. Me envio actualizaciones durante todo el paseo.",
+    fecha: "2026-04-20"
+  },
+  {
+    id: "resena-2",
+    nombreTutor: "Felipe Araya",
+    nota: 4.8,
+    comentario: "Excelente trato. Mi mascota volvio tranquila y feliz. Repetiria sin dudarlo.",
+    fecha: "2026-04-18"
+  },
+  {
+    id: "resena-3",
+    nombreTutor: "Daniela Muñoz",
+    nota: 4.9,
+    comentario: "Muy buena comunicacion y mucho cuidado con las indicaciones medicas de mi mascota.",
+    fecha: "2026-04-14"
+  },
+  {
+    id: "resena-4",
+    nombreTutor: "Javier Soto",
+    nota: 4.7,
+    comentario: "Buen servicio y responsable con los horarios. Recomiendo para paseos frecuentes.",
+    fecha: "2026-04-09"
+  },
+  {
+    id: "resena-5",
+    nombreTutor: "Antonia Lagos",
+    nota: 5,
+    comentario: "Se nota la experiencia con mascotas ansiosas. Muy profesional y amable.",
+    fecha: "2026-04-05"
+  }
+];
 
 function toDateSafe(fecha: string, hora: string): Date | null {
   const normalizedFecha = (fecha ?? "").trim();
@@ -91,6 +138,7 @@ export default function PerfilPaseadorModal({ paseador, onClose }: PerfilPaseado
     () => [...bloques].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()),
     [bloques]
   );
+  const resenasRecientes = useMemo(() => RESENAS_MOCK_RECIENTES.slice(0, 5), []);
 
   function handleReservar(idAgenda: number) {
     navigate(
@@ -127,7 +175,7 @@ export default function PerfilPaseadorModal({ paseador, onClose }: PerfilPaseado
         <div className={styles.statsGrid} aria-label="Resumen del paseador">
           <article>
             <span>Distancia</span>
-            <strong>{paseador.distanciaKm.toFixed(1)} km</strong>
+            <strong>{formatDistanceFromKm(paseador.distanciaKm)}</strong>
           </article>
           <article>
             <span>Calificacion</span>
@@ -204,6 +252,34 @@ export default function PerfilPaseadorModal({ paseador, onClose }: PerfilPaseado
               })}
             </div>
           ) : null}
+        </section>
+
+        <section className={styles.section}>
+          <h3>Resenas recientes</h3>
+          {resenasRecientes.length === 0 ? (
+            <p className={styles.emptyReviews}>
+              Este paseador aun no tiene resenas publicadas.
+            </p>
+          ) : (
+            <div className={styles.reviewList}>
+              {resenasRecientes.map((resena) => (
+                <article key={resena.id} className={styles.review}>
+                  <div>
+                    <strong>{resena.nombreTutor}</strong>
+                    <span>
+                      {new Date(`${resena.fecha}T12:00:00`).toLocaleDateString("es-CL", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </span>
+                  </div>
+                  <p>{resena.comentario}</p>
+                  <span className={styles.reviewScore}>{resena.nota.toFixed(1)}</span>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </section>
     </div>

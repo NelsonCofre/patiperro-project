@@ -1,4 +1,5 @@
 import type { PaseadorHome } from "../../types/paseadorHome.types";
+import { formatDistanceFromKm } from "../../utils/distanceFormat";
 import styles from "./PaseadorCard.module.css";
 
 type PaseadorCardProps = {
@@ -21,7 +22,7 @@ export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProp
         <div className={styles.header}>
           <div>
             <h3>{paseador.nombre}</h3>
-            <p className={styles.distance}>{paseador.distanciaKm.toFixed(1)} km de ti</p>
+            <p className={styles.distance}>{formatDistanceFromKm(paseador.distanciaKm)} de ti</p>
           </div>
         </div>
 

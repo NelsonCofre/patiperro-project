@@ -14,6 +14,7 @@ export type ReservaTutorDetalleDTO = {
   idEstadoReserva: number | null;
   nombreEstado: string | null;
   fechaSolicitud: string | null;
+  fechaAceptacion: string | null;
   fechaInicioReal: string | null;
   fechaFin: string | null;
   codigoEncuentro: number | null;

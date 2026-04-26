@@ -27,6 +27,7 @@ public class ReservaTutorDetalleResponseDTO {
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaSolicitud;
+    private LocalDateTime fechaAceptacion;
     private LocalDateTime fechaInicioReal;
     private LocalDateTime fechaFin;
     private Integer codigoEncuentro;

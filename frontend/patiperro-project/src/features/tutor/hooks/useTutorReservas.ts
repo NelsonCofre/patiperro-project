@@ -63,6 +63,20 @@ export function useTutorReservas() {
     return subscribeEncuentroTopic({
       topic: `/topic/tutor/${idTutor}/encuentro`,
       onEvent: (event) => {
+        if (event.idReserva != null) {
+          setReservas((prev) =>
+            prev.map((item) =>
+              item.idReserva === event.idReserva
+                ? {
+                    ...item,
+                    idEstadoReserva: 4,
+                    nombreEstado: "EN CURSO",
+                    fechaInicioReal: event.horaInicioRegistrada ?? item.fechaInicioReal
+                  }
+                : item
+            )
+          );
+        }
         setNotice(
           event.mensajeTutor?.trim() ||
             "El paseo ha comenzado. Tu mascota esta en buenas manos."

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import ReservaCard from "../../components/ReservaCard/ReservaCard";
 import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
@@ -6,6 +6,7 @@ import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
 import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
+import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
 import {
   formatReservaDate,
   formatReservaMoney,
@@ -30,6 +31,28 @@ export default function TutorReservas() {
   } = useTutorReservas();
 
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
+
+  useEffect(() => {
+    if (!selectedReserva) return;
+    const actualizado = reservas.find((r) => r.idReserva === selectedReserva.idReserva);
+    if (actualizado) {
+      setSelectedReserva(actualizado);
+    }
+  }, [reservas, selectedReserva]);
+
+  useEffect(() => {
+    if (!selectedReserva) return;
+    return subscribeEncuentroTopic({
+      topic: `/topic/reservas/${selectedReserva.idReserva}/encuentro`,
+      onEvent: (event) => {
+        setNotice(
+          event.mensajeTutor?.trim() ||
+            "El paseo ha comenzado. Tu mascota esta en buenas manos."
+        );
+        void reload();
+      }
+    });
+  }, [reload, selectedReserva, setNotice]);
 
   return (
     <main className={styles.page}>

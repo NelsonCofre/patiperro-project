@@ -921,17 +921,18 @@ public class ReservaService {
     estado != null ? estado.getIdEstadoReserva() : null, // 13: idEstadoReserva
     estado != null ? estado.getNombreEstado() : null,    // 14: nombreEstado
     r.getFechaSolicitud(),          // 15: fechaSolicitud
-    r.getFechaInicioReal(),         // 16: fechaInicioReal
-    r.getFechaFin(),                // 17: fechaFin
-    r.getCodigoEncuentro(),         // 18: codigoEncuentro
-    nombreTutorFinal.trim(),        // 19: tutorNombre (ESTABA DESPUÉS)
-    correoTutorFinal,               // 20: tutorCorreo (ESTABA DESPUÉS)
-    r.getCodigoEncuentroExpiraEn(), // 21: codigoEncuentroExpiraEn
-    r.getMotivoRechazo(),           // 22: motivoRechazo
-    r.getDetalleRechazo()           // 23: detalleRechazo
+    r.getFechaAceptacion(),         // 16: fechaAceptacion
+    r.getFechaInicioReal(),         // 17: fechaInicioReal
+    r.getFechaFin(),                // 18: fechaFin
+    r.getCodigoEncuentro(),         // 19: codigoEncuentro
+    nombreTutorFinal.trim(),        // 20: tutorNombre (ESTABA DESPUÉS)
+    correoTutorFinal,               // 21: tutorCorreo (ESTABA DESPUÉS)
+    r.getCodigoEncuentroExpiraEn(), // 22: codigoEncuentroExpiraEn
+    r.getMotivoRechazo(),           // 23: motivoRechazo
+    r.getDetalleRechazo()           // 24: detalleRechazo
 );
+    }
 
-   
     private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {
         try {
             return agendaIntegracionClient.obtenerBloque(idAgendaBloque, rawJwt);

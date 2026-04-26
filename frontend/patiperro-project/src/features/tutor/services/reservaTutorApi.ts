@@ -103,6 +103,7 @@ type ReservaBasicaDTO = {
   idEstadoReserva: number | null;
   nombreEstado: string | null;
   fechaSolicitud: string | null;
+  fechaAceptacion: string | null;
   montoTotal: number | null;
   idPago: number | null;
   fechaInicioReal: string | null;
@@ -311,6 +312,7 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
     idEstadoReserva: reserva.idEstadoReserva,
     nombreEstado: reserva.nombreEstado,
     fechaSolicitud: reserva.fechaSolicitud,
+    fechaAceptacion: reserva.fechaAceptacion,
     fechaInicioReal: reserva.fechaInicioReal,
     fechaFin: reserva.fechaFin,
     codigoEncuentro: reserva.codigoEncuentro
