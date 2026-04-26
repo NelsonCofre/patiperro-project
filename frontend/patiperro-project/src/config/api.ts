@@ -12,6 +12,8 @@ export const TUTOR_ID_SESSION_KEY = "patiperro_tutor_id";
  * Necesario para Authorization: Bearer hacia el gateway desde el dev server (origen distinto).
  */
 export const ACCESS_TOKEN_SESSION_KEY = "patiperro_access_token";
+/** Endpoint WS STOMP expuesto por reserva-service para eventos de encuentro. */
+export const RESERVA_WS_URL = "ws://localhost:8085/ws/reservas";
 
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
@@ -71,7 +73,8 @@ export const API_ENDPOINTS = {
     timeline: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/timeline`
   },
   reservas: {
-    validarCodigo: `${API_BASE_URL}/api/reservas/codigo/validar`
+    validarCodigo: `${API_BASE_URL}/api/reservas/codigo/validar`,
+    estadoEncuentro: (idReserva: number) => `${API_BASE_URL}/api/reservas/${idReserva}/estado-encuentro`
   },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,

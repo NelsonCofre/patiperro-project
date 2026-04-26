@@ -111,6 +111,37 @@
   backdrop-filter: blur(10px);
 }
 
+.topActions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.backHomeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #cfe3d1;
+  border-radius: 8px;
+  color: #24512d;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: #f6fbf6;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.backHomeButton:hover {
+  border-color: #a8d8ae;
+  background: #e8f5e9;
+  transform: translateY(-1px);
+}
+
 .title {
   margin: 0;
   color: #1f2937;
@@ -165,6 +196,10 @@
   .card {
     padding: 24px 18px 22px;
     border-radius: 18px;
+  }
+
+  .topActions {
+    margin-bottom: 16px;
   }
 
   .title {

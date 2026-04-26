@@ -62,6 +62,9 @@
 }
 
 .link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #334155;
   font-size: 0.92rem;
   font-weight: 700;
@@ -94,6 +97,47 @@
 .linkActive:hover {
   color: #24512d;
   transform: translateY(-2px);
+}
+
+.linkWithBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bellWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: currentColor;
+}
+
+.bellIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  background: #dc2626;
+  box-shadow: 0 8px 16px rgba(220, 38, 38, 0.24);
 }
 
 .logoutButton {
@@ -160,5 +204,9 @@
     align-items: center;
     justify-content: center;
     min-height: 44px;
+  }
+
+  .linkWithBadge {
+    justify-content: center;
   }
 }

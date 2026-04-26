@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { SolicitudPendientePaseador } from "../../types/solicitudPaseador.types";
-import { validarCodigoEncuentroPaseador } from "../../services/solicitudesPaseadorService";
+import {
+  obtenerEstadoEncuentroReserva,
+  validarCodigoEncuentroPaseador
+} from "../../services/solicitudesPaseadorService";
 import styles from "./CodigoEncuentroValidator.module.css";
 
 type Props = {
   solicitud: SolicitudPendientePaseador;
-  onSuccess?: (solicitud: SolicitudPendientePaseador) => void;
+  onSuccess?: (solicitud: SolicitudPendientePaseador, startTime: string) => void;
 };
 
 const EMPTY_DIGITS = ["", "", "", ""];
 const MAX_ATTEMPTS = 3;
-const LOCK_SECONDS = 5 * 60;
+const STATUS_REFRESH_MS = 10000;
 
 function formatTime(value: string): string {
   return value || "--:--";
@@ -26,12 +29,14 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+  const successNotifiedRef = useRef(false);
 
   const lockedRemainingSeconds =
     lockedUntil == null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000));
   const isLocked = lockedRemainingSeconds > 0;
   const code = digits.join("");
   const isComplete = code.length === 4;
+  const [successStartTime, setSuccessStartTime] = useState<string | null>(null);
 
   useEffect(() => {
     if (!lockedUntil) return;
@@ -42,10 +47,18 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   useEffect(() => {
     if (lockedUntil != null && lockedRemainingSeconds <= 0) {
       setLockedUntil(null);
-      setAttempts(0);
       setError("");
     }
   }, [lockedRemainingSeconds, lockedUntil]);
+
+  useEffect(() => {
+    if (!isSuccess || !successStartTime || !onSuccess || successNotifiedRef.current) return;
+    successNotifiedRef.current = true;
+    const timer = window.setTimeout(() => {
+      onSuccess(solicitud, successStartTime);
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [isSuccess, onSuccess, solicitud, successStartTime]);
 
   function focusInput(index: number) {
     window.setTimeout(() => inputsRef.current[index]?.focus(), 0);
@@ -56,18 +69,39 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
     focusInput(0);
   }
 
-  function triggerError(message: string, penalize = true) {
-    const nextAttempts = penalize ? attempts + 1 : attempts;
-    setAttempts(nextAttempts);
+  function triggerError(message: string) {
     setError(message);
     setIsShaking(false);
     window.setTimeout(() => setIsShaking(true), 0);
     window.setTimeout(() => setIsShaking(false), 420);
     resetDigits();
+  }
 
-    if (penalize && nextAttempts >= MAX_ATTEMPTS) {
-      setLockedUntil(Date.now() + LOCK_SECONDS * 1000);
-      setError("Demasiados intentos. El ingreso queda bloqueado por 5 minutos.");
+  async function refreshEstadoEncuentro(silent = false): Promise<void> {
+    try {
+      const estado = await obtenerEstadoEncuentroReserva(solicitud.idReserva);
+      setAttempts(Math.max(0, estado.intentosFallidos || 0));
+      setLockedUntil(estado.bloqueadoHasta ? new Date(estado.bloqueadoHasta).getTime() : null);
+
+      if (estado.estadoEncuentro === "CONFIRMADO") {
+        setError("");
+        setSuccessStartTime(
+          solicitud.fechaInicioReal ??
+            (typeof solicitud.horaInicio === "string" ? solicitud.horaInicio : new Date().toISOString())
+        );
+        setIsSuccess(true);
+        return;
+      }
+
+      if (!silent && estado.mensaje) {
+        setError(estado.mensaje);
+      }
+    } catch (e) {
+      if (!silent) {
+        setError(
+          e instanceof Error ? e.message : "No se pudo consultar el estado actual del encuentro."
+        );
+      }
     }
   }
 
@@ -104,27 +138,41 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   async function handleSubmit() {
     if (isLocked || isSuccess || isValidating) return;
     if (!isComplete) {
-      triggerError("Ingresa los 4 digitos del codigo.", false);
+      triggerError("Ingresa los 4 digitos del codigo.");
       return;
     }
     if (!/^\d{4}$/.test(code)) {
-      triggerError("El codigo debe tener 4 digitos.", false);
+      triggerError("El codigo debe tener 4 digitos.");
       return;
     }
 
     setIsValidating(true);
     try {
-      await validarCodigoEncuentroPaseador(solicitud.idReserva, code);
+      const response = await validarCodigoEncuentroPaseador(solicitud.idReserva, code);
       setError("");
+      setAttempts(0);
+      setLockedUntil(null);
+      setSuccessStartTime(
+        response.fechaInicioReal ??
+          solicitud.fechaInicioReal ??
+          (typeof solicitud.horaInicio === "string" ? solicitud.horaInicio : new Date().toISOString())
+      );
       setIsSuccess(true);
-      onSuccess?.(solicitud);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Codigo incorrecto, intentalo nuevamente";
-      triggerError(msg, true);
+      triggerError(msg);
+      await refreshEstadoEncuentro(true);
     } finally {
       setIsValidating(false);
     }
   }
+
+  useEffect(() => {
+    void refreshEstadoEncuentro(true);
+    const timer = window.setInterval(() => void refreshEstadoEncuentro(true), STATUS_REFRESH_MS);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solicitud.idReserva]);
 
   useEffect(() => {
     if (!isLocked && !isSuccess && !isValidating && isComplete) {
@@ -146,8 +194,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
           <p className={styles.eyebrow}>Encuentro confirmado</p>
           <h3>El paseo comenzo correctamente</h3>
           <p className={styles.successText}>
-            La reserva quedo lista para cambiar a EN_CURSO cuando el backend confirme la
-            validacion real.
+            El backend confirmo el encuentro y la reserva ya quedo en estado EN_CURSO.
           </p>
         </div>
         <div className={styles.summaryGrid}>
@@ -165,7 +212,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
           </div>
           <div>
             <span>Hora programada</span>
-            <strong>{formatTime(solicitud.horaInicio)}</strong>
+            <strong>{formatTime(successStartTime ?? solicitud.fechaInicioReal ?? solicitud.horaInicio)}</strong>
           </div>
         </div>
       </section>

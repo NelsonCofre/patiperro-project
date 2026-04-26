@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { TUTOR_ID_SESSION_KEY } from "../../../config/api";
+import { subscribeEncuentroTopic } from "../../shared/services/encuentroWs";
 import {
   cancelarReservaTutor,
   fetchReservasDetalleTutor,
@@ -6,7 +8,6 @@ import {
 } from "../services/reservaTutorApi";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 import { getReservaEstadoMeta } from "../utils/reservaEstadoUtils";
-import { dispararNotificacion } from "../services/notificacionesApi"; // o la ruta correcta
 
 const REFRESH_MS = 15000;
 
@@ -50,6 +51,25 @@ export function useTutorReservas() {
     void loadReservas("initial");
     const timer = window.setInterval(() => void loadReservas("refresh"), REFRESH_MS);
     return () => window.clearInterval(timer);
+  }, [loadReservas]);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(TUTOR_ID_SESSION_KEY);
+    const idTutor = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(idTutor) || idTutor <= 0) {
+      return;
+    }
+
+    return subscribeEncuentroTopic({
+      topic: `/topic/tutor/${idTutor}/encuentro`,
+      onEvent: (event) => {
+        setNotice(
+          event.mensajeTutor?.trim() ||
+            "El paseo ha comenzado. Tu mascota esta en buenas manos."
+        );
+        void loadReservas("refresh");
+      }
+    });
   }, [loadReservas]);
 
   const cancelarReserva = useCallback(

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -13,6 +14,8 @@ import {
   fetchSolicitudesPendientesPaseador,
   responderSolicitudPaseador
 } from "../../services/solicitudesPaseadorService";
+import { PASEADOR_ID_SESSION_KEY } from "../../../../config/api";
+import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
 import type {
   DecisionSolicitud,
   RechazoSolicitudForm,
@@ -70,8 +73,69 @@ function MapaModal({ lat, lng, direccion, onClose }: { lat: number, lng: number,
     </div>
   );
 }
+type ViewKey = "solicitadas" | "aceptadas" | "en-curso" | "rechazadas";
+
+type ViewConfig = {
+  key: ViewKey;
+  title: string;
+  description: string;
+  emptyTitle: string;
+  emptyText: string;
+  filter: (solicitud: SolicitudPendientePaseador) => boolean;
+  route: string;
+};
+
+const VIEW_CONFIGS: ViewConfig[] = [
+  {
+    key: "solicitadas",
+    title: "Solicitudes por responder",
+    description: "Reservas nuevas que aun esperan tu decision.",
+    emptyTitle: "No tienes solicitudes por responder",
+    emptyText: "Cuando un tutor envie una reserva dentro de tus bloques disponibles, aparecera aqui.",
+    filter: (solicitud) => solicitud.estado === "Solicitada",
+    route: "/paseador/dashboard/solicitudes"
+  },
+  {
+    key: "aceptadas",
+    title: "Reservas aceptadas",
+    description: "Reservas listas para validar el codigo e iniciar el paseo.",
+    emptyTitle: "No tienes reservas aceptadas",
+    emptyText: "Las reservas que aceptes apareceran aqui para continuar con el encuentro.",
+    filter: (solicitud) => solicitud.estado === "Aceptada",
+    route: "/paseador/dashboard/solicitudes/aceptadas"
+  },
+  {
+    key: "en-curso",
+    title: "Paseos en curso",
+    description: "Servicios que ya fueron confirmados y se estan realizando ahora.",
+    emptyTitle: "No tienes paseos en curso",
+    emptyText: "Cuando confirmes el inicio de un paseo, quedara visible aqui con acceso al chat.",
+    filter: (solicitud) => solicitud.estado === "En Curso",
+    route: "/paseador/dashboard/solicitudes/en-curso"
+  },
+  {
+    key: "rechazadas",
+    title: "Solicitudes rechazadas",
+    description: "Historial reciente de reservas que decidiste no tomar.",
+    emptyTitle: "No tienes solicitudes rechazadas",
+    emptyText: "Las solicitudes rechazadas seguiran visibles aqui como referencia.",
+    filter: (solicitud) => solicitud.estado === "Rechazada",
+    route: "/paseador/dashboard/solicitudes/rechazadas"
+  }
+];
+const REFRESH_MS = 15000;
+
+function getActiveView(pathname: string): ViewConfig {
+  if (pathname.endsWith("/aceptadas")) return VIEW_CONFIGS[1];
+  if (pathname.endsWith("/en-curso")) return VIEW_CONFIGS[2];
+  if (pathname.endsWith("/rechazadas")) return VIEW_CONFIGS[3];
+  return VIEW_CONFIGS[0];
+}
 
 export default function PaseadorSolicitudes() {
+  const location = useLocation();
+  const activeView = useMemo(() => getActiveView(location.pathname), [location.pathname]);
+
   const [solicitudes, setSolicitudes] = useState<SolicitudPendientePaseador[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -84,40 +148,84 @@ export default function PaseadorSolicitudes() {
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [selectedTutorSolicitud, setSelectedTutorSolicitud] = useState<SolicitudPendientePaseador | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadSolicitudes() {
+  async function loadSolicitudes(silent = false) {
+    if (!silent) {
       setIsLoading(true);
-      setLoadError("");
-
-      try {
-        const data = await fetchSolicitudesPendientesPaseador();
-        if (!active) return;
-        setSolicitudes(
-          data.filter((solicitud) => solicitud.estado === "Solicitada" || solicitud.estado === "Aceptada")
-        );
-      } catch (error) {
-        if (!active) return;
-        setLoadError(
-          error instanceof Error ? error.message : "No se pudieron cargar las solicitudes."
-        );
-      } finally {
-        if (active) setIsLoading(false);
+    }
+    setLoadError("");
+    try {
+      const data = await fetchSolicitudesPendientesPaseador();
+      setSolicitudes(data);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "No se pudieron cargar las solicitudes."
+      );
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
       }
     }
+  }
 
-    loadSolicitudes();
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    void loadSolicitudes();
+    const timer = window.setInterval(() => void loadSolicitudes(true), REFRESH_MS);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY);
+    const idPaseador = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(idPaseador) || idPaseador <= 0) {
+      return;
+    }
+
+    return subscribeEncuentroTopic({
+      topic: `/topic/paseador/${idPaseador}/encuentro`,
+      onEvent: (event) => {
+        if (!event.idReserva) return;
+        const horaInicio = event.horaInicioRegistrada ?? new Date().toISOString();
+        setSolicitudes((prev) =>
+          prev.map((item) =>
+            item.idReserva === event.idReserva
+              ? {
+                  ...item,
+                  estado: "En Curso",
+                  fechaInicioReal: horaInicio,
+                  trackingActivo: Boolean(event.trackingActivo),
+                  chatActivo: Boolean(event.chatActivo)
+                }
+              : item
+          )
+        );
+        setFeedback({
+          type: "success",
+          message:
+            event.mensajePaseador?.trim() ||
+            `Paseo iniciado correctamente para ${event.mascotaNombre ?? "la mascota"}.`
+        });
+      },
+      onError: (message) => {
+        setFeedback({
+          type: "error",
+          message
+        });
+      }
+    });
   }, []);
 
   const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
+  const inProgressCount = solicitudes.filter((solicitud) => solicitud.estado === "En Curso").length;
+  const rejectedCount = solicitudes.filter((solicitud) => solicitud.estado === "Rechazada").length;
   const totalAmount = useMemo(
     () => solicitudes.reduce((sum, solicitud) => sum + solicitud.montoTotal, 0),
     [solicitudes]
+  );
+  const visibleSolicitudes = useMemo(
+    () => solicitudes.filter(activeView.filter),
+    [activeView, solicitudes]
   );
 
   const processingId = processing?.solicitud.idReserva ?? null;
@@ -171,6 +279,40 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
   }
 };
 
+  function handleStartPaseo(solicitud: SolicitudPendientePaseador, startTime: string) {
+    setSolicitudes((prev) =>
+      prev.map((item) =>
+        item.idReserva === solicitud.idReserva
+          ? {
+              ...item,
+              estado: "En Curso",
+              fechaInicioReal: startTime,
+              trackingActivo: true,
+              chatActivo: true
+            }
+          : item
+      )
+    );
+    setFeedback({
+      type: "success",
+      message: `Paseo iniciado correctamente para ${solicitud.mascotaNombre}.`
+    });
+  }
+
+  function handleOpenChat(solicitud: SolicitudPendientePaseador) {
+    if (solicitud.chatActivo) {
+      setFeedback({
+        type: "success",
+        message: `Chat habilitado para ${solicitud.mascotaNombre}. Integraremos la sala en la siguiente historia.`
+      });
+      return;
+    }
+    setFeedback({
+      type: "error",
+      message: `El chat aun no esta habilitado para ${solicitud.mascotaNombre}. Espera la confirmacion del encuentro.`
+    });
+  }
+
   async function handleConfirmDecision(rechazo: RechazoSolicitudForm) {
     if (!confirmation) return;
 
@@ -199,21 +341,35 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
             urlReserva: "http://localhost:5173/login/tutor"
           }
         });
-        console.log(`Notificación de ${decision} enviada al tutor.`);
       } catch (emailError) {
-        console.error("Error al enviar notificación:", emailError);
+        console.error("Error al enviar notificacion:", emailError);
       }
 
-      setSolicitudes((prev) => prev.filter((item) => item.idReserva !== solicitud.idReserva));
+      setSolicitudes((prev) =>
+        prev.map((item) =>
+          item.idReserva === solicitud.idReserva
+            ? {
+                ...item,
+                estado: decision === "ACEPTAR" ? "Aceptada" : "Rechazada"
+              }
+            : item
+        )
+      );
       setConfirmation(null);
       setFeedback({
         type: "success",
-        message: decision === "ACEPTAR" ? "Solicitud aceptada correctamente." : "Solicitud rechazada correctamente."
+        message:
+          decision === "ACEPTAR"
+            ? "Solicitud aceptada y tutor notificado por correo."
+            : "Solicitud rechazada. Se informo al tutor el motivo."
       });
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "No se pudo procesar la decisión."
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo procesar la decision. Intentalo nuevamente."
       });
     } finally {
       setProcessing(null);
@@ -226,26 +382,50 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
 
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Solicitudes pendientes</p>
-          <h1 className={styles.title}>Acepta o rechaza paseos con seguridad</h1>
+          <p className={styles.eyebrow}>Solicitudes del paseador</p>
+          <h1 className={styles.title}>Resumen de solicitudes</h1>
           <p className={styles.description}>
-            Revisa cada solicitud antes de confirmar. Al aceptar se prepara el flujo de pago; al
-            rechazar se deja listo el motivo para informar al tutor.
+            Revisa el estado general de tus reservas y entra a cada vista para responder,
+            validar encuentros o seguir el progreso del paseo.
           </p>
         </div>
 
         <div className={styles.summaryPanel}>
-          <span>Solicitudes activas</span>
-          <strong>{pendingCount}</strong>
-          <p>
-            Aceptadas listas para validar: {acceptedCount}.{" "}
-            Monto potencial:{" "}
-            {new Intl.NumberFormat("es-CL", {
-              style: "currency",
-              currency: "CLP",
-              maximumFractionDigits: 0
-            }).format(totalAmount)}
-          </p>
+          <div className={styles.summaryHeader}>
+            <span>Dashboard de solicitudes</span>
+            <strong>{solicitudes.length}</strong>
+            <p>Vista general de tus reservas y su estado actual.</p>
+          </div>
+
+          <div className={styles.metricsGrid}>
+            <article className={styles.metricCard}>
+              <span>Pendientes</span>
+              <strong>{pendingCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>Aceptadas</span>
+              <strong>{acceptedCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>En curso</span>
+              <strong>{inProgressCount}</strong>
+            </article>
+            <article className={styles.metricCard}>
+              <span>Rechazadas</span>
+              <strong>{rejectedCount}</strong>
+            </article>
+          </div>
+
+          <div className={styles.summaryFooter}>
+            <span>Monto potencial</span>
+            <strong>
+              {new Intl.NumberFormat("es-CL", {
+                style: "currency",
+                currency: "CLP",
+                maximumFractionDigits: 0
+              }).format(totalAmount)}
+            </strong>
+          </div>
         </div>
       </section>
 
@@ -259,12 +439,25 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
         <div className={styles.sectionHeading}>
           <div>
             <p className={styles.cardEyebrow}>Panel del paseador</p>
-            <h2>Solicitudes y encuentros</h2>
+            <h2>{activeView.title}</h2>
           </div>
         </div>
 
+        <nav className={styles.stateTabs} aria-label="Estados de solicitudes">
+          {VIEW_CONFIGS.map((view) => (
+            <NavLink
+              key={view.key}
+              to={view.route}
+              end={view.key === "solicitadas"}
+              className={({ isActive }) => `${styles.stateTab} ${isActive ? styles.stateTabActive : ""}`}
+            >
+              {view.title}
+            </NavLink>
+          ))}
+        </nav>
+
         {isLoading ? (
-          <div className={styles.skeletonList}>
+          <div className={styles.skeletonList} aria-label="Cargando solicitudes">
             {["skeleton-1", "skeleton-2", "skeleton-3"].map((item) => (
               <article key={item} className={styles.skeletonCard}><span /><span /><span /><span /><span /></article>
             ))}
@@ -274,9 +467,9 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
             <h3>No pudimos cargar tus solicitudes</h3>
             <p>{loadError}</p>
           </article>
-        ) : solicitudes.length > 0 ? (
+        ) : visibleSolicitudes.length > 0 ? (
           <div className={styles.cardsList}>
-            {solicitudes.map((solicitud) => (
+            {visibleSolicitudes.map((solicitud) => (
               <SolicitudPendienteCard
                 key={solicitud.idReserva}
                 solicitud={solicitud}
@@ -284,7 +477,9 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
                 onAccept={(nextSolicitud) => openConfirmation(nextSolicitud, "ACEPTAR")}
                 onReject={(nextSolicitud) => openConfirmation(nextSolicitud, "RECHAZAR")}
                 onViewTutor={setSelectedTutorSolicitud}
-                onViewMap={() => handleVerMapa(solicitud)} // Pasamos la función de mapa aquí
+                onViewMap={handleVerMapa}
+                onStartPaseo={handleStartPaseo}
+                onOpenChat={handleOpenChat}
               />
             ))}
           </div>
@@ -292,6 +487,8 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           <article className={styles.emptyState}>
             <h3>No tienes solicitudes ni encuentros pendientes</h3>
             <p>Cuando un tutor solicite un paseo aparecerá aquí.</p>
+            <h3>{activeView.emptyTitle}</h3>
+            <p>{activeView.emptyText}</p>
           </article>
         )}
       </section>

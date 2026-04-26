@@ -35,13 +35,16 @@ export type SolicitudPendientePaseador = {
   comuna: string;
   direccionReferencia: string;
   montoTotal: number;
-  estado: "Solicitada" | "Aceptada" | "Rechazada";
+  estado: "Solicitada" | "Aceptada" | "En Curso" | "Rechazada";
   codigoEncuentro?: number | null;
   comentarioTutor?: string;
   fechaSolicitud: string;
   // 👇 AGREGA ESTAS DOS LÍNEAS AQUÍ 👇
   latitud?: number;  // El '?' es por si alguna reserva vieja no las tiene
   longitud?: number;
+  fechaInicioReal?: string | null;
+  trackingActivo?: boolean;
+  chatActivo?: boolean;
 };
 
 export type DecisionSolicitudPayload = {

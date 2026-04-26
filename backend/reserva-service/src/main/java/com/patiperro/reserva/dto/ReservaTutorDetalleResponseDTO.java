@@ -32,6 +32,8 @@ public class ReservaTutorDetalleResponseDTO {
     private Integer codigoEncuentro;
     private String tutorNombre;
     private String tutorCorreo;
+    /** Fin de validez del PIN (inicio programado + ventana, o ajuste si ya pasó). */
+    private LocalDateTime codigoEncuentroExpiraEn;
     private String motivoRechazo;
     private String detalleRechazo;
 }

@@ -27,6 +27,7 @@ public class ReservaResponseDTO {
     private LocalDateTime fechaInicioReal;
     private LocalDateTime fechaFin;
     private Integer codigoEncuentro;
+    private LocalDateTime codigoEncuentroExpiraEn;
     private String motivoRechazo;
     private String detalleRechazo;
     /** Copia del bloque de agenda (inicio/fin programados) cuando se enriquece el listado. */
