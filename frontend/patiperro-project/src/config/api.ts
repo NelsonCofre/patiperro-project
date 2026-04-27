@@ -57,9 +57,14 @@ export const API_ENDPOINTS = {
     estadosBloque: `${API_BASE_URL}/api/agenda/estados-bloque`,
     diasSemana: `${API_BASE_URL}/api/agenda/dias-semana`,
     bloques: `${API_BASE_URL}/api/agenda/bloques`,
+    bloqueosDia: `${API_BASE_URL}/api/agenda/bloqueos-dia`,
     bloquesSerieMes: `${API_BASE_URL}/api/agenda/bloques/serie-mes`,
     bloquesPorUsuario: (idUsuario: number) =>
       `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}`,
+    bloqueosDiaPorUsuario: (idUsuario: number) =>
+      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}`,
+    desbloquearDiaPorUsuario: (idUsuario: number, fechaISO: string) =>
+      `${API_BASE_URL}/api/agenda/bloqueos-dia/usuario/${idUsuario}/fecha/${fechaISO}`,
     bloquesOferta: (idUsuario: number, desde: string, hasta: string) =>
       `${API_BASE_URL}/api/agenda/bloques/usuario/${idUsuario}/oferta?desde=${desde}&hasta=${hasta}`,
     bloque: (idBloque: number) => `${API_BASE_URL}/api/agenda/bloques/${idBloque}`
