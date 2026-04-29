@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import {
   crearReservaTutor,
@@ -69,6 +69,7 @@ function toDateSafe(fecha: string, hora: string): Date | null {
 }
 
 export default function SolicitudPaseo() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const paseadorId = parsePositiveInt(searchParams.get("paseadorId") ?? "");
   const paseadorNombre = (searchParams.get("paseadorNombre") ?? "").trim() || null;
@@ -81,7 +82,6 @@ export default function SolicitudPaseo() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loadingData, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [correoPaseador, setCorreoPaseador] = useState<string>("");
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function SolicitudPaseo() {
     return Math.round((selectedTarifa.precioPorHora * duracionMinutos) / 60);
   }, [selectedTarifa, duracionMinutos]);
 
-  const canSubmit = Boolean(mascotaId && bloqueId && selectedTarifa && total > 0) && !isSubmitting && !isSubmitted;
+  const canSubmit = Boolean(mascotaId && bloqueId && selectedTarifa && total > 0) && !isSubmitting;
 
   const bloqueLabel = useMemo(() => {
     if (!selectedBloque) return "Por seleccionar";
@@ -237,7 +237,7 @@ export default function SolicitudPaseo() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isSubmitting || isSubmitted) return;
+    if (isSubmitting) return;
 
     if (!validateForm()) {
       return;
@@ -263,7 +263,7 @@ const nombreTutorFinal = nombreTutorRaw ? nombreTutorRaw.split(" ")[0] : "Un tut
       }
 
       // 1. CREA LA RESERVA
-      await crearReservaTutor({
+      const reservaCreada = await crearReservaTutor({
         idTutorUsuario: idTutor,
         idMascota: mascota,
         idAgendaBloque: agenda,
@@ -292,7 +292,15 @@ await dispararNotificacion({
         console.error("Reserva creada, pero la notificación falló:", emailError);
       }
       
-      setIsSubmitted(true);
+      const bloqueResumen = `${selectedBloque?.fecha ?? ""} ${selectedBloque?.horaInicio ?? ""}-${selectedBloque?.horaFinal ?? ""}`.trim();
+      const pagoUrl = `/tutor/pago-reserva?idReserva=${encodeURIComponent(
+        String(reservaCreada.idReserva)
+      )}&total=${encodeURIComponent(String(total))}&paseador=${encodeURIComponent(
+        getPaseadorName(paseadorNombre)
+      )}&mascota=${encodeURIComponent(selectedMascota?.nombre ?? "Mascota")}&bloque=${encodeURIComponent(
+        bloqueResumen || "Bloque reservado"
+      )}`;
+      navigate(pagoUrl);
 
     // 👇 SOLUCIÓN ERROR 1: Aquí está el catch y finally que faltaba para cerrar el try principal
     } catch (error) {
@@ -305,22 +313,6 @@ await dispararNotificacion({
 
   return (
     <main className={styles.page}>
-      {isSubmitted ? (
-        <div className={styles.toastOverlay}>
-          <div className={styles.toastCard} role="dialog" aria-modal="true">
-            <span className={styles.toastEyebrow}>Solicitud enviada</span>
-            <h2>Tu solicitud ha sido enviada con exito</h2>
-            <p>
-              Tu reserva fue creada con estado SOLICITADA. El paseador ya puede verla para
-              aceptarla o rechazarla.
-            </p>
-            <Link to="/tutor/dashboard" className={styles.toastButton}>
-              Volver al home
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
       <TutorNavbar />
 
       <section className={styles.shell}>
@@ -491,10 +483,8 @@ await dispararNotificacion({
               <Link to="/tutor/dashboard">Volver</Link>
               <button type="submit" disabled={!canSubmit}>
                 {isSubmitting
-                  ? "Enviando solicitud..."
-                  : isSubmitted
-                    ? "Solicitud enviada"
-                    : "Enviar solicitud de paseo"}
+                  ? "Creando reserva..."
+                  : "Continuar al pago"}
               </button>
             </div>
           </aside>
