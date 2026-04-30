@@ -36,7 +36,7 @@ export function useTutorReservas() {
     try {
       const idTutor = readTutorIdFromSession();
       const data = await fetchReservasDetalleTutor(idTutor);
-      setReservas([...data].sort((a, b) => getSortDate(a) - getSortDate(b)));
+      setReservas([...data].sort((a, b) => getSortDate(b) - getSortDate(a)));
       setLastUpdated(new Date());
       setError(null);
     } catch (e) {

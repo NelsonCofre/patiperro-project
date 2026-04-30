@@ -18,6 +18,10 @@ export type ReservaTutorDetalleDTO = {
   fechaInicioReal: string | null;
   fechaFin: string | null;
   codigoEncuentro: number | null;
+  paymentStatus?: string | null;
+  paymentPreferenceId?: string | null;
+  paymentInitPoint?: string | null;
+  mensajeRetencionFondos?: string | null;
 };
 
 export type ReservaEstadoKey =
