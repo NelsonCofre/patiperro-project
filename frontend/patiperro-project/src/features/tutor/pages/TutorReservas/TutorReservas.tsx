@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
+import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
 import ReservaCard from "../../components/ReservaCard/ReservaCard";
 import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
+import SaldoRetenidoNotice from "../../components/SaldoRetenidoNotice/SaldoRetenidoNotice";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
@@ -15,8 +17,56 @@ import {
 } from "../../utils/reservaEstadoUtils";
 import styles from "./TutorReservas.module.css";
 
+function normalizePaymentStatus(value?: string | null): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
+  title: string;
+  helper: string;
+  tag: string;
+} {
+  const normalized = normalizePaymentStatus(reserva.paymentStatus);
+
+  if (normalized.includes("pagad") || reserva.idPago != null) {
+    return {
+      title: "Pagada",
+      helper: "La transaccion ya fue confirmada y el dinero sigue resguardado hasta el cierre del paseo.",
+      tag: "statusPaid"
+    };
+  }
+
+  if (normalized.includes("pendiente_pago") || normalized.includes("pending_payment")) {
+    return {
+      title: "Pendiente de pago",
+      helper: "La reserva esta lista para que completes el checkout seguro.",
+      tag: "statusPending"
+    };
+  }
+
+  if (normalized.includes("fall")) {
+    return {
+      title: "Pago no completado",
+      helper: "Puedes volver a intentarlo sin perder tu reserva.",
+      tag: "statusFailed"
+    };
+  }
+
+  return {
+    title: "Pago disponible",
+    helper: "Puedes iniciar el pago desde este detalle cuando quieras confirmar la reserva.",
+    tag: "statusReady"
+  };
+}
+
 export default function TutorReservas() {
   const [selectedReserva, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [showRetencionInfo, setShowRetencionInfo] = useState(false);
   const {
     reservas,
     isLoading,
@@ -31,6 +81,7 @@ export default function TutorReservas() {
   } = useTutorReservas();
 
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
+  const selectedPaymentMeta = selectedReserva ? getPaymentStatusMeta(selectedReserva) : null;
 
   useEffect(() => {
     if (!selectedReserva) return;
@@ -103,6 +154,39 @@ export default function TutorReservas() {
                 </p>
               </div>
             </div>
+
+            {selectedPaymentMeta ? (
+              <section className={styles.paymentSection}>
+                <div className={styles.paymentHeader}>
+                  <div>
+                    <p className={styles.cardEyebrow}>Pago de la reserva</p>
+                    <h3>Checkout y respaldo del servicio</h3>
+                  </div>
+                  <span className={`${styles.paymentBadge} ${styles[selectedPaymentMeta.tag]}`}>
+                    {selectedPaymentMeta.title}
+                  </span>
+                </div>
+
+                <p className={styles.paymentHelper}>{selectedPaymentMeta.helper}</p>
+
+                <PagoReservaButton
+                  preferenceId={selectedReserva.paymentPreferenceId}
+                  initPoint={selectedReserva.paymentInitPoint}
+                  paymentStatus={selectedReserva.paymentStatus}
+                  amountLabel={formatReservaMoney(selectedReserva.montoTotal)}
+                  onUnavailable={() =>
+                    setNotice(
+                      "El backend aun debe entregar el preferenceId o el enlace seguro de Mercado Pago para completar este checkout."
+                    )
+                  }
+                />
+
+                <SaldoRetenidoNotice
+                  message={selectedReserva.mensajeRetencionFondos}
+                  onOpenInfo={() => setShowRetencionInfo(true)}
+                />
+              </section>
+            ) : null}
 
             {selectedEstado?.key === "en_curso" ? (
               <PaseoEnCursoCard
@@ -179,6 +263,9 @@ export default function TutorReservas() {
           <div>
             <p className={styles.cardEyebrow}>Listado cronologico</p>
             <h2>Todas tus solicitudes</h2>
+            <p className={styles.sectionSubtext}>
+              El historial conserva tambien la referencia del pago y la politica de saldo retenido.
+            </p>
           </div>
           {error ? <span className={styles.errorText}>{error}</span> : null}
         </div>
@@ -212,6 +299,35 @@ export default function TutorReservas() {
           </article>
         )}
       </section>
+
+      {showRetencionInfo ? (
+        <div className={styles.modalOverlay}>
+          <section className={styles.infoModalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.cardEyebrow}>Pago seguro</p>
+                <h2>Como funciona el saldo retenido</h2>
+              </div>
+              <button type="button" onClick={() => setShowRetencionInfo(false)}>
+                Cerrar
+              </button>
+            </div>
+
+            <div className={styles.infoModalContent}>
+              <p>
+                Patiperro retiene temporalmente el dinero del pago para proteger a ambas
+                partes durante la ejecucion del servicio.
+              </p>
+              <ul className={styles.infoList}>
+                <li>El cobro se inicia desde una pasarela de pago segura.</li>
+                <li>El dinero no se libera al paseador mientras el paseo siga en curso.</li>
+                <li>Cuando el servicio finaliza satisfactoriamente, se habilita la liberacion del saldo.</li>
+                <li>Si el pago falla o se cancela, puedes reintentar sin perder la reserva.</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

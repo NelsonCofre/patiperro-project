@@ -9,6 +9,29 @@ import {
 } from "../../utils/reservaEstadoUtils";
 import styles from "./ReservaCard.module.css";
 
+function normalizePaymentStatus(value?: string | null): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function getPaymentLabel(reserva: ReservaTutorDetalleDTO): string {
+  const status = normalizePaymentStatus(reserva.paymentStatus);
+  if (status.includes("pagad") || reserva.idPago != null) {
+    return "Pago confirmado";
+  }
+  if (status.includes("pendiente_pago") || status.includes("pending_payment")) {
+    return "Pendiente de pago";
+  }
+  if (status.includes("fall")) {
+    return "Pago no completado";
+  }
+  return "Pago disponible";
+}
+
 type Props = {
   reserva: ReservaTutorDetalleDTO;
   onDetalle: (reserva: ReservaTutorDetalleDTO) => void;
@@ -18,6 +41,7 @@ type Props = {
 
 export default function ReservaCard({ reserva, onDetalle, onCancelar, onCalificar }: Props) {
   const estado = getReservaEstadoMeta(reserva);
+  const paymentLabel = getPaymentLabel(reserva);
 
   return (
     <article className={styles.card}>
@@ -53,7 +77,10 @@ export default function ReservaCard({ reserva, onDetalle, onCancelar, onCalifica
       </div>
 
       <div className={styles.footer}>
-        <span>{formatReservaMoney(reserva.montoTotal)}</span>
+        <div>
+          <span>{formatReservaMoney(reserva.montoTotal)}</span>
+          <p className={styles.paymentHelper}>{paymentLabel}</p>
+        </div>
         <div className={styles.actions}>
           <button type="button" className={styles.secondaryButton} onClick={() => onDetalle(reserva)}>
             Ver detalle

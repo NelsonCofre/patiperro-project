@@ -107,6 +107,7 @@ export default function LoginTutor() {
       buttonText="Ingresar"
       isSubmitting={isSubmitting}
       isSubmitDisabled={isSubmitDisabled}
+      reverseLayout
     >
       <div className={styles.header}>
         <p>Accede con tu cuenta de tutor para gestionar reservas y paseos.</p>

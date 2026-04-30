@@ -1,6 +1,3 @@
-import { Client } from "@stomp/stompjs";
-import { RESERVA_WS_URL } from "../../../config/api";
-
 export type EncuentroConfirmadoEvent = {
   tipo?: string;
   idReserva?: number;
@@ -21,38 +18,18 @@ type SubscribeOptions = {
   onError?: (message: string) => void;
 };
 
+/**
+ * Fallback MVP: mientras el cliente STOMP no esté instalado en el proyecto,
+ * mantenemos una API estable para los módulos que esperan eventos de encuentro.
+ * El backend puede seguir notificando por polling/refresh sin romper el build.
+ */
 export function subscribeEncuentroTopic({
   topic,
   onEvent,
   onError
 }: SubscribeOptions): () => void {
-  const client = new Client({
-    brokerURL: RESERVA_WS_URL,
-    reconnectDelay: 3000,
-    heartbeatIncoming: 10000,
-    heartbeatOutgoing: 10000,
-    onStompError: (frame) => {
-      onError?.(frame.headers.message || "Error STOMP en eventos de encuentro.");
-    }
-  });
-
-  client.onConnect = () => {
-    client.subscribe(topic, (message) => {
-      try {
-        const payload = JSON.parse(message.body) as EncuentroConfirmadoEvent;
-        onEvent(payload);
-      } catch {
-        onError?.("No se pudo interpretar el evento de encuentro.");
-      }
-    });
-  };
-
-  client.onWebSocketError = () => {
-    onError?.("No se pudo conectar al canal en tiempo real de reservas.");
-  };
-
-  client.activate();
-  return () => {
-    client.deactivate();
-  };
+  void topic;
+  void onEvent;
+  onError?.("El canal en tiempo real se encuentra deshabilitado en este entorno.");
+  return () => {};
 }
