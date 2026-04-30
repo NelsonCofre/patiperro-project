@@ -123,6 +123,22 @@ public class AgendaBloqueService {
         return AgendaDtoMapper.toBloqueResponse(obtenerEntidad(id));
     }
 
+    /**
+     * Lectura de bloque invocada por otro microservicio (sin JWT).
+     * Protegida por {@code patiperro.agenda.interno.secret} vía header X-Patiperro-Interno-Secret.
+     */
+    public AgendaBloqueResponseDTO obtenerInterno(Integer idAgenda, String secretRecibido) {
+        String esperado = internoSecret != null ? internoSecret.trim() : "";
+        if (!StringUtils.hasText(esperado)) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Interno agenda no configurado (patiperro.agenda.interno.secret)");
+        }
+        if (secretRecibido == null || !esperado.equals(secretRecibido.trim())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Credencial interna inválida");
+        }
+        return AgendaDtoMapper.toBloqueResponse(obtenerEntidad(idAgenda));
+    }
+
     @Transactional
     public AgendaBloqueResponseDTO crear(AgendaBloqueRequestDTO dto) {
         validarRangoHorario(dto);

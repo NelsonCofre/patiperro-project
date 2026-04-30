@@ -3,6 +3,7 @@ package com.patiperro.notification_service.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.mail.internet.MimeMessage;
@@ -31,6 +32,10 @@ public class NotificationService {
     private final PlantillaRepository plantillaRepository;
     private final LogEnvioRepository logEnvioRepository;
     private final JavaMailSender mailSender;
+
+    /** Template Brevo para {@link PagoNotificacionService#TIPO_EVENTO_PAGO_CONFIRMADO}. */
+    @Value("${patiperro.notification.brevo.template.PAGO_CONFIRMADO:4}")
+    private Long brevoTemplatePagoConfirmado;
 
     // =========================================================================
     // GESTIÓN DE PLANTILLAS (Configuración del Sistema)
@@ -238,6 +243,7 @@ public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
             case "RESERVA_ACEPTADA" -> 1L;   // Conecta con tu plantilla "#1 Confirmacion de paseo"
             case "RESERVA_RECHAZADA" -> 2L;  // Conecta con tu plantilla "#2 Rechazo de paseo"
             case "SOLICITUD_PASEO" -> 3L;    // Conecta con tu plantilla "#3 Nueva plantilla"
+            case "PAGO_CONFIRMADO" -> brevoTemplatePagoConfirmado != null ? brevoTemplatePagoConfirmado : 4L;
             default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
         };
     }

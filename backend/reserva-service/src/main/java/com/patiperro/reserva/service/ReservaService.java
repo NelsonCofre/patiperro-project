@@ -443,9 +443,12 @@ public class ReservaService {
         if (idsAgendaBloque == null || idsAgendaBloque.isEmpty()) {
             return false; // No hay bloques para validar //
         }
-        // Reserva que aún retiene el bloque: solicitada, aceptada o en curso (no rechazada ni finalizada).
+        // Reserva que aún retiene el bloque: solicitada/pendiente pago/pagada/aceptada/en curso
+        // (no rechazada ni cancelada ni finalizada).
         List<Integer> estadosComprometidos = List.of(
                 EstadoReservaCatalogo.ID_SOLICITADA,
+                EstadoReservaCatalogo.ID_PENDIENTE_PAGO,
+                EstadoReservaCatalogo.ID_PAGADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_EN_CURSO);
         
@@ -544,6 +547,8 @@ public class ReservaService {
         List<Integer> idsBloque = new ArrayList<>(bloquePorId.keySet());
         List<Integer> estadosVisibles = List.of(
                 EstadoReservaCatalogo.ID_SOLICITADA,
+                EstadoReservaCatalogo.ID_PENDIENTE_PAGO,
+                EstadoReservaCatalogo.ID_PAGADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_EN_CURSO,
                 EstadoReservaCatalogo.ID_RECHAZADA);

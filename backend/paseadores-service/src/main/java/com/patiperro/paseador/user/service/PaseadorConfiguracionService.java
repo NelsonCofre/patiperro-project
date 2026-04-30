@@ -62,7 +62,8 @@ public class PaseadorConfiguracionService {
         return new PaseadorResumenResponseDTO(
                 paseador.getId(),
                 nombrePublico(paseador),
-                paseador.getFotoPerfil());
+                paseador.getFotoPerfil(),
+                paseador.getCorreo());
     }
 
     @Transactional

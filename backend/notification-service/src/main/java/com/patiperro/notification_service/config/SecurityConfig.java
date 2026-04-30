@@ -23,6 +23,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/notificaciones/**").permitAll()
                 .requestMatchers("/internal/paseo/**").permitAll()
+                .requestMatchers("/internal/pagos/**").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();

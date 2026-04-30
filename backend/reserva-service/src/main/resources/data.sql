@@ -20,3 +20,9 @@ ON CONFLICT (id_estado_reserva) DO NOTHING;
 INSERT INTO estado_reserva (id_estado_reserva, nombre_estado)
 VALUES (6, 'CANCELADA')
 ON CONFLICT (id_estado_reserva) DO NOTHING;
+INSERT INTO estado_reserva (id_estado_reserva, nombre_estado)
+VALUES (7, 'PENDIENTE_PAGO')
+ON CONFLICT (id_estado_reserva) DO NOTHING;
+INSERT INTO estado_reserva (id_estado_reserva, nombre_estado)
+VALUES (8, 'PAGADA')
+ON CONFLICT (id_estado_reserva) DO NOTHING;

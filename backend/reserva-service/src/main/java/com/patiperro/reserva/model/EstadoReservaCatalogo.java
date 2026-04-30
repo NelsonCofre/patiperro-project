@@ -17,6 +17,10 @@ public final class EstadoReservaCatalogo {
     public static final int ID_FINALIZADA = 5;
     /** Anulación por el tutor con solicitud aún pendiente; no es {@link #NOMBRE_RECHAZADA} (rechazo del paseador). */
     public static final int ID_CANCELADA = 6;
+    /** El tutor debe pagar la reserva; a la espera de confirmación de pasarela. */
+    public static final int ID_PENDIENTE_PAGO = 7;
+    /** Pago confirmado por pasarela (webhook/IPN). */
+    public static final int ID_PAGADA = 8;
 
     public static final String NOMBRE_SOLICITADA = "SOLICITADA";
     public static final String NOMBRE_ACEPTADA = "ACEPTADA";
@@ -25,6 +29,8 @@ public final class EstadoReservaCatalogo {
     public static final String NOMBRE_FINALIZADA = "FINALIZADA";
     /** Retiro del tutor; no usar {@link #NOMBRE_RECHAZADA} para este caso. */
     public static final String NOMBRE_CANCELADA = "CANCELADA";
+    public static final String NOMBRE_PENDIENTE_PAGO = "PENDIENTE_PAGO";
+    public static final String NOMBRE_PAGADA = "PAGADA";
 
     private EstadoReservaCatalogo() {
     }

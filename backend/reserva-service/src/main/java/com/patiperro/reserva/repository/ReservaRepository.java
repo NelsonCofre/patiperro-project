@@ -73,6 +73,20 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     @Query("UPDATE Reserva r SET r.codigoBloqueadoHasta = :hasta WHERE r.idReserva = :idReserva")
     int fijarBloqueoCodigoHasta(@Param("idReserva") Integer idReserva, @Param("hasta") LocalDateTime hasta);
 
+    /**
+     * Marca la reserva como PAGADA de forma atómica, solo si está en uno de los estados origen permitidos.
+     * Útil para idempotencia ante webhooks duplicados y para evitar condiciones de carrera.
+     *
+     * @return cantidad de filas actualizadas (0 o 1)
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Reserva r SET r.estadoReserva = :pagada "
+            + "WHERE r.idReserva = :idReserva AND r.estadoReserva.idEstadoReserva IN :idsOrigen")
+    int marcarPagadaSiEstadoEn(
+            @Param("pagada") EstadoReserva pagada,
+            @Param("idReserva") Integer idReserva,
+            @Param("idsOrigen") Collection<Integer> idsOrigen);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
     int reiniciarContadoresBloqueoCodigo(@Param("idReserva") Integer idReserva);

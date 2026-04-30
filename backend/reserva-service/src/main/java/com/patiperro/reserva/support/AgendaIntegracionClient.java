@@ -18,6 +18,7 @@ import java.util.List;
 public class AgendaIntegracionClient {
 
     private static final String URI_BLOQUE_POR_ID = "/api/agenda/bloques/{id}";
+    private static final String URI_BLOQUE_POR_ID_INTERNO = "/api/agenda/interno/bloques/{id}";
     private static final String HEADER_AGENDA_INTERNO = "X-Patiperro-Interno-Secret";
 
     private final RestClient restClient;
@@ -85,6 +86,34 @@ public class AgendaIntegracionClient {
         } catch (RestClientResponseException e) {
             throw new IllegalStateException(
                     "Agenda-service respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Obtiene un bloque de agenda por id mediante endpoint interno (sin JWT).
+     * Requiere {@code patiperro.reserva.agenda-interno.secret}.
+     */
+    public AgendaBloqueReservaClientDTO obtenerBloquePorIdInterno(Integer idAgendaBloque) {
+        if (!isEnabled()) {
+            throw new IllegalStateException(
+                    "Integración con agenda-service deshabilitada o sin base-url; no se puede obtener el bloque");
+        }
+        if (!StringUtils.hasText(agendaInternoSecret)) {
+            throw new IllegalStateException(
+                    "Falta patiperro.reserva.agenda-interno.secret para consultar bloque interno en agenda-service");
+        }
+        try {
+            return restClient
+                    .get()
+                    .uri(URI_BLOQUE_POR_ID_INTERNO, idAgendaBloque)
+                    .header(HEADER_AGENDA_INTERNO, agendaInternoSecret)
+                    .retrieve()
+                    .body(AgendaBloqueReservaClientDTO.class);
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Agenda-service (interno) respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
         } catch (RestClientException e) {
             throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
         }
