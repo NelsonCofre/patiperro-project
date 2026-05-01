@@ -3,6 +3,7 @@ package com.patiperro.notification_service.service;
 import com.patiperro.notification_service.dto.NotificacionEventoRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -19,10 +20,17 @@ public class PagoNotificacionService {
 
     public static final String TIPO_EVENTO_PAGO_CONFIRMADO = "PAGO_CONFIRMADO";
 
+    public static final String TIPO_EVENTO_REEMBOLSO_RESERVA = "REEMBOLSO_RESERVA";
+
     private final NotificationService notificationService;
 
-    public PagoNotificacionService(NotificationService notificationService) {
+    private final boolean reembolsoProcesadoEnabled;
+
+    public PagoNotificacionService(
+            NotificationService notificationService,
+            @Value("${patiperro.notification.reembolso-procesado.enabled:true}") boolean reembolsoProcesadoEnabled) {
         this.notificationService = notificationService;
+        this.reembolsoProcesadoEnabled = reembolsoProcesadoEnabled;
     }
 
     /**
@@ -54,6 +62,56 @@ public class PagoNotificacionService {
         } catch (RuntimeException e) {
             log.warn("Pago confirmado: fallo al disparar notificación Brevo (idReserva={}, destinatario parcial={})",
                     idReserva, enmascararEmail(emailDestino), e);
+        }
+    }
+
+    /**
+     * @param emailDestino correo del tutor; vacío → solo log, sin Brevo
+     */
+    public void procesarReembolsoTutor(Integer idReserva, String emailDestino) {
+        dispararEventoReembolsoReserva(idReserva, emailDestino, null, "reembolso-tutor");
+    }
+
+    /**
+     * Paso servidor-a-servidor explícito “reembolso procesado”; mismo {@link #TIPO_EVENTO_REEMBOLSO_RESERVA} y plantilla Brevo.
+     * Si {@code patiperro.notification.reembolso-procesado.enabled=false}, no hace envío (204 desde controller igualmente).
+     *
+     * @param idTutor opcional para variables de plantilla (este servicio no resuelve correo desde id tutores-service).
+     */
+    public void procesarReembolsoProcesado(Integer idReserva, String emailDestino, Integer idTutor) {
+        if (!reembolsoProcesadoEnabled) {
+            log.info("Reembolso procesado: integración deshabilitada por propiedad; omitido (idReserva={})", idReserva);
+            return;
+        }
+        dispararEventoReembolsoReserva(idReserva, emailDestino, idTutor, "reembolso-procesado");
+    }
+
+    private void dispararEventoReembolsoReserva(Integer idReserva, String emailDestino, Integer idTutor, String origenLog) {
+        if (idReserva == null) {
+            log.warn("{}: idReserva nulo; se ignora", origenLog);
+            return;
+        }
+        if (!StringUtils.hasText(emailDestino)) {
+            log.info("{}: sin email destino; omitido envío Brevo (idReserva={}, idTutor={})", origenLog, idReserva, idTutor);
+            return;
+        }
+
+        NotificacionEventoRequest req = new NotificacionEventoRequest();
+        req.setEmailDestino(emailDestino.trim());
+        req.setTipoEvento(TIPO_EVENTO_REEMBOLSO_RESERVA);
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("idReserva", idReserva);
+        vars.put("idTutor", idTutor != null ? idTutor : "");
+        vars.put("mensaje",
+                "Te confirmamos que procesamos la devolución del pago de tu reserva en Mercado Pago. "
+                        + "El reintegro puede tardar según tu banco o medio de pago.");
+        req.setVariables(vars);
+
+        try {
+            notificationService.procesarEventoUniversal(req);
+        } catch (RuntimeException e) {
+            log.warn("{}: fallo al disparar notificación Brevo (idReserva={}, destinatario parcial={})",
+                    origenLog, idReserva, enmascararEmail(emailDestino), e);
         }
     }
 

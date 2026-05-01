@@ -20,7 +20,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**").permitAll()
                         .requestMatchers("/api/pagos/webhooks/**").permitAll()
+                        .requestMatchers("/api/pagos/interno/**").permitAll()
                         .anyRequest().authenticated());
         return http.build();
     }

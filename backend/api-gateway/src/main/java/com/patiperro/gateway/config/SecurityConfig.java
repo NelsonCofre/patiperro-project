@@ -38,6 +38,9 @@ public class SecurityConfig {
                 // Spring Security suele usar MvcRequestMatcher y en el gateway las rutas proxied pueden
                 // no coincidir -> la peticion cae en /api/** authenticated() y responde 403.
                 .authorizeHttpRequests(auth -> auth
+                        // Internos servidor-a-servidor: no deben enrutarse por el gateway público.
+                        // PathPattern solo permite ** al inicio/fin; un segmento entre /api/ e /interno/ es /*/.
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno/**")).denyAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .requestMatchers(
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),

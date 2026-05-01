@@ -21,6 +21,8 @@ public class SecurityConfig {
             // 👇 ESTA LÍNEA ES CLAVE: Activa la configuración de CORS que definimos abajo
             .cors(Customizer.withDefaults()) 
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**").permitAll()
                 .requestMatchers("/api/notificaciones/**").permitAll()
                 .requestMatchers("/internal/paseo/**").permitAll()
                 .requestMatchers("/internal/pagos/**").permitAll()

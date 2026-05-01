@@ -35,6 +35,7 @@ public final class ReservaDtoMapper {
                 r.getFechaAceptacion(),
                 r.getMontoTotal(),
                 r.getIdPago(),
+                r.getMercadopagoPaymentId(),
                 est != null ? est.getIdEstadoReserva() : null,
                 est != null ? est.getNombreEstado() : null,
                 r.getFechaInicioReal(),

@@ -37,6 +37,9 @@ public class NotificationService {
     @Value("${patiperro.notification.brevo.template.PAGO_CONFIRMADO:4}")
     private Long brevoTemplatePagoConfirmado;
 
+    @Value("${patiperro.notification.brevo.template.REEMBOLSO_RESERVA:5}")
+    private Long brevoTemplateReembolsoReserva;
+
     // =========================================================================
     // GESTIÓN DE PLANTILLAS (Configuración del Sistema)
     // =========================================================================
@@ -237,13 +240,17 @@ public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
         return registrarLogTrasEnvio(1, brevoTemplateId.intValue(), estadoEnvio);
     }
 
-    // Método privado que actúa como "Diccionario" de tus eventos
+    /**
+     * Mapa tipo de evento → plantilla Brevo. {@code REEMBOLSO_RESERVA}: correo al tutor tras devolución MP
+     * ({@code POST /internal/pagos/reembolso-tutor} y {@code POST /internal/pagos/reembolso-procesado}).
+     */
     private Long obtenerTemplateIdPorEvento(String tipoEvento) {
         return switch (tipoEvento.toUpperCase()) {
             case "RESERVA_ACEPTADA" -> 1L;   // Conecta con tu plantilla "#1 Confirmacion de paseo"
             case "RESERVA_RECHAZADA" -> 2L;  // Conecta con tu plantilla "#2 Rechazo de paseo"
             case "SOLICITUD_PASEO" -> 3L;    // Conecta con tu plantilla "#3 Nueva plantilla"
             case "PAGO_CONFIRMADO" -> brevoTemplatePagoConfirmado != null ? brevoTemplatePagoConfirmado : 4L;
+            case "REEMBOLSO_RESERVA" -> brevoTemplateReembolsoReserva != null ? brevoTemplateReembolsoReserva : 5L;
             default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
         };
     }

@@ -36,7 +36,8 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/logout"),
                                 PathPatternRequestMatcher.pathPattern("/api/tutores/auth/**"),
-                                PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"))
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"),
+                                PathPatternRequestMatcher.pathPattern("/api/tutores/interno/**"))
                         .permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

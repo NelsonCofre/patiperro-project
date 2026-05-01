@@ -22,6 +22,8 @@ public class ReservaResponseDTO {
     private LocalDateTime fechaAceptacion;
     private BigDecimal montoTotal;
     private Integer idPago;
+    /** Id del cobro en Mercado Pago, si ya fue aprobado. */
+    private String mercadopagoPaymentId;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaInicioReal;

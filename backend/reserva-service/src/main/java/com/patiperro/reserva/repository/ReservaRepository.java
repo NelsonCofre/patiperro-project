@@ -2,6 +2,7 @@ package com.patiperro.reserva.repository;
 
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.Reserva;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -22,6 +23,11 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Reserva> findByIdAgendaBloque(Integer idAgendaBloque);
 
     List<Reserva> findByEstadoReserva_IdEstadoReserva(Integer idEstadoReserva);
+
+    /**
+     * Buscar reserva por id de pago Mercado Pago (webhooks / soporte). Puede haber más de una fila si datos legacy.
+     */
+    List<Reserva> findByMercadopagoPaymentId(String mercadopagoPaymentId);
 
     /**
      * VIGILANCIA DE COMPROMISOS:
@@ -80,12 +86,25 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
      * @return cantidad de filas actualizadas (0 o 1)
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.estadoReserva = :pagada "
+    @Query("UPDATE Reserva r SET r.estadoReserva = :pagada, r.mercadopagoPaymentId = :mpPaymentId "
             + "WHERE r.idReserva = :idReserva AND r.estadoReserva.idEstadoReserva IN :idsOrigen")
     int marcarPagadaSiEstadoEn(
             @Param("pagada") EstadoReserva pagada,
             @Param("idReserva") Integer idReserva,
-            @Param("idsOrigen") Collection<Integer> idsOrigen);
+            @Param("idsOrigen") Collection<Integer> idsOrigen,
+            @Param("mpPaymentId") String mpPaymentId);
+
+    /**
+     * Marca reembolso Mercado Pago aplicado de forma atómica (una fila, solo si aún no estaba marcado).
+     *
+     * @return filas actualizadas ({@code 0} o {@code 1})
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Reserva r SET r.mercadopagoReembolsoProcesadoEn = :ahora "
+            + "WHERE r.idReserva = :idReserva AND r.mercadopagoReembolsoProcesadoEn IS NULL")
+    int marcarMercadopagoReembolsoProcesadoSiPendiente(
+            @Param("idReserva") Integer idReserva,
+            @Param("ahora") LocalDateTime ahora);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
@@ -111,5 +130,45 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
             + "ORDER BY r.idReserva")
     List<Integer> findIdReservasAceptadaParaRegenerarCodigoPorEncuentroVencido(
             @Param("idAceptada") Integer idAceptada,
+            @Param("ahora") LocalDateTime ahora);
+
+    /**
+     * Esperando decisión del paseador: solicitada, pendiente de pago o ya pagada; solicitud más antigua que el umbral.
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva IN (:idSolicitada, :idPendientePago, :idPagada) "
+            + "AND r.fechaSolicitud < :limite ORDER BY r.idReserva")
+    List<Integer> findIdReservasParaExpiracionPorPlazoAceptacion(
+            @Param("idSolicitada") Integer idSolicitada,
+            @Param("idPendientePago") Integer idPendientePago,
+            @Param("idPagada") Integer idPagada,
+            @Param("limite") LocalDateTime limite,
+            Pageable pageable);
+
+    /**
+     * Reconciliación: estados que ameritan devolución MP, con cobro conocido y marca de éxito aún no persistida.
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva IN :idsEstado "
+            + "AND r.mercadopagoPaymentId IS NOT NULL AND trim(r.mercadopagoPaymentId) <> '' "
+            + "AND r.mercadopagoReembolsoProcesadoEn IS NULL "
+            + "ORDER BY r.idReserva")
+    List<Integer> findIdReservasPendientesReconciliacionReembolsoMercadoPago(
+            @Param("idsEstado") Collection<Integer> idsEstado,
+            Pageable pageable);
+
+    /**
+     * Reembolso MP ya marcado en reserva pero correo tutor aún no confirmado (job de reenvío).
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.mercadopagoReembolsoProcesadoEn IS NOT NULL AND r.notificacionReembolsoEnviadaEn IS NULL "
+            + "ORDER BY r.idReserva")
+    List<Integer> findIdReservasPendientesNotificacionReembolso(Pageable pageable);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Reserva r SET r.notificacionReembolsoEnviadaEn = :ahora "
+            + "WHERE r.idReserva = :idReserva AND r.notificacionReembolsoEnviadaEn IS NULL")
+    int marcarNotificacionReembolsoEnviadaSiPendiente(
+            @Param("idReserva") Integer idReserva,
             @Param("ahora") LocalDateTime ahora);
 }

@@ -36,6 +36,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -66,6 +68,7 @@ public class ReservaService {
     private final Clock clock;
     private final ReservaEventPublisher reservaEventPublisher;
     private final PaseoInicioSideEffectsService paseoInicioSideEffectsService;
+    private final ReservaReembolsoService reservaReembolsoService;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
@@ -87,6 +90,9 @@ public class ReservaService {
      */
     @Value("${patiperro.reserva.paseo.bloquear-inicio-sin-codigo:true}")
     private boolean bloquearInicioSinCodigo;
+
+    @Value("${patiperro.reserva.solicitud.expiracion-aceptacion.horas:24}")
+    private long horasExpiracionAceptacion;
 
     public List<ReservaResponseDTO> listarTodas() {
         return reservaRepository.findAll().stream()
@@ -146,23 +152,14 @@ public class ReservaService {
     }
 
     /**
-     * Timeline de estados para reserva (solicitada -> aceptada -> en curso -> finalizada).
+     * Timeline de estados para la UI: solicitud, pasarela de pago, flujo del paseo y cierres excepcionales.
      */
     public BookingTimelineResponseDTO obtenerTimelineReserva(Integer idReserva, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
         validarAccesoTimeline(r, rawJwt);
         EstadoReserva estadoActual = r.getEstadoReserva();
 
-        List<BookingTimelineResponseDTO.TimelineStepDTO> steps = List.of(
-                new BookingTimelineResponseDTO.TimelineStepDTO(
-                        "solicitada", "Solicitada", r.getFechaSolicitud() != null, r.getFechaSolicitud()),
-                new BookingTimelineResponseDTO.TimelineStepDTO(
-                        "aceptada", "Aceptada", r.getFechaAceptacion() != null, r.getFechaAceptacion()),
-                new BookingTimelineResponseDTO.TimelineStepDTO(
-                        "en_curso", "En Curso", r.getFechaInicioReal() != null, r.getFechaInicioReal()),
-                new BookingTimelineResponseDTO.TimelineStepDTO(
-                        "finalizada", "Finalizada", r.getFechaFin() != null, r.getFechaFin())
-        );
+        List<BookingTimelineResponseDTO.TimelineStepDTO> steps = construirPasosTimeline(r, estadoActual);
 
         return new BookingTimelineResponseDTO(
                 r.getIdReserva(),
@@ -173,6 +170,84 @@ public class ReservaService {
                 estadoActual != null ? estadoActual.getNombreEstado() : null,
                 steps
         );
+    }
+
+    private List<BookingTimelineResponseDTO.TimelineStepDTO> construirPasosTimeline(Reserva r, EstadoReserva estadoActual) {
+        List<BookingTimelineResponseDTO.TimelineStepDTO> steps = new ArrayList<>();
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "solicitada",
+                "Solicitada",
+                r.getFechaSolicitud() != null,
+                r.getFechaSolicitud()));
+
+        boolean pasoPagoPasarela = esPendientePago(estadoActual)
+                || reservaTieneCobroMercadoPago(r)
+                || esAceptada(estadoActual)
+                || esEnCurso(estadoActual)
+                || esFinalizada(estadoActual);
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "pendiente_pago",
+                "Pago (pasarela)",
+                pasoPagoPasarela,
+                esPendientePago(estadoActual) ? r.getFechaSolicitud() : null));
+
+        boolean cobroRetenido = reservaTieneCobroMercadoPago(r)
+                || esAceptada(estadoActual)
+                || esEnCurso(estadoActual)
+                || esFinalizada(estadoActual);
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "pago_confirmado",
+                "Pago confirmado",
+                cobroRetenido,
+                cobroRetenido ? r.getFechaSolicitud() : null));
+
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "aceptada",
+                "Aceptada por el paseador",
+                r.getFechaAceptacion() != null,
+                r.getFechaAceptacion()));
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "en_curso",
+                "En curso",
+                r.getFechaInicioReal() != null,
+                r.getFechaInicioReal()));
+
+        boolean finalizadaExitosa = esFinalizada(estadoActual);
+        steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                "finalizada",
+                "Finalizada",
+                finalizadaExitosa,
+                finalizadaExitosa ? r.getFechaFin() : null));
+
+        if (esRechazada(estadoActual)) {
+            steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                    "rechazada",
+                    "Rechazada por el paseador",
+                    true,
+                    r.getFechaFin()));
+        }
+        if (esExpirada(estadoActual)) {
+            steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                    "expirada",
+                    "Expirada (sin respuesta del paseador)",
+                    true,
+                    r.getFechaFin()));
+        }
+        if (esCancelada(estadoActual)) {
+            steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
+                    "cancelada",
+                    "Cancelada por el tutor",
+                    true,
+                    r.getFechaFin()));
+        }
+        return steps;
+    }
+
+    private static boolean reservaTieneCobroMercadoPago(Reserva r) {
+        if (r == null || r.getMercadopagoPaymentId() == null) {
+            return false;
+        }
+        return !r.getMercadopagoPaymentId().isBlank();
     }
 
     /**
@@ -266,8 +341,55 @@ public class ReservaService {
 
         if (esEstadoRechazada(nuevo)) {
             agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
+            if (esPagada(actual)) {
+                programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+            }
         }
         return ReservaDtoMapper.toReservaResponse(saved);
+    }
+
+    /**
+     * Job: expira solicitud por plazo de aceptación (sin JWT). Idempotente si otro hilo ya cambió el estado.
+     */
+    @Transactional
+    public void expirarReservaPorPlazoAceptacionJobItem(Integer idReserva) {
+        Reserva r = reservaRepository.findById(idReserva).orElse(null);
+        if (r == null) {
+            return;
+        }
+        LocalDateTime limite = LocalDateTime.now(clock).minusHours(Math.max(1, horasExpiracionAceptacion));
+        if (r.getFechaSolicitud() == null || !r.getFechaSolicitud().isBefore(limite)) {
+            return;
+        }
+        EstadoReserva est = r.getEstadoReserva();
+        if (!(esSolicitada(est) || esPendientePago(est) || esPagada(est))) {
+            return;
+        }
+        boolean eraPagada = esPagada(est);
+        EstadoReserva expirada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_EXPIRADA);
+        r.setEstadoReserva(expirada);
+        aplicarMarcaTiempoTransicion(r, expirada);
+        reservaRepository.save(r);
+        agendaIntegracionClient.marcarBloqueDisponibleInterno(r.getIdAgendaBloque());
+        if (eraPagada) {
+            programarReembolsoMercadoPagoTrasCommit(idReserva);
+        }
+    }
+
+    private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva) {
+        if (idReserva == null) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
+            }
+        });
     }
 
     @Transactional
@@ -403,7 +525,8 @@ public class ReservaService {
     }
 
     /**
-     * El tutor anula su solicitud pendiente; libera el bloque en agenda vía endpoint interno.
+     * El tutor anula la reserva antes de que el paseador la acepte: SOLICITADA, PENDIENTE_PAGO o PAGADA.
+     * Si ya estaba pagada en Mercado Pago, programa devolución tras commit.
      */
     @Transactional
     public ReservaResponseDTO aplicarCancelacionTutor(Integer idReserva, TutorDecision decision, String rawJwt) {
@@ -413,14 +536,20 @@ public class ReservaService {
         Reserva r = obtenerEntidad(idReserva);
         validarTutorJwt(r.getIdTutorUsuario(), rawJwt);
         EstadoReserva actual = r.getEstadoReserva();
-        if (!esSolicitada(actual)) {
-            throw new IllegalArgumentException("Solo puede cancelar solicitudes en estado SOLICITADA");
+        if (!(esSolicitada(actual) || esPendientePago(actual) || esPagada(actual))) {
+            throw new IllegalArgumentException(
+                    "Solo puede cancelar una solicitud pendiente de aceptación (SOLICITADA, PENDIENTE_PAGO o PAGADA)");
         }
+        boolean eraPagada = esPagada(actual);
         EstadoReserva cancelada =
                 estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
         r.setEstadoReserva(cancelada);
+        aplicarMarcaTiempoTransicion(r, cancelada);
         Reserva saved = reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueDisponibleInterno(saved.getIdAgendaBloque());
+        if (eraPagada) {
+            programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+        }
         return ReservaDtoMapper.toReservaResponse(saved);
     }
 
@@ -551,7 +680,8 @@ public class ReservaService {
                 EstadoReservaCatalogo.ID_PAGADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_EN_CURSO,
-                EstadoReservaCatalogo.ID_RECHAZADA);
+                EstadoReservaCatalogo.ID_RECHAZADA,
+                EstadoReservaCatalogo.ID_EXPIRADA);
         List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
                 idsBloque, estadosVisibles);
 
@@ -909,7 +1039,7 @@ public class ReservaService {
             
         String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
 
-        // IMPORTANTE: El constructor debe seguir el orden exacto del DTO (22 campos)
+        // IMPORTANTE: El constructor debe seguir el orden exacto del DTO (25 campos)
         return new ReservaTutorDetalleResponseDTO(
     r.getIdReserva(),               // 1: idReserva
     r.getIdTutorUsuario(),          // 2: idTutorUsuario
@@ -923,18 +1053,19 @@ public class ReservaService {
     bloque != null ? bloque.getHoraFinal() : null,  // 10: horaFinal (LocalDateTime)
     r.getMontoTotal(),              // 11: montoTotal (BigDecimal)
     r.getIdPago(),                  // 12: idPago
-    estado != null ? estado.getIdEstadoReserva() : null, // 13: idEstadoReserva
-    estado != null ? estado.getNombreEstado() : null,    // 14: nombreEstado
-    r.getFechaSolicitud(),          // 15: fechaSolicitud
-    r.getFechaAceptacion(),         // 16: fechaAceptacion
-    r.getFechaInicioReal(),         // 17: fechaInicioReal
-    r.getFechaFin(),                // 18: fechaFin
-    r.getCodigoEncuentro(),         // 19: codigoEncuentro
-    nombreTutorFinal.trim(),        // 20: tutorNombre (ESTABA DESPUÉS)
-    correoTutorFinal,               // 21: tutorCorreo (ESTABA DESPUÉS)
-    r.getCodigoEncuentroExpiraEn(), // 22: codigoEncuentroExpiraEn
-    r.getMotivoRechazo(),           // 23: motivoRechazo
-    r.getDetalleRechazo()           // 24: detalleRechazo
+    r.getMercadopagoPaymentId(),    // 13: mercadopagoPaymentId
+    estado != null ? estado.getIdEstadoReserva() : null, // 14: idEstadoReserva
+    estado != null ? estado.getNombreEstado() : null,    // 15: nombreEstado
+    r.getFechaSolicitud(),          // 16: fechaSolicitud
+    r.getFechaAceptacion(),         // 17: fechaAceptacion
+    r.getFechaInicioReal(),         // 18: fechaInicioReal
+    r.getFechaFin(),                // 19: fechaFin
+    r.getCodigoEncuentro(),         // 20: codigoEncuentro
+    nombreTutorFinal.trim(),        // 21: tutorNombre (ESTABA DESPUÉS)
+    correoTutorFinal,               // 22: tutorCorreo (ESTABA DESPUÉS)
+    r.getCodigoEncuentroExpiraEn(), // 23: codigoEncuentroExpiraEn
+    r.getMotivoRechazo(),           // 24: motivoRechazo
+    r.getDetalleRechazo()           // 25: detalleRechazo
 );
     }
 
@@ -974,6 +1105,12 @@ public class ReservaService {
             }
             throw new IllegalArgumentException("Desde SOLICITADA solo se permite ACEPTADA o RECHAZADA");
         }
+        if (esPagada(actual)) {
+            if (esAceptada(nuevo) || esRechazada(nuevo)) {
+                return;
+            }
+            throw new IllegalArgumentException("Desde PAGADA solo se permite ACEPTADA o RECHAZADA");
+        }
         if (esAceptada(actual)) {
             if (esEnCurso(nuevo)) {
                 return;
@@ -1000,7 +1137,7 @@ public class ReservaService {
         if (esFinalizada(nuevo) && r.getFechaFin() == null) {
             r.setFechaFin(ahora);
         }
-        if ((esRechazada(nuevo) || esCancelada(nuevo)) && r.getFechaFin() == null) {
+        if ((esRechazada(nuevo) || esCancelada(nuevo) || esExpirada(nuevo)) && r.getFechaFin() == null) {
             r.setFechaFin(ahora);
         }
     }
@@ -1156,6 +1293,18 @@ public class ReservaService {
 
     private static boolean esCancelada(EstadoReserva e) {
         return coincideIdONombre(e, EstadoReservaCatalogo.ID_CANCELADA, EstadoReservaCatalogo.NOMBRE_CANCELADA);
+    }
+
+    private static boolean esPendientePago(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_PENDIENTE_PAGO, EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+    }
+
+    private static boolean esPagada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_PAGADA, EstadoReservaCatalogo.NOMBRE_PAGADA);
+    }
+
+    private static boolean esExpirada(EstadoReserva e) {
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_EXPIRADA, EstadoReservaCatalogo.NOMBRE_EXPIRADA);
     }
 
     private Reserva obtenerEntidad(Integer id) {

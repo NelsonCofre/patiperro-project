@@ -52,7 +52,53 @@ public class InternalPagosController {
     }
 
     /**
+     * Aviso al tutor: devolución procesada en la pasarela. {@code emailDestino} opcional (sin correo no hay envío Brevo).
+     */
+    @PostMapping("/reembolso-tutor")
+    public ResponseEntity<Void> reembolsoTutor(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestBody(required = false) ReembolsoTutorRequest body) {
+        if (!StringUtils.hasText(internoSecret)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!internoSecret.equals(secretoHeader)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (body == null || body.idReserva() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        pagoNotificacionService.procesarReembolsoTutor(body.idReserva(), body.emailDestino());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Aviso al tutor: reembolso procesado en pasarela (mismo evento Brevo {@code REEMBOLSO_RESERVA} que {@code /reembolso-tutor};
+     * permite incluir {@code idTutor} para variables de plantilla). Sin {@code emailDestino} no hay envío Brevo (204 igualmente).
+     */
+    @PostMapping("/reembolso-procesado")
+    public ResponseEntity<Void> reembolsoProcesado(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestBody(required = false) ReembolsoProcesadoRequest body) {
+        if (!StringUtils.hasText(internoSecret)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!internoSecret.equals(secretoHeader)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (body == null || body.idReserva() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        pagoNotificacionService.procesarReembolsoProcesado(body.idReserva(), body.emailDestino(), body.idTutor());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * {@code emailDestino}: correo del paseador (opcional); sin él no se envía Brevo pero el endpoint sigue siendo 204.
      */
     public record PagoConfirmadoRequest(Integer idReserva, Integer idPaseador, String emailDestino) {}
+
+    public record ReembolsoTutorRequest(Integer idReserva, String emailDestino) {}
+
+    /** {@code idTutor} opcional (solo variables plantilla; el correo sigue siendo {@code emailDestino}). */
+    public record ReembolsoProcesadoRequest(Integer idReserva, String emailDestino, Integer idTutor) {}
 }

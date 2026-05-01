@@ -66,6 +66,16 @@ public class PagoExterno {
     @Column(name = "response_json")
     private String responseJson;
 
+    /** Id del reembolso en Mercado Pago ({@code POST .../refunds}). */
+    @Column(name = "refund_provider_id", length = 64)
+    private String refundProviderId;
+
+    @Column(name = "refund_status", length = 60)
+    private String refundStatus;
+
+    @Column(name = "refund_fecha")
+    private LocalDateTime refundFecha;
+
     @PrePersist
     void prePersist() {
         if (fechaCreacion == null) {

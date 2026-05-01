@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -47,6 +48,7 @@ public class ReservaPagoService {
 
         // 1) Idempotencia: si ya está pagada, no repetir efectos.
         EstadoReserva actual = r.getEstadoReserva();
+        String mpId = safe(mpPaymentId);
         if (actual != null) {
             Integer idEstado = actual.getIdEstadoReserva();
             String nombre = actual.getNombreEstado();
@@ -54,7 +56,16 @@ public class ReservaPagoService {
                     || (nombre != null && nombre.trim().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA));
             if (yaPagada) {
                 log.info("Pago aprobado idempotente: reserva ya estaba PAGADA (idReserva={}, mpPaymentId={})",
-                        idReserva, safe(mpPaymentId));
+                        idReserva, mpId);
+                if (mpId != null && !mpId.equals(safe(r.getMercadopagoPaymentId()))) {
+                    if (!StringUtils.hasText(r.getMercadopagoPaymentId())) {
+                        r.setMercadopagoPaymentId(mpId);
+                        reservaRepository.save(r);
+                    } else {
+                        log.warn("Pago aprobado idempotente: reserva ya tenía otro mercadopago_payment_id; no se sobrescribe (idReserva={})",
+                                idReserva);
+                    }
+                }
                 return;
             }
         }
@@ -66,7 +77,7 @@ public class ReservaPagoService {
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_PENDIENTE_PAGO
         );
-        int updated = reservaRepository.marcarPagadaSiEstadoEn(pagada, idReserva, estadosOrigenPermitidos);
+        int updated = reservaRepository.marcarPagadaSiEstadoEn(pagada, idReserva, estadosOrigenPermitidos, mpId);
         if (updated != 1) {
             // Releer para explicar el conflicto con el estado real actual.
             Reserva actualizada = reservaRepository.findById(idReserva)
@@ -109,7 +120,10 @@ public class ReservaPagoService {
             try {
                 PaseadorResumenDTO resumen = paseadorIntegracionClient.obtenerResumen(idPaseador);
                 String correo = resumen != null ? resumen.getCorreo() : null;
-                notificacionPagoIntegracionClient.notificarPagoConfirmado(saved.getIdReserva(), idPaseador, correo);
+                if (!notificacionPagoIntegracionClient.notificarPagoConfirmado(saved.getIdReserva(), idPaseador, correo)) {
+                    log.warn("Pago aprobado: no se completó la notificación al notification-service "
+                            + "(idReserva={}, idPaseador={})", saved.getIdReserva(), idPaseador);
+                }
             } catch (RuntimeException e) {
                 log.warn("Pago aprobado: no se pudo notificar por correo (idReserva={}, idPaseador={})",
                         saved.getIdReserva(), idPaseador, e);
