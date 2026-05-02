@@ -16,6 +16,8 @@ import java.util.Optional;
 /**
  * Procesamiento pesado del webhook: consulta MP y avisa a reserva-service.
  * Ejecutado en hilo aparte para responder 200 rápido al webhook.
+ * <p>Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1) más notificación de
+ * rechazados e ignorar estados intermedios (V2).</p>
  */
 @Component
 public class MercadoPagoWebhookProcessor {
