@@ -55,6 +55,7 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/upload-foto-perfil"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"))
                         .permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/webhooks/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

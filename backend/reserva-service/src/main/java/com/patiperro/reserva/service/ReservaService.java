@@ -17,6 +17,7 @@ import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
+import com.patiperro.reserva.dto.ReservaParaPagoDto;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
@@ -48,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -583,9 +585,36 @@ public class ReservaService {
         
         // Ejecuta la consulta de existencia en el repositorio //
         return reservaRepository.existsByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
-            idsAgendaBloque, 
+            idsAgendaBloque,
             estadosComprometidos
         );
+    }
+
+    /**
+     * Datos mínimos para iniciar checkout en pagos-service (llamada interna con secreto compartido).
+     */
+    @Transactional(readOnly = true)
+    public ReservaParaPagoDto obtenerParaPagoInterno(Integer idReserva) {
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+        EstadoReserva er = r.getEstadoReserva();
+        Integer idEstado = er != null ? er.getIdEstadoReserva() : null;
+        if (idEstado != null && idEstado == EstadoReservaCatalogo.ID_PAGADA) {
+            throw new IllegalStateException("La reserva ya está pagada");
+        }
+        Set<Integer> permitidos = Set.of(
+                EstadoReservaCatalogo.ID_SOLICITADA,
+                EstadoReservaCatalogo.ID_PENDIENTE_PAGO,
+                EstadoReservaCatalogo.ID_ACEPTADA);
+        if (idEstado == null || !permitidos.contains(idEstado)) {
+            String nombre = er != null ? er.getNombreEstado() : "SIN_ESTADO";
+            throw new IllegalStateException("Estado no permite iniciar pago: " + nombre);
+        }
+        return new ReservaParaPagoDto(
+                r.getIdReserva().longValue(),
+                r.getIdTutorUsuario().longValue(),
+                r.getMontoTotal(),
+                r.getMercadopagoPaymentId());
     }
 
     /**

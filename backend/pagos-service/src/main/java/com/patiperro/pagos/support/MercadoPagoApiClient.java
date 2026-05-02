@@ -1,7 +1,9 @@
 package com.patiperro.pagos.support;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.patiperro.pagos.checkout.dto.MercadoPagoPreferenceCreatedDto;
 import com.patiperro.pagos.config.MercadoPagoRestClientConfig;
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.dto.MercadoPagoRefundResponseDto;
@@ -18,6 +20,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +48,92 @@ public class MercadoPagoApiClient {
         this.restClient = mercadoPagoRestClient;
         this.objectMapper = objectMapper;
         this.accessToken = accessToken == null ? "" : accessToken.trim();
+    }
+
+    /**
+     * Crea una preferencia Checkout Pro (redirección a init_point / sandbox_init_point).
+     */
+    public Optional<MercadoPagoPreferenceCreatedDto> crearPreferenciaCheckoutPro(
+            String itemTitle,
+            String currencyId,
+            long unitPrice,
+            String externalReference,
+            String notificationUrl,
+            String successUrl,
+            String failureUrl,
+            String pendingUrl) {
+        if (!StringUtils.hasText(accessToken)) {
+            log.warn("Mercado Pago: access-token no configurado; no se crea preferencia Checkout Pro");
+            return Optional.empty();
+        }
+        if (!StringUtils.hasText(externalReference)) {
+            return Optional.empty();
+        }
+        try {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("title", itemTitle);
+            item.put("quantity", 1);
+            item.put("currency_id", currencyId);
+            item.put("unit_price", unitPrice);
+
+            Map<String, String> backUrls = new LinkedHashMap<>();
+            backUrls.put("success", successUrl);
+            backUrls.put("failure", failureUrl);
+            backUrls.put("pending", pendingUrl);
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("items", List.of(item));
+            body.put("external_reference", externalReference);
+            if (StringUtils.hasText(notificationUrl)) {
+                body.put("notification_url", notificationUrl);
+            }
+            body.put("back_urls", backUrls);
+            // Con auto_return=approved, MP exige back_urls.success válida (típicamente HTTPS). URLs http://localhost
+            // provocan 400 invalid_auto_return; sin auto_return el checkout sigue funcionando (el usuario vuelve con el link de MP).
+            boolean successHttps = StringUtils.hasText(successUrl)
+                    && successUrl.trim().regionMatches(true, 0, "https://", 0, 8);
+            if (successHttps) {
+                body.put("auto_return", "approved");
+            }
+
+            String jsonBody = objectMapper.writeValueAsString(body);
+            String responseBody = restClient.post()
+                    .uri("/checkout/preferences")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(jsonBody)
+                    .retrieve()
+                    .body(String.class);
+            if (!StringUtils.hasText(responseBody)) {
+                return Optional.empty();
+            }
+            JsonNode root = objectMapper.readTree(responseBody);
+            String prefId = textOrNull(root.get("id"));
+            String init = textOrNull(root.get("init_point"));
+            String sandbox = textOrNull(root.get("sandbox_init_point"));
+            if (!StringUtils.hasText(init) && !StringUtils.hasText(sandbox)) {
+                return Optional.empty();
+            }
+            return Optional.of(new MercadoPagoPreferenceCreatedDto(prefId, init, sandbox));
+        } catch (RestClientResponseException e) {
+            log.warn("Mercado Pago: crear preferencia respondió {} ({})", e.getStatusCode().value(),
+                    e.getResponseBodyAsString());
+            return Optional.empty();
+        } catch (RestClientException e) {
+            log.warn("Mercado Pago: error de red creando preferencia Checkout Pro", e);
+            return Optional.empty();
+        } catch (JsonProcessingException e) {
+            log.warn("Mercado Pago: JSON inválido al crear preferencia", e);
+            return Optional.empty();
+        }
+    }
+
+    private static String textOrNull(JsonNode n) {
+        if (n == null || n.isNull() || n.isMissingNode()) {
+            return null;
+        }
+        String t = n.asText();
+        return StringUtils.hasText(t) ? t.trim() : null;
     }
 
     public Optional<MercadoPagoPaymentDto> obtenerPago(String paymentIdRaw) {

@@ -70,24 +70,26 @@ public class ReservaPagoService {
             }
         }
 
-        // 2) Validación + actualización atómica (solo desde estados permitidos)
+        // 2) Validación + persistencia vía JPA (sin @Query de actualización masiva)
         EstadoReserva pagada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA);
         List<Integer> estadosOrigenPermitidos = List.of(
                 EstadoReservaCatalogo.ID_SOLICITADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_PENDIENTE_PAGO
         );
-        int updated = reservaRepository.marcarPagadaSiEstadoEn(pagada, idReserva, estadosOrigenPermitidos, mpId);
-        if (updated != 1) {
-            // Releer para explicar el conflicto con el estado real actual.
-            Reserva actualizada = reservaRepository.findById(idReserva)
-                    .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
-            String estado = actualizada.getEstadoReserva() != null ? actualizada.getEstadoReserva().getNombreEstado() : "SIN_ESTADO";
+        Reserva rUpdate = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+        EstadoReserva estadoActualUpd = rUpdate.getEstadoReserva();
+        Integer idEstadoUpd = estadoActualUpd != null ? estadoActualUpd.getIdEstadoReserva() : null;
+        if (idEstadoUpd == null || !estadosOrigenPermitidos.contains(idEstadoUpd)) {
+            String estado = estadoActualUpd != null ? estadoActualUpd.getNombreEstado() : "SIN_ESTADO";
             throw new IllegalStateException("No se puede marcar PAGADA desde estado actual: " + estado);
         }
-
-        Reserva saved = reservaRepository.findById(idReserva)
-                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+        rUpdate.setEstadoReserva(pagada);
+        if (mpId != null) {
+            rUpdate.setMercadopagoPaymentId(mpId);
+        }
+        Reserva saved = reservaRepository.saveAndFlush(rUpdate);
 
         // 3) Notificación inmediata al paseador (y canales auxiliares) vía STOMP
         Integer idPaseador = null;
