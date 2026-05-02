@@ -80,16 +80,19 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     int fijarBloqueoCodigoHasta(@Param("idReserva") Integer idReserva, @Param("hasta") LocalDateTime hasta);
 
     /**
-     * Marca reembolso Mercado Pago aplicado de forma atómica (una fila, solo si aún no estaba marcado).
+     * Marca reembolso Mercado Pago aplicado de forma atómica (una fila, solo si aún no estaba marcado
+     * y el estado sigue siendo uno que amerita cierre con posible devolución).
      *
      * @return filas actualizadas ({@code 0} o {@code 1})
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.mercadopagoReembolsoProcesadoEn = :ahora "
-            + "WHERE r.idReserva = :idReserva AND r.mercadopagoReembolsoProcesadoEn IS NULL")
+            + "WHERE r.idReserva = :idReserva AND r.mercadopagoReembolsoProcesadoEn IS NULL "
+            + "AND r.estadoReserva.idEstadoReserva IN :idsEstadoReembolso")
     int marcarMercadopagoReembolsoProcesadoSiPendiente(
             @Param("idReserva") Integer idReserva,
-            @Param("ahora") LocalDateTime ahora);
+            @Param("ahora") LocalDateTime ahora,
+            @Param("idsEstadoReembolso") Collection<Integer> idsEstadoReembolso);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
@@ -144,11 +147,16 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
 
     /**
      * Reembolso MP ya marcado en reserva pero correo tutor aún no confirmado (job de reenvío).
+     * Solo estados de cierre con posible devolución ({@code IDS_ESTADO_REEMBOLSO_MERCADOPAGO}), para no reenviar
+     * si la fila quedó en un estado incoherente respecto al flujo de reembolso.
      */
     @Query("SELECT r.idReserva FROM Reserva r "
             + "WHERE r.mercadopagoReembolsoProcesadoEn IS NOT NULL AND r.notificacionReembolsoEnviadaEn IS NULL "
+            + "AND r.estadoReserva.idEstadoReserva IN :idsEstado "
             + "ORDER BY r.idReserva")
-    List<Integer> findIdReservasPendientesNotificacionReembolso(Pageable pageable);
+    List<Integer> findIdReservasPendientesNotificacionReembolso(
+            @Param("idsEstado") Collection<Integer> idsEstado,
+            Pageable pageable);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.notificacionReembolsoEnviadaEn = :ahora "

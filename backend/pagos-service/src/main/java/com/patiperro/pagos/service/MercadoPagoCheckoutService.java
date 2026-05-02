@@ -1,5 +1,6 @@
 package com.patiperro.pagos.service;
 
+import com.patiperro.pagos.checkout.MercadoPagoReservaExternalReference;
 import com.patiperro.pagos.config.MercadoPagoCheckoutProperties;
 import com.patiperro.pagos.dto.MercadoPagoPreferenceResponseDto;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
@@ -36,7 +37,8 @@ public class MercadoPagoCheckoutService {
     }
 
     /**
-     * Crea una preferencia de pago para una reserva. {@code external_reference} será el id de reserva.
+     * Crea una preferencia de pago para una reserva. {@code external_reference} usa el prefijo
+     * {@code patiperro-reserva:} + id de reserva (parseable por el webhook).
      *
      * @param idReserva      obligatorio; se envía como {@code external_reference}
      * @param montoTotal     monto en CLP (entero)
@@ -81,7 +83,7 @@ public class MercadoPagoCheckoutService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("items", List.of(item));
-        body.put("external_reference", String.valueOf(idReserva));
+        body.put("external_reference", MercadoPagoReservaExternalReference.fromReservaId(idReserva));
 
         Map<String, String> backUrls = new LinkedHashMap<>();
         backUrls.put("success", checkoutProperties.getBackUrlSuccess());

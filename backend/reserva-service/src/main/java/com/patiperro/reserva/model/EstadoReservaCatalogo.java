@@ -1,5 +1,7 @@
 package com.patiperro.reserva.model;
 
+import java.util.List;
+
 /**
  * Catálogo {@code estado_reserva} alineado con PostgreSQL.
  *
@@ -8,8 +10,8 @@ package com.patiperro.reserva.model;
  * El dinero retenido no liquida al paseador hasta que el servicio finalice; ante rechazo, expiración o cierta
  * cancelación por tutor puede ejecutarse devolución vía API de la pasarela (fuera de este catálogo).</p>
  *
- * <p><strong>Flujo paseador:</strong> desde {@link #NOMBRE_SOLICITADA} o {@link #NOMBRE_PAGADA} (aún sin aceptación),
- * el paseador pasa a {@link #NOMBRE_ACEPTADA} o {@link #NOMBRE_RECHAZADA}. Luego
+ * <p><strong>Flujo paseador:</strong> desde {@link #NOMBRE_SOLICITADA}, {@link #NOMBRE_PENDIENTE_PAGO} o {@link #NOMBRE_PAGADA}
+ * (aún sin aceptación), el paseador pasa a {@link #NOMBRE_ACEPTADA} o {@link #NOMBRE_RECHAZADA}. Luego
  * {@link #NOMBRE_EN_CURSO} → {@link #NOMBRE_FINALIZADA}.</p>
  *
  * <p><strong>Cierres sin servicio:</strong> {@link #NOMBRE_RECHAZADA} (paseador),
@@ -54,6 +56,45 @@ public final class EstadoReservaCatalogo {
     public static final String NOMBRE_PAGADA = "PAGADA";
     public static final String NOMBRE_EXPIRADA = "EXPIRADA";
 
+    /**
+     * Estados en los que puede aplicarse devolución MP y la marca {@code mercadopago_reembolso_procesado_en}
+     * (rechazo paseador, expiración por plazo, cancelación tutor con cobro previo).
+     */
+    public static final List<Integer> IDS_ESTADO_REEMBOLSO_MERCADOPAGO = List.of(
+            ID_RECHAZADA,
+            ID_EXPIRADA,
+            ID_CANCELADA);
+
+    /**
+     * Estados desde los que un cobro Mercado Pago aprobado (webhook) puede pasar la reserva a {@link #NOMBRE_PAGADA}.
+     * Excluye cierres ({@link #IDS_ESTADO_REEMBOLSO_MERCADOPAGO}) y estados de paseo en curso o finalizado.
+     */
+    public static final List<Integer> IDS_ESTADO_ORIGEN_MARCAR_PAGADA_MERCADOPAGO = List.of(
+            ID_SOLICITADA,
+            ID_PENDIENTE_PAGO,
+            ID_ACEPTADA);
+
     private EstadoReservaCatalogo() {
+    }
+
+    /**
+     * {@code true} si la reserva puede recibir confirmación de cobro MP y transicionar a {@link #NOMBRE_PAGADA}.
+     */
+    public static boolean estadoAdmiteMarcarPagadaPorCobroMercadoPago(Integer idEstadoReserva) {
+        if (idEstadoReserva == null) {
+            return false;
+        }
+        return IDS_ESTADO_ORIGEN_MARCAR_PAGADA_MERCADOPAGO.contains(idEstadoReserva);
+    }
+
+    /**
+     * Estados en los que el tutor puede abrir o reintentar Checkout Pro y en los que se registra
+     * un intento MP no aprobado sin cambiar el estado de la reserva.
+     */
+    public static boolean estadoAdmiteCheckoutOReintentoMercadoPago(Integer idEstadoReserva) {
+        if (idEstadoReserva == null) {
+            return false;
+        }
+        return idEstadoReserva.equals(ID_SOLICITADA) || idEstadoReserva.equals(ID_PENDIENTE_PAGO);
     }
 }

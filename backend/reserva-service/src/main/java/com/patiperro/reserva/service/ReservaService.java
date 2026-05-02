@@ -41,6 +41,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestTemplate;
@@ -365,6 +366,11 @@ public class ReservaService {
         return ReservaDtoMapper.toReservaResponse(reservaRepository.save(r));
     }
 
+    /**
+     * Decisión del paseador (aceptar / rechazar / …).
+     * <p>Paso 5 (solo backend, PDF): si pasa a RECHAZADA y la reserva estaba PAGADA (cobro retenido), se programa
+     * devolución MP tras commit mediante {@link #programarReembolsoMercadoPagoTrasCommit(Integer, Reserva)}.</p>
+     */
     @Transactional
     public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
@@ -386,7 +392,7 @@ public class ReservaService {
         if (esEstadoRechazada(nuevo)) {
             agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
             if (esPagada(actual)) {
-                programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+                programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva(), saved);
             }
         }
         return ReservaDtoMapper.toReservaResponse(saved);
@@ -394,6 +400,8 @@ public class ReservaService {
 
     /**
      * Job: expira solicitud por plazo de aceptación (sin JWT). Idempotente si otro hilo ya cambió el estado.
+     * <p>Paso 5 (PDF): expiración por plazo — si la reserva estaba PAGADA (cobro), misma devolución MP tras commit
+     * que en rechazo/cancelación tutor con cobro.</p>
      */
     @Transactional
     public void expirarReservaPorPlazoAceptacionJobItem(Integer idReserva) {
@@ -416,13 +424,28 @@ public class ReservaService {
         reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueDisponibleInterno(r.getIdAgendaBloque());
         if (eraPagada) {
-            programarReembolsoMercadoPagoTrasCommit(idReserva);
+            programarReembolsoMercadoPagoTrasCommit(idReserva, r);
         }
     }
 
-    private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva) {
+    /**
+     * Punto único para paso 5 (disparadores PDF): no llama a Mercado Pago dentro de la transacción actual.
+     * El cobro debe estar referenciado en {@code mercadopago_payment_id} (persistido al aprobar pago en
+     * {@link ReservaPagoService#marcarReservaComoPagada}); si falta, se registra advertencia para operación.
+     *
+     * @param reservaAuditoriaPaymentId reserva ya persistida con el estado de cierre; solo para comprobar
+     *                                  si existe id de pago MP antes del async (puede ser {@code null}).
+     */
+    private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva, Reserva reservaAuditoriaPaymentId) {
         if (idReserva == null) {
             return;
+        }
+        if (reservaAuditoriaPaymentId != null
+                && !StringUtils.hasText(reservaAuditoriaPaymentId.getMercadopagoPaymentId())) {
+            log.warn(
+                    "Reembolso MP programado tras commit pero la reserva no tiene mercadopago_payment_id; "
+                            + "ReservaReembolsoService no invocará pagos-service hasta existir id (idReserva={})",
+                    idReserva);
         }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
@@ -570,7 +593,7 @@ public class ReservaService {
 
     /**
      * El tutor anula la reserva antes de que el paseador la acepte: SOLICITADA, PENDIENTE_PAGO o PAGADA.
-     * Si ya estaba pagada en Mercado Pago, programa devolución tras commit.
+     * <p>Paso 5 (PDF): si estaba PAGADA (cobro), programa devolución MP tras commit (CANCELADA con cobro).</p>
      */
     @Transactional
     public ReservaResponseDTO aplicarCancelacionTutor(Integer idReserva, TutorDecision decision, String rawJwt) {
@@ -592,7 +615,7 @@ public class ReservaService {
         Reserva saved = reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueDisponibleInterno(saved.getIdAgendaBloque());
         if (eraPagada) {
-            programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+            programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva(), saved);
         }
         return ReservaDtoMapper.toReservaResponse(saved);
     }
@@ -1136,11 +1159,11 @@ public class ReservaService {
                 && actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
             return;
         }
-        if (esSolicitada(actual)) {
+        if (esSolicitada(actual) || esPendientePago(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {
                 return;
             }
-            throw new IllegalArgumentException("Desde SOLICITADA solo se permite ACEPTADA o RECHAZADA");
+            throw new IllegalArgumentException("Desde SOLICITADA o PENDIENTE_PAGO solo se permite ACEPTADA o RECHAZADA");
         }
         if (esPagada(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {

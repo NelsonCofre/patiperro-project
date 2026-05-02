@@ -18,11 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Objects;
 
 /**
  * Lógica de negocio para aplicar efectos de pago en la reserva.
+ * <p>Orden de trabajo sugerido (solo backend), paso 1: al aprobar cobro, persistir {@code mercadopago_payment_id}
+ * en la entidad {@link Reserva} (requisito para reembolsos vía {@link ReservaReembolsoService}).</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -74,18 +75,20 @@ public class ReservaPagoService {
 
         // 2) Validación + persistencia vía JPA (sin @Query de actualización masiva)
         EstadoReserva pagada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA);
-        List<Integer> estadosOrigenPermitidos = List.of(
-                EstadoReservaCatalogo.ID_SOLICITADA,
-                EstadoReservaCatalogo.ID_ACEPTADA,
-                EstadoReservaCatalogo.ID_PENDIENTE_PAGO
-        );
         Reserva rUpdate = reservaRepository.findById(idReserva)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
         EstadoReserva estadoActualUpd = rUpdate.getEstadoReserva();
         Integer idEstadoUpd = estadoActualUpd != null ? estadoActualUpd.getIdEstadoReserva() : null;
-        if (idEstadoUpd == null || !estadosOrigenPermitidos.contains(idEstadoUpd)) {
+        if (!EstadoReservaCatalogo.estadoAdmiteMarcarPagadaPorCobroMercadoPago(idEstadoUpd)) {
             String estado = estadoActualUpd != null ? estadoActualUpd.getNombreEstado() : "SIN_ESTADO";
-            throw new IllegalStateException("No se puede marcar PAGADA desde estado actual: " + estado);
+            log.warn(
+                    "Cobro MP aprobado no aplicado a reserva: estado no admite PAGADA (idReserva={}, idEstado={}, nombre={})",
+                    idReserva, idEstadoUpd, estado);
+            throw new IllegalStateException(
+                    "No se puede marcar PAGADA desde estado actual: "
+                            + estado
+                            + ". Solo se permiten orígenes SOLICITADA, PENDIENTE_PAGO o ACEPTADA "
+                            + "(p. ej. webhook tardío tras expiración/cancelación queda rechazado).");
         }
         rUpdate.setEstadoReserva(pagada);
         if (mpId != null) {
@@ -142,14 +145,6 @@ public class ReservaPagoService {
     private static final int MP_DETALLE_MAX = 120;
 
     /**
-     * Estados en los que aún tiene sentido registrar un rechazo/cancelación MP (checkout / reintento).
-     */
-    private static final List<Integer> ESTADOS_REGISTRO_INTENTO_MP_FALLIDO = List.of(
-            EstadoReservaCatalogo.ID_SOLICITADA,
-            EstadoReservaCatalogo.ID_PENDIENTE_PAGO
-    );
-
-    /**
      * {@code true} si el tutor puede volver a intentar el pago en pasarela (misma regla que registro de fallo MP).
      */
     public boolean permiteReintentarPago(Reserva r) {
@@ -157,17 +152,14 @@ public class ReservaPagoService {
             return false;
         }
         Integer id = r.getEstadoReserva().getIdEstadoReserva();
-        if (id == null) {
-            return false;
-        }
-        return ESTADOS_REGISTRO_INTENTO_MP_FALLIDO.contains(id);
+        return EstadoReservaCatalogo.estadoAdmiteCheckoutOReintentoMercadoPago(id);
     }
 
     /**
      * Persiste el último estado MP cuando el cobro no está aprobado (rechazo, cancelación, etc.).
      * <ul>
      *   <li>Idempotente si la reserva ya está {@code PAGADA}.</li>
-     *   <li>Solo aplica en {@link EstadoReservaCatalogo#ID_SOLICITADA} o {@link EstadoReservaCatalogo#ID_PENDIENTE_PAGO}.</li>
+     *   <li>Solo aplica en estados que admiten checkout/reintento ({@link EstadoReservaCatalogo#estadoAdmiteCheckoutOReintentoMercadoPago}).</li>
      *   <li>Si llega el mismo {@code status} y {@code status_detail} ya persistidos, no reescribe.</li>
      * </ul>
      */
@@ -194,7 +186,7 @@ public class ReservaPagoService {
         }
 
         if (actual == null || actual.getIdEstadoReserva() == null
-                || !ESTADOS_REGISTRO_INTENTO_MP_FALLIDO.contains(actual.getIdEstadoReserva())) {
+                || !EstadoReservaCatalogo.estadoAdmiteCheckoutOReintentoMercadoPago(actual.getIdEstadoReserva())) {
             log.info("MP no aprobado ignorado: estado actual no admite registrar intento (idReserva={}, estadoId={}, status={})",
                     idReserva,
                     actual != null ? actual.getIdEstadoReserva() : null,

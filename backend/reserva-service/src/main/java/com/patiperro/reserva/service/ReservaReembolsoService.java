@@ -54,6 +54,12 @@ public class ReservaReembolsoService {
     @Value("${patiperro.reserva.reembolso.retry-delay-ms:400}")
     private long retryDelayMs;
 
+    /**
+     * Tope de espera entre reintentos (429/5xx); evita crecimiento ilimitado con backoff exponencial.
+     */
+    @Value("${patiperro.reserva.reembolso.retry-max-delay-ms:15000}")
+    private long retryMaxDelayMs;
+
     @Value("${patiperro.reserva.reembolso.retry-max-extra-attempts:1}")
     private int retryMaxExtraAttempts;
 
@@ -144,7 +150,7 @@ public class ReservaReembolsoService {
         int extra = Math.max(0, retryMaxExtraAttempts);
         int intentos = 0;
         while (debeReintentarCodigoHttp(code) && intentos < extra) {
-            dormirAntesDeReintento();
+            dormirAntesDeReintento(intentos);
             code = pagosReembolsoIntegracionClient.solicitarReembolsoTotal(idReserva, mpId);
             intentos++;
         }
@@ -155,9 +161,20 @@ public class ReservaReembolsoService {
         return code == 502 || code == 503 || code == 500 || code == 429;
     }
 
-    private void dormirAntesDeReintento() {
-        long ms = Math.max(0, retryDelayMs);
-        if (ms == 0) {
+    /**
+     * Backoff exponencial acotado: {@code min(retryMaxDelayMs, retryDelayMs * 2^reintentoIndex)} (reintento 0 → base).
+     */
+    private void dormirAntesDeReintento(int reintentoIndex) {
+        long base = Math.max(0, retryDelayMs);
+        if (base == 0 && retryMaxDelayMs <= 0) {
+            return;
+        }
+        int exp = Math.min(Math.max(0, reintentoIndex), 8);
+        long factor = 1L << exp;
+        long raw = base * factor;
+        long cap = retryMaxDelayMs > 0 ? retryMaxDelayMs : Long.MAX_VALUE;
+        long ms = Math.min(cap, raw);
+        if (ms <= 0) {
             return;
         }
         try {
@@ -174,7 +191,10 @@ public class ReservaReembolsoService {
     private boolean marcarReembolsoProcesado(Integer idReserva) {
         LocalDateTime ahora = LocalDateTime.now(clock);
         Integer filas = transactionTemplate.execute(
-                status -> reservaRepository.marcarMercadopagoReembolsoProcesadoSiPendiente(idReserva, ahora));
+                status -> reservaRepository.marcarMercadopagoReembolsoProcesadoSiPendiente(
+                        idReserva,
+                        ahora,
+                        EstadoReservaCatalogo.IDS_ESTADO_REEMBOLSO_MERCADOPAGO));
         return filas != null && filas > 0;
     }
 

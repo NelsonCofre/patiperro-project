@@ -11,6 +11,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /**
  * Permite que Mercado Pago invoque el webhook sin JWT; el resto queda autenticado.
+ * Rutas bajo {@code /api/pagos/interno/} confían en cabecera secreta por controller: no exponer el
+ * microservicio públicamente (el api-gateway debe denegar prefijos interno en el borde HTTP).
  */
 @Configuration
 @EnableWebSecurity

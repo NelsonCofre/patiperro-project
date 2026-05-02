@@ -110,4 +110,15 @@ class MercadoPagoWebhookProcessorTest {
         verify(reservaPagosIntegracionClient).notificarPagoAprobado(idCaptor.capture(), eq("5"));
         assertThat(idCaptor.getValue()).isEqualTo(99);
     }
+
+    @Test
+    void procesar_externalReferencePatiperroReserva_prefijoCheckout() {
+        MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
+                6L, "approved", null, "patiperro-reserva:42", java.util.List.of());
+        when(mercadoPagoApiClient.obtenerPago("6")).thenReturn(Optional.of(pago));
+
+        processor.procesar("payment", "6");
+
+        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq("6"));
+    }
 }
