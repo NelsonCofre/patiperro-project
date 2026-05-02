@@ -17,6 +17,7 @@ import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
+import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
@@ -29,9 +30,12 @@ import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.event.ReservaEventPublisher;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
+import com.patiperro.reserva.support.PagosCheckoutIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -50,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -57,6 +62,8 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class ReservaService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservaService.class);
 
     private final ReservaRepository reservaRepository;
     private final EstadoReservaService estadoReservaService;
@@ -69,6 +76,8 @@ public class ReservaService {
     private final ReservaEventPublisher reservaEventPublisher;
     private final PaseoInicioSideEffectsService paseoInicioSideEffectsService;
     private final ReservaReembolsoService reservaReembolsoService;
+    private final ReservaPagoService reservaPagoService;
+    private final PagosCheckoutIntegracionClient pagosCheckoutIntegracionClient;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
@@ -149,6 +158,39 @@ public class ReservaService {
             throw new IllegalArgumentException("JWT sin claim tutorId");
         }
         return listarDetallePorTutor(tutorId.intValue(), rawJwt);
+    }
+
+    /**
+     * Crea preferencia Mercado Pago Checkout Pro para el tutor autenticado.
+     * Si la reserva está {@link EstadoReservaCatalogo#NOMBRE_SOLICITADA}, pasa a {@link EstadoReservaCatalogo#NOMBRE_PENDIENTE_PAGO}.
+     */
+    @Transactional
+    public TutorCheckoutPreferenciaResponseDTO iniciarCheckoutMercadoPago(Integer idReserva, String rawJwt, String idempotencyKey) {
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reserva no encontrada"));
+        try {
+            validarTutorJwt(r.getIdTutorUsuario(), rawJwt);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        }
+        if (!reservaPagoService.permiteReintentarPago(r)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La reserva no admite iniciar o reintentar el pago en este estado.");
+        }
+        if (!pagosCheckoutIntegracionClient.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pago con pasarela no disponible (configuración).");
+        }
+        EstadoReserva est = r.getEstadoReserva();
+        if (est != null && est.getIdEstadoReserva() != null
+                && est.getIdEstadoReserva().equals(EstadoReservaCatalogo.ID_SOLICITADA)) {
+            EstadoReserva pendiente = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+            r.setEstadoReserva(pendiente);
+            r = reservaRepository.save(r);
+        }
+        String titulo = "Reserva Patiperro #" + idReserva;
+        Optional<TutorCheckoutPreferenciaResponseDTO> pref = pagosCheckoutIntegracionClient.crearPreferenciaCheckout(
+                idReserva, r.getMontoTotal(), titulo, idempotencyKey);
+        return pref.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "No se pudo crear la preferencia de pago. Intente más tarde."));
     }
 
     /**
@@ -1012,61 +1054,27 @@ public class ReservaService {
                 && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
     }
 
-    // 1. Corregimos el método obtenerTutorSeguro (faltaba cerrar el catch)
     private TutorReservaClientDTO obtenerTutorSeguro(Integer idTutor, String rawJwt) {
         try {
             return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
         } catch (Exception e) {
-            System.err.println("DEBUG: No se pudo obtener datos del tutor " + idTutor);
+            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage());
             return null;
-        } // <-- Faltaba esta llave
+        }
     }
 
-    // 2. Método toTutorDetalle unificado y corregido
     private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
         AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
         MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
         PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
-        EstadoReserva estado = r.getEstadoReserva();
-
-        // Buscamos al tutor para obtener nombre y correo
         TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
-
-        // Lógica de fallback para nombres y correos
-        String nombreTutorFinal = (tutor != null) 
-            ? (tutor.getPrimerNombre() + " " + (tutor.getApellidoPaterno() != null ? tutor.getApellidoPaterno() : "")) 
-            : "Tutor #" + r.getIdTutorUsuario();
-            
-        String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
-
-        // IMPORTANTE: El constructor debe seguir el orden exacto del DTO (25 campos)
-        return new ReservaTutorDetalleResponseDTO(
-    r.getIdReserva(),               // 1: idReserva
-    r.getIdTutorUsuario(),          // 2: idTutorUsuario
-    r.getIdMascota(),               // 3: idMascota
-    mascota != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(), // 4: mascotaNombre
-    r.getIdAgendaBloque(),          // 5: idAgendaBloque
-    bloque != null ? bloque.getIdUsuario() : null, // 6: idPaseador
-    paseador != null ? paseador.getNombreCompleto() : "Paseador", // 7: paseadorNombre
-    bloque != null ? bloque.getFecha() : null,     // 8: fecha (LocalDate)
-    bloque != null ? bloque.getHoraInicio() : null, // 9: horaInicio (LocalDateTime)
-    bloque != null ? bloque.getHoraFinal() : null,  // 10: horaFinal (LocalDateTime)
-    r.getMontoTotal(),              // 11: montoTotal (BigDecimal)
-    r.getIdPago(),                  // 12: idPago
-    r.getMercadopagoPaymentId(),    // 13: mercadopagoPaymentId
-    estado != null ? estado.getIdEstadoReserva() : null, // 14: idEstadoReserva
-    estado != null ? estado.getNombreEstado() : null,    // 15: nombreEstado
-    r.getFechaSolicitud(),          // 16: fechaSolicitud
-    r.getFechaAceptacion(),         // 17: fechaAceptacion
-    r.getFechaInicioReal(),         // 18: fechaInicioReal
-    r.getFechaFin(),                // 19: fechaFin
-    r.getCodigoEncuentro(),         // 20: codigoEncuentro
-    nombreTutorFinal.trim(),        // 21: tutorNombre (ESTABA DESPUÉS)
-    correoTutorFinal,               // 22: tutorCorreo (ESTABA DESPUÉS)
-    r.getCodigoEncuentroExpiraEn(), // 23: codigoEncuentroExpiraEn
-    r.getMotivoRechazo(),           // 24: motivoRechazo
-    r.getDetalleRechazo()           // 25: detalleRechazo
-);
+        return ReservaDtoMapper.toTutorDetalleResponse(
+                r,
+                bloque,
+                mascota,
+                paseador,
+                tutor,
+                reservaPagoService.permiteReintentarPago(r));
     }
 
     private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {

@@ -51,23 +51,54 @@ public class MercadoPagoWebhookProcessor {
             String status = pago.status();
             String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString() : MercadoPagoApiClient.normalizarPaymentId(paymentId);
 
-            if (!"approved".equalsIgnoreCase(status != null ? status : "")) {
-                log.info("Webhook MP: pago {} con status={}, no se marca reserva PAGADA", mpId, status);
-                return;
-            }
-
             Integer idReserva = resolverIdReserva(pago);
-            if (idReserva == null) {
-                log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
+
+            if ("approved".equalsIgnoreCase(status != null ? status : "")) {
+                if (idReserva == null) {
+                    log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
+                    return;
+                }
+                reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, mpId);
+                log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, mpPaymentId={})",
+                        idReserva, mpId);
                 return;
             }
 
-            reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, mpId);
-            log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, mpPaymentId={})",
-                    idReserva, mpId);
+            if (!StringUtils.hasText(status)) {
+                log.warn("Webhook MP: pago {} sin status en respuesta MP; sin acción en reserva", mpId);
+                return;
+            }
+
+            if (esEstadoIntermedioMercadoPago(status)) {
+                log.info("Webhook MP: pago {} status={} (intermedio); no se notifica reserva-service", mpId, status);
+                return;
+            }
+
+            if (idReserva == null) {
+                log.warn("Webhook MP: pago no aprobado {} sin external_reference reconocible para id reserva", mpId);
+                return;
+            }
+
+            String detail = pago.statusDetail();
+            reservaPagosIntegracionClient.notificarPagoNoAprobado(idReserva, mpId, status, detail);
+            log.info("Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
+                    idReserva, mpId, status);
         } catch (RuntimeException e) {
             log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
         }
+    }
+
+    /**
+     * Estados donde el cobro puede seguir evolucionando; no persistimos intento fallido todavía.
+     */
+    private static boolean esEstadoIntermedioMercadoPago(String status) {
+        if (!StringUtils.hasText(status)) {
+            return false;
+        }
+        String s = status.trim().toLowerCase();
+        return "pending".equals(s)
+                || "in_process".equals(s)
+                || "authorized".equals(s);
     }
 
     private static Integer resolverIdReserva(MercadoPagoPaymentDto pago) {
