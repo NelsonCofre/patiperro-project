@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @EnableAsync
-@EnableConfigurationProperties({ MercadoPagoRetryProperties.class, MercadoPagoCheckoutProperties.class })
+@EnableConfigurationProperties({MercadoPagoRetryProperties.class, MercadoPagoCheckoutProperties.class})
 public class PagosServiceApplication {
 
 	public static void main(String[] args) {

@@ -80,21 +80,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     int fijarBloqueoCodigoHasta(@Param("idReserva") Integer idReserva, @Param("hasta") LocalDateTime hasta);
 
     /**
-     * Marca la reserva como PAGADA de forma atómica, solo si está en uno de los estados origen permitidos.
-     * Útil para idempotencia ante webhooks duplicados y para evitar condiciones de carrera.
-     *
-     * @return cantidad de filas actualizadas (0 o 1)
-     */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.estadoReserva = :pagada, r.mercadopagoPaymentId = :mpPaymentId "
-            + "WHERE r.idReserva = :idReserva AND r.estadoReserva.idEstadoReserva IN :idsOrigen")
-    int marcarPagadaSiEstadoEn(
-            @Param("pagada") EstadoReserva pagada,
-            @Param("idReserva") Integer idReserva,
-            @Param("idsOrigen") Collection<Integer> idsOrigen,
-            @Param("mpPaymentId") String mpPaymentId);
-
-    /**
      * Marca reembolso Mercado Pago aplicado de forma atómica (una fila, solo si aún no estaba marcado).
      *
      * @return filas actualizadas ({@code 0} o {@code 1})

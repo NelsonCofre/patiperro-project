@@ -63,11 +63,6 @@ spring:
               uri: ${NOTIFICATION_SERVICE_URI:http://localhost:8086}
               predicates:
                 - Path=/api/notificaciones/**
-            # pagos-service (webhook MP en SecurityConfig; interno por cabecera — no exponer sin BFF).
-            - id: pagos-service
-              uri: ${PAGOS_SERVICE_URI:http://localhost:8087}
-              predicates:
-                - Path=/api/pagos/**
 
 server:
   port: ${GATEWAY_PORT:8080}

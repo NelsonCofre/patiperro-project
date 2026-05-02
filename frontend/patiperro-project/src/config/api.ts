@@ -82,7 +82,8 @@ export const API_ENDPOINTS = {
     estadoEncuentro: (idReserva: number) => `${API_BASE_URL}/api/reservas/${idReserva}/estado-encuentro`
   },
   pagos: {
-    checkoutSimulado: `${API_BASE_URL}/api/pagos/checkout/simulado`
+    checkoutSimulado: `${API_BASE_URL}/api/pagos/checkout/simulado`,
+    checkoutPro: `${API_BASE_URL}/api/pagos/checkout/checkout-pro`
   },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,

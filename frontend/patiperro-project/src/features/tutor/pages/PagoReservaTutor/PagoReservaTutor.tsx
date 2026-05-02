@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
-import { iniciarCheckoutMercadoPagoSimulado } from "../../services/pagoTutorApi";
+import { iniciarCheckoutPro } from "../../services/pagoTutorApi";
 import styles from "./PagoReservaTutor.module.css";
 
 function formatCurrency(value: number) {
@@ -39,24 +39,13 @@ export default function PagoReservaTutor() {
     setMessage("");
 
     try {
-      const checkout = await iniciarCheckoutMercadoPagoSimulado({
-        idReserva,
-        montoTotal: total,
-        descripcion: `Reserva #${idReserva} - ${mascota}`
-      });
-
-      if (checkout.status !== "APPROVED") {
-        throw new Error("El pago quedó pendiente o rechazado en la simulación.");
-      }
-
-      setStatus("ok");
-      setMessage(`Pago simulado aprobado (${checkout.paymentId}). Tu reserva quedó pagada.`);
+      const { initPoint } = await iniciarCheckoutPro(idReserva);
+      window.location.assign(initPoint);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "No se pudo completar el pago simulado.";
+        error instanceof Error ? error.message : "No se pudo iniciar el pago con Mercado Pago.";
       setStatus("error");
       setMessage(errorMessage);
-    } finally {
       setLoading(false);
     }
   }
@@ -68,7 +57,7 @@ export default function PagoReservaTutor() {
         <header className={styles.heading}>
           <p>Paso 2 de 2</p>
           <h1>Detalle de pago de reserva</h1>
-          <p>Revisa la información y luego presiona "Ir a pagar" para ejecutar la simulación con Mercado Pago sandbox.</p>
+          <p>Revisa la información y luego presiona &quot;Ir a pagar&quot; para abrir Mercado Pago (Checkout Pro).</p>
         </header>
 
         <article className={styles.card}>
@@ -97,7 +86,8 @@ export default function PagoReservaTutor() {
           </div>
 
           <p className={styles.note}>
-            En esta fase el pago es simulado. En la siguiente iteración se conecta con checkout real de Mercado Pago.
+            Serás redirigido a Mercado Pago. Al aprobar el pago, la reserva pasará a pagada y podrás seguir desde
+            &quot;Mis reservas&quot;.
           </p>
 
           <div className={styles.actions}>

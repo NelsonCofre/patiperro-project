@@ -1,6 +1,7 @@
 package com.patiperro.reserva.controller;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.ReservaParaPagoDto;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
@@ -43,6 +44,20 @@ public class ReservaController {
     @PostMapping("/interno/conflicto-bloqueo")
     public boolean conflictoPorBloques(@RequestBody List<Integer> idsAgendaBloque) {
         return service.tieneReservasComprometidasEnBloques(idsAgendaBloque);
+    }
+
+    /**
+     * Datos para Checkout Pro (pagos-service). Secreto interno vía filtro JWT de reserva-service.
+     */
+    @GetMapping("/interno/{idReserva}/para-pago")
+    public ResponseEntity<ReservaParaPagoDto> obtenerParaPagoInterno(@PathVariable Integer idReserva) {
+        try {
+            return ResponseEntity.ok(service.obtenerParaPagoInterno(idReserva));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 
     // =========================================================================
