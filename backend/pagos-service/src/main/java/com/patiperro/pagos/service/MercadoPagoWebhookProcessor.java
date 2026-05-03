@@ -2,6 +2,7 @@ package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.model.EstadoPago;
+import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
@@ -68,21 +69,36 @@ public class MercadoPagoWebhookProcessor {
                     log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
                     return;
                 }
+                Long idTransaccionPagos = null;
                 try {
-                    transaccionRepository
+                    Optional<Transaccion> pendiente = transaccionRepository
                             .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
-                                    idReserva.longValue(), EstadoPago.PENDIENTE)
-                            .ifPresent(tx -> {
-                                pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
-                                tx.setEstadoPago(EstadoPago.APROBADO);
-                                transaccionRepository.save(tx);
-                            });
+                                    idReserva.longValue(), EstadoPago.PENDIENTE);
+                    if (pendiente.isPresent()) {
+                        Transaccion tx = pendiente.get();
+                        pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
+                        tx.setEstadoPago(EstadoPago.APROBADO);
+                        transaccionRepository.save(tx);
+                        idTransaccionPagos = tx.getIdTransaccion();
+                    }
                 } catch (RuntimeException ex) {
                     log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
                 }
-                reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, mpId);
-                log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, mpPaymentId={})",
-                        idReserva, mpId);
+                if (idTransaccionPagos == null) {
+                    idTransaccionPagos = transaccionRepository
+                            .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                                    idReserva.longValue(), EstadoPago.APROBADO)
+                            .map(Transaccion::getIdTransaccion)
+                            .orElse(null);
+                }
+                if (idTransaccionPagos != null) {
+                    reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, idTransaccionPagos, mpId);
+                    log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
+                            idReserva, idTransaccionPagos, mpId);
+                } else {
+                    log.warn("Webhook MP: pago aprobado {} sin transacción PENDIENTE ni APROBADA (idReserva={})", mpId,
+                            idReserva);
+                }
                 return;
             }
 

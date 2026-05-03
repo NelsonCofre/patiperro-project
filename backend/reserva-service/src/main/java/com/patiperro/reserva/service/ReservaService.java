@@ -679,7 +679,7 @@ public class ReservaService {
                 r.getIdReserva().longValue(),
                 r.getIdTutorUsuario().longValue(),
                 r.getMontoTotal(),
-                r.getMercadopagoPaymentId());
+                r.getIdPago());
     }
 
     /**

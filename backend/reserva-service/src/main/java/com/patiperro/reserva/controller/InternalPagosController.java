@@ -38,17 +38,18 @@ public class InternalPagosController {
 
     /**
      * Confirma pago aprobado desde pasarela (ej. Mercado Pago webhook procesado en pagos-service).
-     * Body: { "idReserva": 123, "mpPaymentId": "999999999" }
+     * Body: {@code { "idReserva": 123, "idTransaccionPagos": 456, "mpPaymentId": "999999999" }}
      */
     @PostMapping(value = "/mercadopago/pago-aprobado", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> marcarPagadaMercadoPago(
             @RequestHeader(value = HEADER_CORRELATION_ID, required = false) String correlationId,
             @RequestBody(required = false) PagoAprobadoRequest body) {
         logCorrelation(correlationId, "pago-aprobado");
-        if (body == null || body.idReserva() == null || !StringUtils.hasText(body.mpPaymentId())) {
-            return badRequest("Faltan idReserva o mpPaymentId.");
+        if (body == null || body.idReserva() == null || body.idTransaccionPagos() == null) {
+            return badRequest("Faltan idReserva o idTransaccionPagos.");
         }
-        reservaPagoService.marcarReservaComoPagada(body.idReserva(), body.mpPaymentId().trim());
+        String mpId = body.mpPaymentId() != null ? body.mpPaymentId().trim() : null;
+        reservaPagoService.marcarReservaComoPagada(body.idReserva(), body.idTransaccionPagos(), mpId);
         return ResponseEntity.noContent().build();
     }
 
@@ -103,7 +104,7 @@ public class InternalPagosController {
         }
     }
 
-    public record PagoAprobadoRequest(Integer idReserva, String mpPaymentId) {
+    public record PagoAprobadoRequest(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {
     }
 
     public record PagoNoAprobadoRequest(Integer idReserva, String mpPaymentId, String mpStatus, String mpStatusDetail) {
