@@ -24,6 +24,9 @@ type Props = {
   filteredCount: number;
   hasActiveFilters: boolean;
   onResetFilters: () => void;
+  // Nuevas props para la historia de usuario de calificación
+  minRating: number;
+  onMinRatingChange: (rating: number) => void;
 };
 
 const SORT_OPTIONS: { value: PaseadoresSortMode; label: string }[] = [
@@ -53,7 +56,9 @@ export default function PaseadoresFilterBar({
   totalFromApi,
   filteredCount,
   hasActiveFilters,
-  onResetFilters
+  onResetFilters,
+  minRating,
+  onMinRatingChange
 }: Props) {
   const [radiusDraft, setRadiusDraft] = useState(() => String(searchRadiusKm));
 
@@ -279,6 +284,37 @@ export default function PaseadoresFilterBar({
             </button>
           </div>
         </div>
+
+        {/* NUEVO FILTRO DE CALIFICACIÓN POR ESTRELLAS */}
+        <div className={styles.fieldGrow}>
+          <span className={styles.label}>Calificación mínima</span>
+          <div className={styles.starRatingRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                className={star <= minRating ? styles.starButtonActive : styles.starButton}
+                onClick={() => onMinRatingChange(minRating === star && star === 1 ? 0 : star)}
+                aria-label={`Filtrar por ${star} estrellas o más`}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill={star <= minRating ? "currentColor" : "none"}>
+                  <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            ))}
+            {minRating > 0 && (
+              <span className={styles.ratingText}>
+                {minRating} estrellas o más
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {availabilityFilterError ? (
@@ -286,6 +322,7 @@ export default function PaseadoresFilterBar({
           {availabilityFilterError}
         </p>
       ) : null}
+
     </div>
   );
 }

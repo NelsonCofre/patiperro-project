@@ -31,33 +31,36 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // Seguridad estricta:
         // - login/register tutores y paseadores publicos.
-        // - subida de foto perfil paseador ANTES de tener cuenta (flujo registro en el front).
-        // - recursos bajo /api/paseadores/public/ (fotos servidas, catalogo tamanos) sin JWT.
+        // - subida de foto perfil paseador ANTES de tener cuenta (flujo registro en el
+        // front).
+        // - recursos bajo /api/paseadores/public/ (fotos servidas, catalogo tamanos)
+        // sin JWT.
         // - resto de /api/** requiere JWT valido.
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // PathPattern: no depende del HandlerMappingIntrospector de MVC; con cadenas simples
-                // Spring Security suele usar MvcRequestMatcher y en el gateway las rutas proxied pueden
+                // PathPattern: no depende del HandlerMappingIntrospector de MVC; con cadenas
+                // simples
+                // Spring Security suele usar MvcRequestMatcher y en el gateway las rutas
+                // proxied pueden
                 // no coincidir -> la peticion cae en /api/** authenticated() y responde 403.
                 .authorizeHttpRequests(auth -> auth
-                        // Internos servidor-a-servidor: no deben enrutarse por el gateway público.
-                        // PathPattern solo permite ** al inicio/fin; un segmento entre /api/ e /interno/ es /*/.
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno/**")).denyAll()
-                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .requestMatchers(
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/logout"),
-                                // Registro: multipart sin JWT; PathPattern por prefijo por si el matcher exacto falla.
                                 PathPatternRequestMatcher.pathPattern("/api/tutores/auth/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/tutores/public/**"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/login"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/logout"),
                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/upload-foto-perfil"),
-                                PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"))
+                                PathPatternRequestMatcher.pathPattern("/api/paseadores/public/**"),
+                                PathPatternRequestMatcher.pathPattern("/api/resenas"), // <--- LA RAÍZ (para el POST)
+                                PathPatternRequestMatcher.pathPattern("/api/resenas/**"))
                         .permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/webhooks/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()

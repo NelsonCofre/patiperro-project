@@ -9,6 +9,7 @@ import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
 import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
 import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
+import { ResenaModal } from "../../components/ResenaForm/ResenaModal"; // Importación nueva
 import {
   formatReservaDate,
   formatReservaMoney,
@@ -16,6 +17,7 @@ import {
   getReservaEstadoMeta
 } from "../../utils/reservaEstadoUtils";
 import styles from "./TutorReservas.module.css";
+import { useResena } from "../../hooks/useResena";
 
 function normalizePaymentStatus(value?: string | null): string {
   return (value ?? "")
@@ -66,7 +68,10 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 
 export default function TutorReservas() {
   const [selectedReserva, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
+  const { enviarResena } = useResena();
+  
   const {
     reservas,
     isLoading,
@@ -118,6 +123,7 @@ export default function TutorReservas() {
         </div>
       ) : null}
 
+      {/* MODAL DE DETALLE (Existente) */}
       {selectedReserva ? (
         <div className={styles.modalOverlay}>
           <section className={styles.modalCard} role="dialog" aria-modal="true">
@@ -280,7 +286,7 @@ export default function TutorReservas() {
                 reserva={reserva}
                 onDetalle={setSelectedReserva}
                 onCancelar={(item) => void cancelarReserva(item)}
-                onCalificar={() => setNotice("La calificacion del paseador quedara para una siguiente etapa del MVP.")}
+                onCalificar={(item) => setReservaParaCalificar(item)} // Implementación nueva: abre el modal real
               />
             ))}
           </div>
@@ -300,6 +306,18 @@ export default function TutorReservas() {
         )}
       </section>
 
+      {/* MODAL DE RESEÑA EN TUTORRESERVAS */}
+      {reservaParaCalificar && (
+        <ResenaModal 
+          reserva={reservaParaCalificar} 
+          onClose={() => {
+            setReservaParaCalificar(null);
+            void reload(); // Refrescamos la lista para actualizar el booleano 'calificada'
+          }} 
+        />
+      )}
+
+      {/* MODAL DE INFO RETENCION (Existente) */}
       {showRetencionInfo ? (
         <div className={styles.modalOverlay}>
           <section className={styles.infoModalCard} role="dialog" aria-modal="true">

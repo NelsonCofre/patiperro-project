@@ -1,0 +1,231 @@
+/* ResenaModal.module.css */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+.modalCard {
+  display: grid;
+  gap: 20px;
+  padding: 32px;
+  border: 1px solid #dce7dd;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 450px;
+  animation: modalAppear 0.2s ease-out;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #183120;
+  margin: 0;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.starGroup {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.starButton {
+  background: none;
+  border: none;
+  font-size: 2.5rem;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  padding: 0;
+}
+
+.starButton:hover {
+  transform: scale(1.1);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 1px solid #e1ebe2;
+  border-radius: 8px;
+  background: #f8fbf8;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+}
+
+.textarea:focus {
+  border-color: #2f7d35;
+  box-shadow: 0 0 0 3px rgba(47, 125, 53, 0.1);
+}
+
+.footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.primaryButton {
+  flex: 1;
+  min-height: 48px;
+  border: none;
+  color: #ffffff;
+  background: #2f7d35;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(47, 125, 53, 0.16);
+}
+
+.secondaryButton {
+  flex: 1;
+  min-height: 48px;
+  color: #2d4d38;
+  border: 1px solid #d8e7da;
+  background: #ffffff;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primaryButton:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@keyframes modalAppear {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.primaryButtonDisabled {
+  flex: 1;
+  min-height: 48px;
+  border: none;
+  color: #64748b;
+  background: #f1f5f9; /* Gris claro */
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: not-allowed; /* Clic de prohibido */
+  opacity: 0.8;
+}
+
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c; /* Rojo fuerte */
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ResenaModal.module.css */
+
+.successContainer {
+  text-align: center;
+  padding: 40px 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.successIcon {
+  width: 64px;
+  height: 64px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 20px;
+}
+
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Estado prohibido para botones */
+.primaryButtonDisabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  cursor: not-allowed; /* Clic de prohibido */
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.textareaContainer {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: none;
+  font-family: inherit;
+}
+
+/* Bordes rojos si se excede */
+.textareaError {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.charCounter {
+  text-align: right;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Color rojo para el contador */
+.charError {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.primaryButtonDisabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  cursor: not-allowed;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 800;
+}

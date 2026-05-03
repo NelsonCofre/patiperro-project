@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { resolveApiUrl, TUTOR_ID_SESSION_KEY } from "../../../config/api";
 import type { PaseadorHome } from "../types/paseadorHome.types";
+import { resenaApi } from "../services/resenaApi"; // IMPORTANTE: Importar el servicio de reseñas
 import {
   fetchPaseadoresCercanos,
   fetchTutorPorId,
@@ -51,7 +52,8 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     nombre: dto.nombreCompleto ?? "",
     fotoUrl: resolveApiUrl(dto.fotoPerfil ?? ""),
     distanciaKm: dto.distanciaKm,
-    calificacionPromedio: 0,
+    // Nota: calificacionPromedio se inicializa con lo que traiga la API o 0
+    calificacionPromedio: dto.calificacionPromedio ?? 0, 
     precioBase: 0,
     disponible: true,
     perfilCompleto: true,
@@ -76,7 +78,6 @@ export function usePaseadoresHome() {
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [searchRadiusKm, setSearchRadiusKm] = useState(10);
-  /** Fuerza nueva peticion aunque el radio en km no cambie (mismo valor o reclamp al maximo). */
   const [cercanosFetchNonce, setCercanosFetchNonce] = useState(0);
 
   const [queryText, setQueryText] = useState("");
@@ -85,6 +86,8 @@ export function usePaseadoresHome() {
   const [availabilityDate, setAvailabilityDate] = useState("");
   const [availabilityStartTime, setAvailabilityStartTime] = useState("");
   const [availabilityEndTime, setAvailabilityEndTime] = useState("");
+  
+  const [minRating, setMinRating] = useState<number>(0);
 
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [coordinates, setCoordinates] = useState<TutorCoordinates | null>(null);
@@ -243,6 +246,35 @@ export function usePaseadoresHome() {
     };
   }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState]);
 
+  // NUEVO: EFECTO PARA SINCRONIZAR CALIFICACIONES REALES
+  useEffect(() => {
+    if (paseadores.length === 0) return;
+
+    const actualizarPromediosReales = async () => {
+      const actualizaciones = await Promise.all(
+        paseadores.map(async (p) => {
+          try {
+            // Consultamos la "fuente de verdad" en el microservicio de reseñas
+            const ratingReal = await resenaApi.obtenerPromedioPaseador(Number(p.id));
+            return { ...p, calificacionPromedio: ratingReal || 0 };
+          } catch {
+            return p;
+          }
+        })
+      );
+
+      const hayCambios = actualizaciones.some(
+        (p, i) => p.calificacionPromedio !== paseadores[i].calificacionPromedio
+      );
+
+      if (hayCambios) {
+        setPaseadores(actualizaciones);
+      }
+    };
+
+    actualizarPromediosReales();
+  }, [lastUpdatedAt]);
+
   useEffect(() => {
     if (maxDistanceFilterKm != null && maxDistanceFilterKm > searchRadiusKm) {
       setMaxDistanceFilterKm(null);
@@ -261,6 +293,8 @@ export function usePaseadoresHome() {
 
   const filteredPaseadores = useMemo(() => {
     let list = [...paseadores];
+
+    // 1. Filtro por Texto
     const q = queryText.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -269,12 +303,24 @@ export function usePaseadoresHome() {
           p.bio.toLowerCase().includes(q)
       );
     }
+
+    // 2. Filtro por Distancia
     const capKm =
       maxDistanceFilterKm != null
         ? Math.min(maxDistanceFilterKm, searchRadiusKm)
         : searchRadiusKm;
     list = list.filter((p) => p.distanciaKm <= capKm);
 
+    // 3. Filtro por Calificación Mínima
+    if (minRating > 0) {
+      list = list.filter((p) => {
+        const cumpleNota = p.calificacionPromedio >= minRating;
+        const noEsNuevo = p.calificacionPromedio > 0;
+        return cumpleNota && noEsNuevo;
+      });
+    }
+
+    // 4. Ordenamiento
     switch (sortMode) {
       case "name":
         list.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
@@ -285,17 +331,19 @@ export function usePaseadoresHome() {
       default:
         list.sort((a, b) => a.distanciaKm - b.distanciaKm);
     }
+
     return list;
-  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode]);
+  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode, minRating]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime]);
+  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime, minRating]);
 
   const visiblePaseadores = useMemo(
     () => filteredPaseadores.slice(0, visibleCount),
     [filteredPaseadores, visibleCount]
   );
+  
   const hasMore = visibleCount < filteredPaseadores.length;
 
   const resetFilters = useCallback(() => {
@@ -305,6 +353,7 @@ export function usePaseadoresHome() {
     setAvailabilityDate("");
     setAvailabilityStartTime("");
     setAvailabilityEndTime("");
+    setMinRating(0);
   }, []);
 
   const loadMore = useCallback(() => {
@@ -337,28 +386,19 @@ export function usePaseadoresHome() {
       },
       (error) => {
         setCoordinates(null);
-
         if (error.code === error.PERMISSION_DENIED) {
           setLocationStatus("denied");
-          setLocationError(
-            "No pudimos acceder a tu ubicacion. Puedes ingresar tu direccion manualmente."
-          );
+          setLocationError("No pudimos acceder a tu ubicacion.");
           return;
         }
-
         setLocationStatus("error");
-        setLocationError("No pudimos obtener tu ubicacion en este momento.");
+        setLocationError("No pudimos obtener tu ubicacion.");
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   }, []);
 
-  const needsReferencePoint =
-    profileLoadDone && (refLat == null || refLon == null);
+  const needsReferencePoint = profileLoadDone && (refLat == null || refLon == null);
 
   return {
     isLoading,
@@ -368,11 +408,7 @@ export function usePaseadoresHome() {
     applySearchRadiusKm,
     minSearchRadiusKm: MIN_SEARCH_RADIUS_KM,
     maxSearchRadiusKm: MAX_SEARCH_RADIUS_KM,
-    lastUpdatedLabel:
-      lastUpdatedAt?.toLocaleTimeString("es-CL", {
-        hour: "2-digit",
-        minute: "2-digit"
-      }) ?? "--:--",
+    lastUpdatedLabel: lastUpdatedAt?.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) ?? "--:--",
     locationStatus,
     coordinates,
     locationError,
@@ -398,12 +434,15 @@ export function usePaseadoresHome() {
     sortMode,
     setSortMode,
     resetFilters,
-    refLat,    // <-- AGREGA ESTO
-    refLon,    // <-- AGREGA ESTO
+    minRating,
+    setMinRating,
+    refLat,
+    refLon,
     hasActiveFilters:
       queryText.trim().length > 0 ||
       maxDistanceFilterKm != null ||
       sortMode !== "distance" ||
-      scheduleFilterState.hasAny
+      scheduleFilterState.hasAny ||
+      minRating > 0
   };
 }

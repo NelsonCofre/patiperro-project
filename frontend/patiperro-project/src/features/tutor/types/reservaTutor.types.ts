@@ -22,6 +22,7 @@ export type ReservaTutorDetalleDTO = {
   paymentPreferenceId?: string | null;
   paymentInitPoint?: string | null;
   mensajeRetencionFondos?: string | null;
+  calificada: boolean;
 };
 
 export type ReservaEstadoKey =

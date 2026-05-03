@@ -54,6 +54,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**").permitAll()
                         .requestMatchers("/api/reserva/interno/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reserva/{id}").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
