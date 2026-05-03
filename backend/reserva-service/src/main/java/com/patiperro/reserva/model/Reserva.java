@@ -50,12 +50,34 @@ public class Reserva {
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
 
-    /**
-     * Id de la fila {@code transaccion} en pagos-service ({@code transaccion.id_transaccion}).
-     * Los datos de Mercado Pago viven en {@code pago_externo} / transacción en la BD de pagos.
-     */
     @Column(name = "id_pago")
-    private Long idPago;
+    private Integer idPago;
+
+    /**
+     * Id del pago en Mercado Pago (API {@code /v1/payments/{id}}). Se persiste al aprobar el cobro;
+     * permite devoluciones y soporte sin consultar solo a pagos-service.
+     */
+    @Column(name = "mercadopago_payment_id", length = 64)
+    private String mercadopagoPaymentId;
+
+    /** Cuándo se registró reembolso exitoso vía pagos-service (idempotencia). */
+    @Column(name = "mercadopago_reembolso_procesado_en")
+    private LocalDateTime mercadopagoReembolsoProcesadoEn;
+
+    /** Último {@code status} del pago en MP cuando no está {@code approved} (webhook / sincronización). */
+    @Column(name = "mercadopago_ultimo_estado", length = 32)
+    private String mercadopagoUltimoEstado;
+
+    /** {@code status_detail} de MP asociado al último intento fallido o rechazado. */
+    @Column(name = "mercadopago_ultimo_estado_detalle", length = 120)
+    private String mercadopagoUltimoEstadoDetalle;
+
+    @Column(name = "mercadopago_ultimo_estado_en")
+    private LocalDateTime mercadopagoUltimoEstadoEn;
+
+    /** Cuándo se confirmó envío del correo de reembolso al tutor (reintentos vía job si queda null). */
+    @Column(name = "notificacion_reembolso_enviada_en")
+    private LocalDateTime notificacionReembolsoEnviadaEn;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estado_reserva_id_estado_reserva", nullable = false)

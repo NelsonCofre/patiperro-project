@@ -65,7 +65,7 @@ public class CheckoutProService {
         }
 
         long unitPrice = reserva.montoTotal().setScale(0, RoundingMode.HALF_UP).longValue();
-        String extRef = String.valueOf(reserva.idReserva());
+        String extRef = MercadoPagoReservaExternalReference.fromReservaId(reserva.idReserva());
 
         Transaccion tx = transaccionRepository
                 .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(reserva.idReserva(), EstadoPago.PENDIENTE)

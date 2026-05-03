@@ -1,6 +1,5 @@
 package com.patiperro.reserva.service;
 
-import com.patiperro.reserva.dto.integracion.ReembolsoFlagsPagosDto;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
@@ -13,13 +12,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
-import java.util.Optional;
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 /**
  * Orquesta devolución Mercado Pago (pagos-service) y aviso al tutor (notification-service).
- * Estado de reembolso y correo se registra en {@code pago_externo} (pagos-service); la reserva solo enlaza {@code id_pago}.
+ * <p>Orden: validar estado y cobro → llamada pagos → solo si {@code 204} persiste marca en reserva → correo tutor.
+ * Ejecutado de forma asíncrona tras commit para no bloquear el hilo que cerró la transacción.</p>
  */
 @Service
 public class ReservaReembolsoService {
@@ -30,29 +33,47 @@ public class ReservaReembolsoService {
     private final PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient;
     private final NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient;
     private final TutorIntegracionClient tutorIntegracionClient;
+    private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
     public ReservaReembolsoService(
             ReservaRepository reservaRepository,
             PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient,
             NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient,
-            TutorIntegracionClient tutorIntegracionClient) {
+            TutorIntegracionClient tutorIntegracionClient,
+            Clock clock,
+            PlatformTransactionManager transactionManager) {
         this.reservaRepository = reservaRepository;
         this.pagosReembolsoIntegracionClient = pagosReembolsoIntegracionClient;
         this.notificacionReembolsoIntegracionClient = notificacionReembolsoIntegracionClient;
         this.tutorIntegracionClient = tutorIntegracionClient;
+        this.clock = clock;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Value("${patiperro.reserva.reembolso.retry-delay-ms:400}")
     private long retryDelayMs;
 
+    /**
+     * Tope de espera entre reintentos (429/5xx); evita crecimiento ilimitado con backoff exponencial.
+     */
+    @Value("${patiperro.reserva.reembolso.retry-max-delay-ms:15000}")
+    private long retryMaxDelayMs;
+
     @Value("${patiperro.reserva.reembolso.retry-max-extra-attempts:1}")
     private int retryMaxExtraAttempts;
 
+    /**
+     * Punto de entrada tras {@code afterCommit}: procesamiento en hilo async.
+     */
     @Async
     public void procesarReembolsoYNotificar(Integer idReserva) {
         procesarReembolsoYNotificarSync(idReserva);
     }
 
+    /**
+     * Versión síncrona útil para pruebas o jobs que no deben usar async.
+     */
     public void procesarReembolsoYNotificarSync(Integer idReserva) {
         if (idReserva == null) {
             return;
@@ -62,14 +83,9 @@ public class ReservaReembolsoService {
             log.warn("Reembolso: reserva {} no encontrada", idReserva);
             return;
         }
-        if (!pagosReembolsoIntegracionClient.isEnabled()) {
-            log.warn("Reembolso: integración pagos-reembolso deshabilitada o sin URL/secreto; omitido (reserva={})",
-                    idReserva);
-            return;
-        }
-
-        Optional<ReembolsoFlagsPagosDto> flagsOpt = pagosReembolsoIntegracionClient.consultarFlagsReembolso(idReserva);
-        if (flagsOpt.map(ReembolsoFlagsPagosDto::correoReembolsoEnviado).orElse(false)) {
+        if (r.getMercadopagoReembolsoProcesadoEn() != null) {
+            log.info("Reembolso: idempotente, ya marcado en reserva {} (procesadoEn={})", idReserva,
+                    r.getMercadopagoReembolsoProcesadoEn());
             return;
         }
 
@@ -79,45 +95,52 @@ public class ReservaReembolsoService {
                     est != null ? est.getNombreEstado() : null);
             return;
         }
-        if (r.getIdPago() == null) {
-            log.debug("Reembolso: reserva {} sin id_pago (enlace a transacción en pagos-service)", idReserva);
+
+        String mpId = safe(r.getMercadopagoPaymentId());
+        if (!StringUtils.hasText(mpId)) {
+            log.debug("Reembolso: reserva {} sin mercadopago_payment_id; no se llama a pagos-service", idReserva);
             return;
         }
 
-        boolean tieneAprobado = flagsOpt.map(ReembolsoFlagsPagosDto::tieneCobroAprobadoMp).orElse(true);
-        if (!tieneAprobado) {
-            log.debug("Reembolso: reserva {} sin cobro aprobado en pagos-service", idReserva);
+        if (!pagosReembolsoIntegracionClient.isEnabled()) {
+            log.warn("Reembolso: integración pagos-reembolso deshabilitada o sin URL/secreto; omitido (reserva={})",
+                    idReserva);
             return;
         }
 
-        if (flagsOpt.map(ReembolsoFlagsPagosDto::reembolsoMpRegistrado).orElse(false)) {
-            enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
-            return;
-        }
-
-        int code = solicitarReembolsoConReintento(idReserva, null);
+        int code = solicitarReembolsoConReintento(idReserva, mpId);
 
         if (code == 204) {
-            enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
+            if (marcarReembolsoProcesado(idReserva)) {
+                enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
+            } else {
+                log.info("Reembolso: pagos OK pero marca procesadoEn ya existía; omitiendo notificación duplicada "
+                        + "(reserva={})", idReserva);
+            }
             return;
         }
 
         if (code == 409) {
             log.warn("Reembolso: pagos-service indica conflicto de negocio (no reembolsable o estado MP) "
-                    + "(reserva={})", idReserva);
+                    + "(reserva={}, mpPaymentId={})", idReserva, mpId);
             return;
         }
         if (code == 400) {
-            log.warn("Reembolso: solicitud inválida hacia pagos-service (reserva={})", idReserva);
+            log.warn("Reembolso: solicitud inválida hacia pagos-service (reserva={}, mpPaymentId={})", idReserva, mpId);
             return;
         }
         if (code == 0) {
-            log.warn("Reembolso: no hubo llamada HTTP a pagos-service; sin notificar tutor (reserva={})", idReserva);
+            log.warn("Reembolso: no hubo llamada HTTP a pagos-service (integración deshabilitada o sin cliente); "
+                    + "sin marcar idempotencia ni notificar tutor (reserva={}, mpPaymentId={})", idReserva, mpId);
             return;
         }
-        log.warn("Reembolso: pagos-service respondió {}; sin notificar tutor (reserva={})", code, idReserva);
+        log.warn("Reembolso: pagos-service respondió {}; sin marcar idempotencia ni notificar tutor "
+                + "(reserva={}, mpPaymentId={})", code, idReserva, mpId);
     }
 
+    /**
+     * Visible para tests del paquete de servicio.
+     */
     boolean requiereReembolsoPorEstado(EstadoReserva est) {
         return esRechazada(est) || esExpirada(est) || esCancelada(est);
     }
@@ -127,7 +150,7 @@ public class ReservaReembolsoService {
         int extra = Math.max(0, retryMaxExtraAttempts);
         int intentos = 0;
         while (debeReintentarCodigoHttp(code) && intentos < extra) {
-            dormirAntesDeReintento();
+            dormirAntesDeReintento(intentos);
             code = pagosReembolsoIntegracionClient.solicitarReembolsoTotal(idReserva, mpId);
             intentos++;
         }
@@ -138,9 +161,20 @@ public class ReservaReembolsoService {
         return code == 502 || code == 503 || code == 500 || code == 429;
     }
 
-    private void dormirAntesDeReintento() {
-        long ms = Math.max(0, retryDelayMs);
-        if (ms == 0) {
+    /**
+     * Backoff exponencial acotado: {@code min(retryMaxDelayMs, retryDelayMs * 2^reintentoIndex)} (reintento 0 → base).
+     */
+    private void dormirAntesDeReintento(int reintentoIndex) {
+        long base = Math.max(0, retryDelayMs);
+        if (base == 0 && retryMaxDelayMs <= 0) {
+            return;
+        }
+        int exp = Math.min(Math.max(0, reintentoIndex), 8);
+        long factor = 1L << exp;
+        long raw = base * factor;
+        long cap = retryMaxDelayMs > 0 ? retryMaxDelayMs : Long.MAX_VALUE;
+        long ms = Math.min(cap, raw);
+        if (ms <= 0) {
             return;
         }
         try {
@@ -152,26 +186,34 @@ public class ReservaReembolsoService {
     }
 
     /**
-     * Reintento solo del correo (reembolso ya registrado en pagos). Usado por el scheduler at-least-once.
+     * @return {@code true} si esta ejecución aplicó la marca (fila actualizada); {@code false} si ya estaba marcada.
+     */
+    private boolean marcarReembolsoProcesado(Integer idReserva) {
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        Integer filas = transactionTemplate.execute(
+                status -> reservaRepository.marcarMercadopagoReembolsoProcesadoSiPendiente(
+                        idReserva,
+                        ahora,
+                        EstadoReservaCatalogo.IDS_ESTADO_REEMBOLSO_MERCADOPAGO));
+        return filas != null && filas > 0;
+    }
+
+    /**
+     * Reintento solo del correo (reembolso ya marcado). Usado por el scheduler de notificaciones at-least-once.
      */
     public void reintentarNotificacionReembolsoTutorSync(Integer idReserva) {
         if (idReserva == null) {
             return;
         }
-        if (!pagosReembolsoIntegracionClient.isEnabled()) {
-            return;
-        }
-        Optional<ReembolsoFlagsPagosDto> fo = pagosReembolsoIntegracionClient.consultarFlagsReembolso(idReserva);
-        if (fo.isEmpty()) {
-            return;
-        }
-        ReembolsoFlagsPagosDto f = fo.get();
-        if (!f.reembolsoMpRegistrado() || f.correoReembolsoEnviado()) {
-            return;
-        }
         Reserva r = reservaRepository.findById(idReserva).orElse(null);
         if (r == null) {
             log.warn("Notificación reembolso (job): reserva {} no encontrada", idReserva);
+            return;
+        }
+        if (r.getMercadopagoReembolsoProcesadoEn() == null) {
+            return;
+        }
+        if (r.getNotificacionReembolsoEnviadaEn() != null) {
             return;
         }
         enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
@@ -188,9 +230,13 @@ public class ReservaReembolsoService {
                 : null;
         boolean ok = notificacionReembolsoIntegracionClient.notificarReembolsoTutor(idReserva, correo);
         if (ok) {
-            pagosReembolsoIntegracionClient.marcarCorreoReembolsoEnviadoEnPagos(idReserva);
-            log.info("Notificación reembolso tutor confirmada y persistida en pagos-service (reserva={}, correoPresente={})",
-                    idReserva, StringUtils.hasText(correo));
+            LocalDateTime ahora = LocalDateTime.now(clock);
+            Integer filas = transactionTemplate.execute(
+                    status -> reservaRepository.marcarNotificacionReembolsoEnviadaSiPendiente(idReserva, ahora));
+            if (filas != null && filas > 0) {
+                log.info("Notificación reembolso tutor confirmada y persistida (reserva={}, correoPresente={})",
+                        idReserva, StringUtils.hasText(correo));
+            }
         } else {
             log.warn("Notificación reembolso tutor fallida o no aplicada; quedará para job de reenvío (reserva={})",
                     idReserva);
@@ -219,5 +265,13 @@ public class ReservaReembolsoService {
         }
         String n = e.getNombreEstado();
         return n != null && n.trim().equalsIgnoreCase(nombreEsperado);
+    }
+
+    private static String safe(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 }

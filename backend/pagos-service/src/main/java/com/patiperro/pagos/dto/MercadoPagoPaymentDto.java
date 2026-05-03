@@ -12,6 +12,7 @@ import java.util.List;
 public record MercadoPagoPaymentDto(
         @JsonProperty("id") Long id,
         @JsonProperty("status") String status,
+        @JsonProperty("status_detail") String statusDetail,
         @JsonProperty("external_reference") String externalReference,
         @JsonProperty("refunds") List<Object> refunds
 ) {

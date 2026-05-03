@@ -1,62 +1,82 @@
+# =============================================================================
+# api-gateway — proxy hacia microservicios. En despliegue, definir URIs por env.
+#
+# Rutas hacia reserva-service están separadas por prefijo (/api/reserva, /api/reservas,
+# /api/tutor, /api/bookings): mismo host; orden no suele importar salvo solapes futuros.
+# /api/*/interno/** se deniega en SecurityConfig (no exponer internos por el gateway público).
+# =============================================================================
+
 spring:
   application:
     name: api-gateway
   cloud:
     gateway:
+      # Cliente HTTP del Gateway Server WebMVC (proxificación). Checkout MP puede tardar.
+      mvc:
+        http-client:
+          connect-timeout: ${GATEWAY_HTTP_CONNECT_TIMEOUT:10s}
+          read-timeout: ${GATEWAY_HTTP_READ_TIMEOUT:120s}
       server:
         webmvc:
           routes:
             # Agenda + bloqueos-día + catálogos (JWT vía cookie/Authorization propagada al 8084).
             - id: agenda-service
-              uri: http://localhost:8084
+              uri: ${AGENDA_SERVICE_URI:http://localhost:8084}
               predicates:
                 - Path=/api/agenda/**
             # Blackout paseador (mismo agenda-service; no confundir con paseadores-service).
             - id: walker-agenda-routes
-              uri: http://localhost:8084
+              uri: ${AGENDA_SERVICE_URI:http://localhost:8084}
               predicates:
                 - Path=/api/walker/**
             - id: mascotas-service
-              uri: http://localhost:8083
+              uri: ${MASCOTAS_SERVICE_URI:http://localhost:8083}
               predicates:
                 - Path=/api/mascotas/**
             - id: paseadores-service
-              uri: http://localhost:8082
+              uri: ${PASEADORES_SERVICE_URI:http://localhost:8082}
               predicates:
                 - Path=/api/paseadores/**
             - id: reserva-service
-              uri: http://localhost:8085
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
               predicates:
                 - Path=/api/reserva/**
             - id: reserva-bookings-query
-              uri: http://localhost:8085
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
               predicates:
                 - Path=/api/tutor/**,/api/bookings/**
             - id: reserva-plural-routes
-              uri: http://localhost:8085
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
               predicates:
                 - Path=/api/reservas/**
             # Login/registro/logout tutor: /api/auth/tutores (subida de foto usa /api/tutores/auth/...).
             - id: tutores-auth-service
-              uri: http://localhost:8081
+              uri: ${TUTORES_SERVICE_URI:http://localhost:8081}
               predicates:
                 - Path=/api/auth/tutores/**
             - id: tutores-service
-              uri: http://localhost:8081
+              uri: ${TUTORES_SERVICE_URI:http://localhost:8081}
               predicates:
                 - Path=/api/tutores/**
             # notification-service (plantillas, envíos, eventos; no exponer /internal/** aquí).
             - id: notification-service
-              uri: http://localhost:8086
+              uri: ${NOTIFICATION_SERVICE_URI:http://localhost:8086}
               predicates:
                 - Path=/api/notificaciones/**
-            - id: pagos-service
-              uri: http://localhost:8087
-              predicates:
-                - Path=/api/pagos/**
 
 server:
-  port: 8080
+  port: ${GATEWAY_PORT:8080}
 
+# Mismo secreto HS256 que tutores/reserva (JWT del gateway). En prod: solo env.
 jwt:
-  secret: patiperro-dev-secret-key-should-be-long-and-random-2026
+  secret: ${JWT_SECRET:patiperro-dev-secret-key-should-be-long-and-random-2026}
+
+# Orígenes CORS del navegador (SecurityConfig). Ampliar en despliegue según dominio del front.
+patiperro:
+  gateway:
+    cors:
+      allowed-origins:
+        - http://localhost:5173
+        - http://localhost:5174
+        - http://127.0.0.1:5173
+        - http://127.0.0.1:5174

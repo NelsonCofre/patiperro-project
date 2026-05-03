@@ -2,7 +2,6 @@ package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.model.EstadoPago;
-import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
@@ -17,6 +16,8 @@ import java.util.Optional;
 /**
  * Procesamiento pesado del webhook: consulta MP y avisa a reserva-service.
  * Ejecutado en hilo aparte para responder 200 rápido al webhook.
+ * <p>Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1) más notificación de
+ * rechazados e ignorar estados intermedios (V2).</p>
  */
 @Component
 public class MercadoPagoWebhookProcessor {
@@ -60,53 +61,66 @@ public class MercadoPagoWebhookProcessor {
             String status = pago.status();
             String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString() : MercadoPagoApiClient.normalizarPaymentId(paymentId);
 
-            if (!"approved".equalsIgnoreCase(status != null ? status : "")) {
-                log.info("Webhook MP: pago {} con status={}, no se marca reserva PAGADA", mpId, status);
-                return;
-            }
-
             Integer idReserva = resolverIdReserva(pago);
-            if (idReserva == null) {
-                log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
+
+            if ("approved".equalsIgnoreCase(status != null ? status : "")) {
+                if (idReserva == null) {
+                    log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
+                    return;
+                }
+                try {
+                    transaccionRepository
+                            .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                                    idReserva.longValue(), EstadoPago.PENDIENTE)
+                            .ifPresent(tx -> {
+                                pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
+                                tx.setEstadoPago(EstadoPago.APROBADO);
+                                transaccionRepository.save(tx);
+                            });
+                } catch (RuntimeException ex) {
+                    log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
+                }
+                reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, mpId);
+                log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, mpPaymentId={})",
+                        idReserva, mpId);
                 return;
             }
 
-            Long idTransaccionParaReserva = null;
-            try {
-                Optional<Transaccion> pendiente = transaccionRepository
-                        .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
-                                idReserva.longValue(), EstadoPago.PENDIENTE);
-                if (pendiente.isPresent()) {
-                    Transaccion tx = pendiente.get();
-                    pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
-                    tx.setEstadoPago(EstadoPago.APROBADO);
-                    if (pago.id() != null) {
-                        tx.setIdPago(pago.id());
-                    }
-                    transaccionRepository.save(tx);
-                    idTransaccionParaReserva = tx.getIdTransaccion();
-                } else {
-                    idTransaccionParaReserva = transaccionRepository
-                            .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
-                                    idReserva.longValue(), EstadoPago.APROBADO)
-                            .map(Transaccion::getIdTransaccion)
-                            .orElse(null);
-                }
-            } catch (RuntimeException ex) {
-                log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
+            if (!StringUtils.hasText(status)) {
+                log.warn("Webhook MP: pago {} sin status en respuesta MP; sin acción en reserva", mpId);
+                return;
             }
 
-            if (idTransaccionParaReserva != null) {
-                reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, idTransaccionParaReserva, mpId);
-                log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
-                        idReserva, idTransaccionParaReserva, mpId);
-            } else {
-                log.warn("Webhook MP: pago aprobado {} sin transacción local (idReserva={}); no se notifica reserva-service",
-                        mpId, idReserva);
+            if (esEstadoIntermedioMercadoPago(status)) {
+                log.info("Webhook MP: pago {} status={} (intermedio); no se notifica reserva-service", mpId, status);
+                return;
             }
+
+            if (idReserva == null) {
+                log.warn("Webhook MP: pago no aprobado {} sin external_reference reconocible para id reserva", mpId);
+                return;
+            }
+
+            String detail = pago.statusDetail();
+            reservaPagosIntegracionClient.notificarPagoNoAprobado(idReserva, mpId, status, detail);
+            log.info("Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
+                    idReserva, mpId, status);
         } catch (RuntimeException e) {
             log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
         }
+    }
+
+    /**
+     * Estados donde el cobro puede seguir evolucionando; no persistimos intento fallido todavía.
+     */
+    private static boolean esEstadoIntermedioMercadoPago(String status) {
+        if (!StringUtils.hasText(status)) {
+            return false;
+        }
+        String s = status.trim().toLowerCase();
+        return "pending".equals(s)
+                || "in_process".equals(s)
+                || "authorized".equals(s);
     }
 
     private static Integer resolverIdReserva(MercadoPagoPaymentDto pago) {

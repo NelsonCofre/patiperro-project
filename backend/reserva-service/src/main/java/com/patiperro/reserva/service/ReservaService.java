@@ -18,6 +18,7 @@ import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaParaPagoDto;
+import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
@@ -30,13 +31,17 @@ import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.event.ReservaEventPublisher;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
+import com.patiperro.reserva.support.PagosCheckoutIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestTemplate;
@@ -52,6 +57,7 @@ import java.util.Comparator;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,6 +65,8 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class ReservaService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservaService.class);
 
     private final ReservaRepository reservaRepository;
     private final EstadoReservaService estadoReservaService;
@@ -71,6 +79,8 @@ public class ReservaService {
     private final ReservaEventPublisher reservaEventPublisher;
     private final PaseoInicioSideEffectsService paseoInicioSideEffectsService;
     private final ReservaReembolsoService reservaReembolsoService;
+    private final ReservaPagoService reservaPagoService;
+    private final PagosCheckoutIntegracionClient pagosCheckoutIntegracionClient;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
@@ -154,6 +164,39 @@ public class ReservaService {
     }
 
     /**
+     * Crea preferencia Mercado Pago Checkout Pro para el tutor autenticado.
+     * Si la reserva está {@link EstadoReservaCatalogo#NOMBRE_SOLICITADA}, pasa a {@link EstadoReservaCatalogo#NOMBRE_PENDIENTE_PAGO}.
+     */
+    @Transactional
+    public TutorCheckoutPreferenciaResponseDTO iniciarCheckoutMercadoPago(Integer idReserva, String rawJwt, String idempotencyKey) {
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reserva no encontrada"));
+        try {
+            validarTutorJwt(r.getIdTutorUsuario(), rawJwt);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        }
+        if (!reservaPagoService.permiteReintentarPago(r)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La reserva no admite iniciar o reintentar el pago en este estado.");
+        }
+        if (!pagosCheckoutIntegracionClient.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pago con pasarela no disponible (configuración).");
+        }
+        EstadoReserva est = r.getEstadoReserva();
+        if (est != null && est.getIdEstadoReserva() != null
+                && est.getIdEstadoReserva().equals(EstadoReservaCatalogo.ID_SOLICITADA)) {
+            EstadoReserva pendiente = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+            r.setEstadoReserva(pendiente);
+            r = reservaRepository.save(r);
+        }
+        String titulo = "Reserva Patiperro #" + idReserva;
+        Optional<TutorCheckoutPreferenciaResponseDTO> pref = pagosCheckoutIntegracionClient.crearPreferenciaCheckout(
+                idReserva, r.getMontoTotal(), titulo, idempotencyKey);
+        return pref.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "No se pudo crear la preferencia de pago. Intente más tarde."));
+    }
+
+    /**
      * Timeline de estados para la UI: solicitud, pasarela de pago, flujo del paseo y cierres excepcionales.
      */
     public BookingTimelineResponseDTO obtenerTimelineReserva(Integer idReserva, String rawJwt) {
@@ -183,7 +226,7 @@ public class ReservaService {
                 r.getFechaSolicitud()));
 
         boolean pasoPagoPasarela = esPendientePago(estadoActual)
-                || reservaTieneEnlaceTransaccionPagos(r)
+                || reservaTieneCobroMercadoPago(r)
                 || esAceptada(estadoActual)
                 || esEnCurso(estadoActual)
                 || esFinalizada(estadoActual);
@@ -193,7 +236,7 @@ public class ReservaService {
                 pasoPagoPasarela,
                 esPendientePago(estadoActual) ? r.getFechaSolicitud() : null));
 
-        boolean cobroRetenido = reservaTieneEnlaceTransaccionPagos(r)
+        boolean cobroRetenido = reservaTieneCobroMercadoPago(r)
                 || esAceptada(estadoActual)
                 || esEnCurso(estadoActual)
                 || esFinalizada(estadoActual);
@@ -245,9 +288,11 @@ public class ReservaService {
         return steps;
     }
 
-    /** Hay vínculo a una transacción en pagos-service (checkout iniciado o pago asociado). */
-    private static boolean reservaTieneEnlaceTransaccionPagos(Reserva r) {
-        return r != null && r.getIdPago() != null;
+    private static boolean reservaTieneCobroMercadoPago(Reserva r) {
+        if (r == null || r.getMercadopagoPaymentId() == null) {
+            return false;
+        }
+        return !r.getMercadopagoPaymentId().isBlank();
     }
 
     /**
@@ -321,6 +366,11 @@ public class ReservaService {
         return ReservaDtoMapper.toReservaResponse(reservaRepository.save(r));
     }
 
+    /**
+     * Decisión del paseador (aceptar / rechazar / …).
+     * <p>Paso 5 (solo backend, PDF): si pasa a RECHAZADA y la reserva estaba PAGADA (cobro retenido), se programa
+     * devolución MP tras commit mediante {@link #programarReembolsoMercadoPagoTrasCommit(Integer, Reserva)}.</p>
+     */
     @Transactional
     public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
@@ -342,7 +392,7 @@ public class ReservaService {
         if (esEstadoRechazada(nuevo)) {
             agendaIntegracionClient.marcarBloqueDisponible(saved.getIdAgendaBloque(), rawJwt);
             if (esPagada(actual)) {
-                programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+                programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva(), saved);
             }
         }
         return ReservaDtoMapper.toReservaResponse(saved);
@@ -350,6 +400,8 @@ public class ReservaService {
 
     /**
      * Job: expira solicitud por plazo de aceptación (sin JWT). Idempotente si otro hilo ya cambió el estado.
+     * <p>Paso 5 (PDF): expiración por plazo — si la reserva estaba PAGADA (cobro), misma devolución MP tras commit
+     * que en rechazo/cancelación tutor con cobro.</p>
      */
     @Transactional
     public void expirarReservaPorPlazoAceptacionJobItem(Integer idReserva) {
@@ -372,13 +424,28 @@ public class ReservaService {
         reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueDisponibleInterno(r.getIdAgendaBloque());
         if (eraPagada) {
-            programarReembolsoMercadoPagoTrasCommit(idReserva);
+            programarReembolsoMercadoPagoTrasCommit(idReserva, r);
         }
     }
 
-    private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva) {
+    /**
+     * Punto único para paso 5 (disparadores PDF): no llama a Mercado Pago dentro de la transacción actual.
+     * El cobro debe estar referenciado en {@code mercadopago_payment_id} (persistido al aprobar pago en
+     * {@link ReservaPagoService#marcarReservaComoPagada}); si falta, se registra advertencia para operación.
+     *
+     * @param reservaAuditoriaPaymentId reserva ya persistida con el estado de cierre; solo para comprobar
+     *                                  si existe id de pago MP antes del async (puede ser {@code null}).
+     */
+    private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva, Reserva reservaAuditoriaPaymentId) {
         if (idReserva == null) {
             return;
+        }
+        if (reservaAuditoriaPaymentId != null
+                && !StringUtils.hasText(reservaAuditoriaPaymentId.getMercadopagoPaymentId())) {
+            log.warn(
+                    "Reembolso MP programado tras commit pero la reserva no tiene mercadopago_payment_id; "
+                            + "ReservaReembolsoService no invocará pagos-service hasta existir id (idReserva={})",
+                    idReserva);
         }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
@@ -526,7 +593,7 @@ public class ReservaService {
 
     /**
      * El tutor anula la reserva antes de que el paseador la acepte: SOLICITADA, PENDIENTE_PAGO o PAGADA.
-     * Si ya estaba pagada en Mercado Pago, programa devolución tras commit.
+     * <p>Paso 5 (PDF): si estaba PAGADA (cobro), programa devolución MP tras commit (CANCELADA con cobro).</p>
      */
     @Transactional
     public ReservaResponseDTO aplicarCancelacionTutor(Integer idReserva, TutorDecision decision, String rawJwt) {
@@ -548,7 +615,7 @@ public class ReservaService {
         Reserva saved = reservaRepository.save(r);
         agendaIntegracionClient.marcarBloqueDisponibleInterno(saved.getIdAgendaBloque());
         if (eraPagada) {
-            programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva());
+            programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva(), saved);
         }
         return ReservaDtoMapper.toReservaResponse(saved);
     }
@@ -612,7 +679,7 @@ public class ReservaService {
                 r.getIdReserva().longValue(),
                 r.getIdTutorUsuario().longValue(),
                 r.getMontoTotal(),
-                r.getIdPago());
+                r.getMercadopagoPaymentId());
     }
 
     /**
@@ -1039,59 +1106,27 @@ public class ReservaService {
                 && estado.getNombreEstado().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_RECHAZADA);
     }
 
-    // 1. Corregimos el método obtenerTutorSeguro (faltaba cerrar el catch)
     private TutorReservaClientDTO obtenerTutorSeguro(Integer idTutor, String rawJwt) {
         try {
             return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
         } catch (Exception e) {
-            System.err.println("DEBUG: No se pudo obtener datos del tutor " + idTutor);
+            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage());
             return null;
-        } // <-- Faltaba esta llave
+        }
     }
 
-    // 2. Método toTutorDetalle unificado y corregido
     private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
         AgendaBloqueResumenDTO bloque = obtenerBloqueSeguro(r.getIdAgendaBloque(), rawJwt);
         MascotaResumenDTO mascota = obtenerMascotaSeguro(r.getIdMascota(), rawJwt);
         PaseadorResumenDTO paseador = bloque == null ? null : obtenerPaseadorSeguro(bloque.getIdUsuario());
-        EstadoReserva estado = r.getEstadoReserva();
-
-        // Buscamos al tutor para obtener nombre y correo
         TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
-
-        // Lógica de fallback para nombres y correos
-        String nombreTutorFinal = (tutor != null) 
-            ? (tutor.getPrimerNombre() + " " + (tutor.getApellidoPaterno() != null ? tutor.getApellidoPaterno() : "")) 
-            : "Tutor #" + r.getIdTutorUsuario();
-            
-        String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
-
-        return new ReservaTutorDetalleResponseDTO(
-    r.getIdReserva(),
-    r.getIdTutorUsuario(),
-    r.getIdMascota(),
-    mascota != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
-    r.getIdAgendaBloque(),
-    bloque != null ? bloque.getIdUsuario() : null,
-    paseador != null ? paseador.getNombreCompleto() : "Paseador",
-    bloque != null ? bloque.getFecha() : null,
-    bloque != null ? bloque.getHoraInicio() : null,
-    bloque != null ? bloque.getHoraFinal() : null,
-    r.getMontoTotal(),
-    r.getIdPago(),
-    estado != null ? estado.getIdEstadoReserva() : null,
-    estado != null ? estado.getNombreEstado() : null,
-    r.getFechaSolicitud(),
-    r.getFechaAceptacion(),
-    r.getFechaInicioReal(),
-    r.getFechaFin(),
-    r.getCodigoEncuentro(),
-    nombreTutorFinal.trim(),
-    correoTutorFinal,
-    r.getCodigoEncuentroExpiraEn(),
-    r.getMotivoRechazo(),
-    r.getDetalleRechazo()
-);
+        return ReservaDtoMapper.toTutorDetalleResponse(
+                r,
+                bloque,
+                mascota,
+                paseador,
+                tutor,
+                reservaPagoService.permiteReintentarPago(r));
     }
 
     private AgendaBloqueResumenDTO obtenerBloqueSeguro(Integer idAgendaBloque, String rawJwt) {
@@ -1124,11 +1159,11 @@ public class ReservaService {
                 && actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
             return;
         }
-        if (esSolicitada(actual)) {
+        if (esSolicitada(actual) || esPendientePago(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {
                 return;
             }
-            throw new IllegalArgumentException("Desde SOLICITADA solo se permite ACEPTADA o RECHAZADA");
+            throw new IllegalArgumentException("Desde SOLICITADA o PENDIENTE_PAGO solo se permite ACEPTADA o RECHAZADA");
         }
         if (esPagada(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {

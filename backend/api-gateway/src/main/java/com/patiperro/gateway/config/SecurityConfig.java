@@ -18,9 +18,13 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final GatewayCorsProperties gatewayCorsProperties;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            GatewayCorsProperties gatewayCorsProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.gatewayCorsProperties = gatewayCorsProperties;
     }
 
     @Bean
@@ -38,7 +42,8 @@ public class SecurityConfig {
                 // Spring Security suele usar MvcRequestMatcher y en el gateway las rutas proxied pueden
                 // no coincidir -> la peticion cae en /api/** authenticated() y responde 403.
                 .authorizeHttpRequests(auth -> auth
-                        // Internos servidor-a-servidor: no deben enrutarse por el gateway público.
+                        // Internos servidor-a-servidor (reembolso MP, preferencias checkout, mascotas interno, etc.):
+                        // no deben enrutarse por el gateway público; el cliente llama al host del microservicio o mesh interno.
                         // PathPattern solo permite ** al inicio/fin; un segmento entre /api/ e /interno/ es /*/.
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno/**")).denyAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
@@ -68,12 +73,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // Vite puede usar 5173 u otro puerto libre (ej. 5174 si 5173 esta ocupado)
-        config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:5174"));
+        config.setAllowedOrigins(List.copyOf(gatewayCorsProperties.getAllowedOrigins()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

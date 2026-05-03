@@ -17,10 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * Lógica de negocio para aplicar efectos de pago en la reserva.
+ * <p>Orden de trabajo sugerido (solo backend), paso 1: al aprobar cobro, persistir {@code mercadopago_payment_id}
+ * en la entidad {@link Reserva} (requisito para reembolsos vía {@link ReservaReembolsoService}).</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -89,18 +92,20 @@ public class ReservaPagoService {
         }
 
         EstadoReserva pagada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA);
-        List<Integer> estadosOrigenPermitidos = List.of(
-                EstadoReservaCatalogo.ID_SOLICITADA,
-                EstadoReservaCatalogo.ID_ACEPTADA,
-                EstadoReservaCatalogo.ID_PENDIENTE_PAGO
-        );
         Reserva rUpdate = reservaRepository.findById(idReserva)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
         EstadoReserva estadoActualUpd = rUpdate.getEstadoReserva();
         Integer idEstadoUpd = estadoActualUpd != null ? estadoActualUpd.getIdEstadoReserva() : null;
-        if (idEstadoUpd == null || !estadosOrigenPermitidos.contains(idEstadoUpd)) {
+        if (!EstadoReservaCatalogo.estadoAdmiteMarcarPagadaPorCobroMercadoPago(idEstadoUpd)) {
             String estado = estadoActualUpd != null ? estadoActualUpd.getNombreEstado() : "SIN_ESTADO";
-            throw new IllegalStateException("No se puede marcar PAGADA desde estado actual: " + estado);
+            log.warn(
+                    "Cobro MP aprobado no aplicado a reserva: estado no admite PAGADA (idReserva={}, idEstado={}, nombre={})",
+                    idReserva, idEstadoUpd, estado);
+            throw new IllegalStateException(
+                    "No se puede marcar PAGADA desde estado actual: "
+                            + estado
+                            + ". Solo se permiten orígenes SOLICITADA, PENDIENTE_PAGO o ACEPTADA "
+                            + "(p. ej. webhook tardío tras expiración/cancelación queda rechazado).");
         }
         rUpdate.setEstadoReserva(pagada);
         rUpdate.setIdPago(idTransaccionPagos);
@@ -149,6 +154,83 @@ public class ReservaPagoService {
 
         log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
                 saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
+    }
+
+    private static final int MP_ESTADO_MAX = 32;
+    private static final int MP_DETALLE_MAX = 120;
+
+    /**
+     * {@code true} si el tutor puede volver a intentar el pago en pasarela (misma regla que registro de fallo MP).
+     */
+    public boolean permiteReintentarPago(Reserva r) {
+        if (r == null || r.getEstadoReserva() == null) {
+            return false;
+        }
+        Integer id = r.getEstadoReserva().getIdEstadoReserva();
+        return EstadoReservaCatalogo.estadoAdmiteCheckoutOReintentoMercadoPago(id);
+    }
+
+    /**
+     * Persiste el último estado MP cuando el cobro no está aprobado (rechazo, cancelación, etc.).
+     * <ul>
+     *   <li>Idempotente si la reserva ya está {@code PAGADA}.</li>
+     *   <li>Solo aplica en estados que admiten checkout/reintento ({@link EstadoReservaCatalogo#estadoAdmiteCheckoutOReintentoMercadoPago}).</li>
+     *   <li>Si llega el mismo {@code status} y {@code status_detail} ya persistidos, no reescribe.</li>
+     * </ul>
+     */
+    @Transactional
+    public void registrarMercadoPagoNoAprobado(Integer idReserva, String mpPaymentId, String mpStatus, String mpStatusDetail) {
+        if (idReserva == null) {
+            throw new IllegalArgumentException("idReserva es obligatorio");
+        }
+        if (!StringUtils.hasText(mpPaymentId)) {
+            throw new IllegalArgumentException("mpPaymentId es obligatorio");
+        }
+        if (!StringUtils.hasText(mpStatus)) {
+            throw new IllegalArgumentException("mpStatus es obligatorio");
+        }
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+
+        EstadoReserva actual = r.getEstadoReserva();
+        if (actual != null && actual.getIdEstadoReserva() != null
+                && actual.getIdEstadoReserva().equals(EstadoReservaCatalogo.ID_PAGADA)) {
+            log.info("MP no aprobado ignorado: reserva ya PAGADA (idReserva={}, mpPaymentId={}, status={})",
+                    idReserva, mpPaymentId.trim(), mpStatus.trim());
+            return;
+        }
+
+        if (actual == null || actual.getIdEstadoReserva() == null
+                || !EstadoReservaCatalogo.estadoAdmiteCheckoutOReintentoMercadoPago(actual.getIdEstadoReserva())) {
+            log.info("MP no aprobado ignorado: estado actual no admite registrar intento (idReserva={}, estadoId={}, status={})",
+                    idReserva,
+                    actual != null ? actual.getIdEstadoReserva() : null,
+                    mpStatus.trim());
+            return;
+        }
+
+        String estadoNuevo = truncate(mpStatus, MP_ESTADO_MAX);
+        String detalleNuevo = truncate(mpStatusDetail, MP_DETALLE_MAX);
+        if (Objects.equals(estadoNuevo, r.getMercadopagoUltimoEstado())
+                && Objects.equals(detalleNuevo, r.getMercadopagoUltimoEstadoDetalle())) {
+            log.debug("MP no aprobado idempotente: sin cambios (idReserva={}, status={})", idReserva, estadoNuevo);
+            return;
+        }
+
+        r.setMercadopagoUltimoEstado(estadoNuevo);
+        r.setMercadopagoUltimoEstadoDetalle(detalleNuevo);
+        r.setMercadopagoUltimoEstadoEn(LocalDateTime.now());
+        reservaRepository.save(r);
+        log.info("Registrado intento MP no aprobado (idReserva={}, mpPaymentId={}, status={})",
+                idReserva, mpPaymentId.trim(), estadoNuevo);
+    }
+
+    private static String truncate(String s, int maxLen) {
+        if (!StringUtils.hasText(s)) {
+            return null;
+        }
+        String t = s.trim();
+        return t.length() <= maxLen ? t : t.substring(0, maxLen);
     }
 
     public record PagoConfirmadoEventDTO(
