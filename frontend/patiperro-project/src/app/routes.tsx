@@ -6,6 +6,7 @@ import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
 import LandingHome from "../features/home/pages/LandingHome/LandingHome";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
+import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
@@ -35,6 +36,7 @@ export default function AppRoutes() {
       <Route path="/paseador/dashboard/solicitudes/en-curso" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/rechazadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
+      <Route path="/paseador/dashboard/billetera" element={<PaseadorBilletera />} />
       {/* Primeras rutas del espacio del tutor. */}
       <Route path="/tutor/dashboard" element={<TutorDashboard />} />
       <Route path="/tutor/mascota/nueva" element={<AddMascota />} />

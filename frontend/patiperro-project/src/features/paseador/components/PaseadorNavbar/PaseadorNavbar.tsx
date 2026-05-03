@@ -9,6 +9,7 @@ import styles from "./PaseadorNavbar.module.css";
 const NAV_ITEMS = [
   { label: "Inicio", to: "/paseador/dashboard", end: true },
   { label: "Solicitudes", to: "/paseador/dashboard/solicitudes" },
+  { label: "Mi Billetera", to: "/paseador/dashboard/billetera" },
   { label: "Configurar mi Servicio", to: "/paseador/dashboard/configuracion" },
   { label: "Mi Agenda", to: "/paseador/dashboard/agenda" }
 ];
