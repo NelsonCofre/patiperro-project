@@ -32,7 +32,8 @@ public class InternalMercadoPagoController {
     }
 
     /**
-     * Reembolso total del pago. Body: {@code { "mpPaymentId": "123", "idReserva": 1 }} (idReserva opcional).
+     * Reembolso total del pago. Body: {@code { "mpPaymentId": "123", "idReserva": 1 }}.
+     * Si {@code mpPaymentId} viene vacío, se resuelve desde la transacción aprobada de la reserva en BD local.
      */
     @PostMapping("/reembolso")
     public ResponseEntity<Void> reembolsoTotal(
@@ -45,12 +46,16 @@ public class InternalMercadoPagoController {
         if (!internoSecret.equals(secretoHeader)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        if (body == null || !StringUtils.hasText(body.mpPaymentId())) {
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        String mp = body.mpPaymentId() != null ? body.mpPaymentId().trim() : "";
+        if (!StringUtils.hasText(mp) && body.idReserva() == null) {
             return ResponseEntity.badRequest().build();
         }
 
         int code = mercadoPagoReembolsoService.procesarReembolsoTotal(
-                body.idReserva(), body.mpPaymentId().trim(), idempotencyKey);
+                body.idReserva(), mp, idempotencyKey);
         HttpStatus st = HttpStatus.resolve(code);
         if (st == null) {
             return ResponseEntity.status(code).build();

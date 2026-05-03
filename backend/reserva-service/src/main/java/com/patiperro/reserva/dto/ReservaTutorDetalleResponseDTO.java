@@ -23,9 +23,8 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime horaInicio;
     private LocalDateTime horaFinal;
     private BigDecimal montoTotal;
-    private Integer idPago;
-    /** Id del cobro en Mercado Pago, si aplica. */
-    private String mercadopagoPaymentId;
+    /** Id de {@code transaccion} en pagos-service. */
+    private Long idPago;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaSolicitud;

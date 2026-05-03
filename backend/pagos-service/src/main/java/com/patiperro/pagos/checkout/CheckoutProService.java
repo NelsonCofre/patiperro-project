@@ -11,6 +11,7 @@ import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
 import com.patiperro.pagos.reserva.dto.ReservaConsultaDto;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
+import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,7 @@ public class CheckoutProService {
     private final ReservaConsultaClient reservaConsultaClient;
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final TransaccionRepository transaccionRepository;
+    private final ReservaPagosIntegracionClient reservaPagosIntegracionClient;
 
     @Value("${patiperro.pagos.checkout.front-base-url:http://localhost:5173}")
     private String frontBaseUrl;
@@ -84,6 +86,7 @@ public class CheckoutProService {
                         .tipoTransaccion(TipoTransaccion.PAGO_CLIENTE)
                         .build());
         transaccionRepository.save(tx);
+        reservaPagosIntegracionClient.vincularTransaccionReserva(reserva.idReserva().intValue(), tx.getIdTransaccion());
 
         String base = trimTrailingSlash(frontBaseUrl);
         String qTotal = URLEncoder.encode(String.valueOf(unitPrice), StandardCharsets.UTF_8);

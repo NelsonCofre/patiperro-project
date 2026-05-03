@@ -76,6 +76,10 @@ public class PagoExterno {
     @Column(name = "refund_fecha")
     private LocalDateTime refundFecha;
 
+    /** Confirmación en notification-service del correo de reembolso al tutor (idempotencia at-least-once). */
+    @Column(name = "notificacion_reembolso_correo_enviada_en")
+    private LocalDateTime notificacionReembolsoCorreoEnviadaEn;
+
     @PrePersist
     void prePersist() {
         if (fechaCreacion == null) {

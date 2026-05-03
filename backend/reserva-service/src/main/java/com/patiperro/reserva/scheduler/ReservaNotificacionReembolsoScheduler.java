@@ -1,13 +1,12 @@
 package com.patiperro.reserva.scheduler;
 
-import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.service.ReservaReembolsoService;
 import com.patiperro.reserva.support.NotificacionReembolsoIntegracionClient;
+import com.patiperro.reserva.support.PagosReembolsoIntegracionClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,19 +21,19 @@ public class ReservaNotificacionReembolsoScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(ReservaNotificacionReembolsoScheduler.class);
 
-    private final ReservaRepository reservaRepository;
     private final ReservaReembolsoService reservaReembolsoService;
     private final NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient;
+    private final PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient;
     private final int maxBatchSize;
 
     public ReservaNotificacionReembolsoScheduler(
-            ReservaRepository reservaRepository,
             ReservaReembolsoService reservaReembolsoService,
             NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient,
+            PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient,
             @Value("${patiperro.reserva.notificacion-reembolso.scheduler.max-batch-size:30}") int maxBatchSize) {
-        this.reservaRepository = reservaRepository;
         this.reservaReembolsoService = reservaReembolsoService;
         this.notificacionReembolsoIntegracionClient = notificacionReembolsoIntegracionClient;
+        this.pagosReembolsoIntegracionClient = pagosReembolsoIntegracionClient;
         this.maxBatchSize = Math.max(1, maxBatchSize);
     }
 
@@ -45,9 +44,11 @@ public class ReservaNotificacionReembolsoScheduler {
         if (!notificacionReembolsoIntegracionClient.isEnabled()) {
             return;
         }
+        if (!pagosReembolsoIntegracionClient.isEnabled()) {
+            return;
+        }
         long t0 = System.nanoTime();
-        List<Integer> ids = reservaRepository.findIdReservasPendientesNotificacionReembolso(
-                PageRequest.of(0, maxBatchSize));
+        List<Integer> ids = pagosReembolsoIntegracionClient.listarCandidatosCorreoReembolso(maxBatchSize);
         if (ids.isEmpty()) {
             return;
         }

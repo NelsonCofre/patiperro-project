@@ -10,10 +10,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Notifica a {@code reserva-service} que un pago de Mercado Pago fue aprobado (endpoint interno).
+ * Llamadas internas a {@code reserva-service} (vínculo transacción / pago aprobado).
  */
 @Component
 public class ReservaPagosIntegracionClient {
@@ -23,6 +24,7 @@ public class ReservaPagosIntegracionClient {
     public static final String HEADER_INTERNO = "X-Patiperro-Interno-Secret";
 
     private static final String URI_PAGO_APROBADO = "/api/reserva/interno/pagos/mercadopago/pago-aprobado";
+    private static final String URI_VINCULO_TX = "/api/reserva/interno/pagos/mercadopago/vinculo-transaccion";
 
     private final RestClient restClient;
     private final boolean enabled;
@@ -39,9 +41,49 @@ public class ReservaPagosIntegracionClient {
         this.internoSecret = internoSecret != null ? internoSecret.trim() : "";
     }
 
-    public void notificarPagoAprobado(Integer idReserva, String mpPaymentId) {
-        if (idReserva == null || !StringUtils.hasText(mpPaymentId)) {
-            log.warn("Integración reserva: idReserva o mpPaymentId vacío; no se invoca");
+    /**
+     * Persiste en reserva el id de la transacción en pagos (checkout iniciado).
+     */
+    public void vincularTransaccionReserva(Integer idReserva, Long idTransaccionPagos) {
+        if (idReserva == null || idTransaccionPagos == null) {
+            log.warn("Integración reserva: vincular transacción omitido (idReserva o idTransaccion nulo)");
+            return;
+        }
+        if (!enabled || restClient == null) {
+            log.debug("Integración reserva deshabilitada o sin base-url; omitido vincular (reserva={})", idReserva);
+            return;
+        }
+        if (!StringUtils.hasText(internoSecret)) {
+            log.warn("Integración reserva: falta secreto interno; omitido vincular (reserva={})", idReserva);
+            return;
+        }
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("idReserva", idReserva);
+            body.put("idTransaccionPagos", idTransaccionPagos);
+            restClient.post()
+                    .uri(URI_VINCULO_TX)
+                    .header(HEADER_INTERNO, internoSecret)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            log.warn("Integración reserva: vincular transacción no exitosa (reserva={}, status={})", idReserva,
+                    e.getStatusCode(), e);
+        } catch (RestClientException e) {
+            log.warn("Integración reserva: vincular transacción no completada (reserva={})", idReserva, e);
+        } catch (RuntimeException e) {
+            log.warn("Integración reserva: vincular transacción error inesperado (reserva={})", idReserva, e);
+        }
+    }
+
+    /**
+     * Marca la reserva pagada; {@code idTransaccionPagos} es {@code transaccion.id_transaccion} en esta BD.
+     */
+    public void notificarPagoAprobado(Integer idReserva, Long idTransaccionPagos, String mpPaymentIdOpcional) {
+        if (idReserva == null || idTransaccionPagos == null) {
+            log.warn("Integración reserva: idReserva o idTransaccionPagos vacío; no se invoca pago-aprobado");
             return;
         }
         if (!enabled || restClient == null) {
@@ -54,11 +96,17 @@ public class ReservaPagosIntegracionClient {
             return;
         }
         try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("idReserva", idReserva);
+            body.put("idTransaccionPagos", idTransaccionPagos);
+            if (StringUtils.hasText(mpPaymentIdOpcional)) {
+                body.put("mpPaymentId", mpPaymentIdOpcional.trim());
+            }
             restClient.post()
                     .uri(URI_PAGO_APROBADO)
                     .header(HEADER_INTERNO, internoSecret)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("idReserva", idReserva, "mpPaymentId", mpPaymentId.trim()))
+                    .body(body)
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {

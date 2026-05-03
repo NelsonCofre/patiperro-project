@@ -50,23 +50,12 @@ public class Reserva {
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
 
-    @Column(name = "id_pago")
-    private Integer idPago;
-
     /**
-     * Id del pago en Mercado Pago (API {@code /v1/payments/{id}}). Se persiste al aprobar el cobro;
-     * permite devoluciones y soporte sin consultar solo a pagos-service.
+     * Id de la fila {@code transaccion} en pagos-service ({@code transaccion.id_transaccion}).
+     * Los datos de Mercado Pago viven en {@code pago_externo} / transacción en la BD de pagos.
      */
-    @Column(name = "mercadopago_payment_id", length = 64)
-    private String mercadopagoPaymentId;
-
-    /** Cuándo se registró reembolso exitoso vía pagos-service (idempotencia). */
-    @Column(name = "mercadopago_reembolso_procesado_en")
-    private LocalDateTime mercadopagoReembolsoProcesadoEn;
-
-    /** Cuándo se confirmó envío del correo de reembolso al tutor (reintentos vía job si queda null). */
-    @Column(name = "notificacion_reembolso_enviada_en")
-    private LocalDateTime notificacionReembolsoEnviadaEn;
+    @Column(name = "id_pago")
+    private Long idPago;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estado_reserva_id_estado_reserva", nullable = false)

@@ -6,5 +6,5 @@ public record ReservaConsultaDto(
         Long idReserva,
         Long idTutorUsuario,
         BigDecimal montoTotal,
-        String mercadopagoPaymentId) {
+        Long idTransaccionPagos) {
 }

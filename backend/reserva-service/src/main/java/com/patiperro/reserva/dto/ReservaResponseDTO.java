@@ -21,9 +21,8 @@ public class ReservaResponseDTO {
     /** Cuando el paseador aceptó (stepper / historial). */
     private LocalDateTime fechaAceptacion;
     private BigDecimal montoTotal;
-    private Integer idPago;
-    /** Id del cobro en Mercado Pago, si ya fue aprobado. */
-    private String mercadopagoPaymentId;
+    /** Id de {@code transaccion} en pagos-service (enlace al cobro). */
+    private Long idPago;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaInicioReal;

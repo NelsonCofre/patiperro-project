@@ -36,17 +36,37 @@ public class ReservaPagoService {
     private final PaseadorIntegracionClient paseadorIntegracionClient;
 
     /**
-     * Idempotente: si ya está PAGADA, no realiza cambios.
+     * Persiste el enlace a la transacción en pagos-service (checkout iniciado desde pagos-service).
      */
     @Transactional
-    public void marcarReservaComoPagada(Integer idReserva, String mpPaymentId) {
-        if (idReserva == null) {
-            throw new IllegalArgumentException("idReserva es obligatorio");
+    public void vincularTransaccionPagos(Integer idReserva, Long idTransaccionPagos) {
+        if (idReserva == null || idTransaccionPagos == null) {
+            throw new IllegalArgumentException("idReserva e idTransaccionPagos son obligatorios");
+        }
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+        if (r.getIdPago() != null && !r.getIdPago().equals(idTransaccionPagos)) {
+            log.warn("Vincular transacción: reserva ya tenía otro id_pago; no se sobrescribe (idReserva={})", idReserva);
+            return;
+        }
+        r.setIdPago(idTransaccionPagos);
+        reservaRepository.save(r);
+    }
+
+    /**
+     * Idempotente: si ya está PAGADA, no repite efectos laterales.
+     *
+     * @param idTransaccionPagos {@code transaccion.id_transaccion} en pagos-service
+     * @param mpPaymentId        opcional; solo para eventos STOMP / logs (el cobro MP queda en pagos)
+     */
+    @Transactional
+    public void marcarReservaComoPagada(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {
+        if (idReserva == null || idTransaccionPagos == null) {
+            throw new IllegalArgumentException("idReserva e idTransaccionPagos son obligatorios");
         }
         Reserva r = reservaRepository.findById(idReserva)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
 
-        // 1) Idempotencia: si ya está pagada, no repetir efectos.
         EstadoReserva actual = r.getEstadoReserva();
         String mpId = safe(mpPaymentId);
         if (actual != null) {
@@ -55,22 +75,19 @@ public class ReservaPagoService {
             boolean yaPagada = (idEstado != null && idEstado.equals(EstadoReservaCatalogo.ID_PAGADA))
                     || (nombre != null && nombre.trim().equalsIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA));
             if (yaPagada) {
-                log.info("Pago aprobado idempotente: reserva ya estaba PAGADA (idReserva={}, mpPaymentId={})",
-                        idReserva, mpId);
-                if (mpId != null && !mpId.equals(safe(r.getMercadopagoPaymentId()))) {
-                    if (!StringUtils.hasText(r.getMercadopagoPaymentId())) {
-                        r.setMercadopagoPaymentId(mpId);
-                        reservaRepository.save(r);
-                    } else {
-                        log.warn("Pago aprobado idempotente: reserva ya tenía otro mercadopago_payment_id; no se sobrescribe (idReserva={})",
-                                idReserva);
-                    }
+                log.info("Pago aprobado idempotente: reserva ya estaba PAGADA (idReserva={}, idTransaccion={}, mp={})",
+                        idReserva, idTransaccionPagos, mpId);
+                if (r.getIdPago() == null) {
+                    r.setIdPago(idTransaccionPagos);
+                    reservaRepository.save(r);
+                } else if (!r.getIdPago().equals(idTransaccionPagos)) {
+                    log.warn("Pago aprobado idempotente: reserva ya tenía otro id_pago; no se sobrescribe (idReserva={})",
+                            idReserva);
                 }
                 return;
             }
         }
 
-        // 2) Validación + persistencia vía JPA (sin @Query de actualización masiva)
         EstadoReserva pagada = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PAGADA);
         List<Integer> estadosOrigenPermitidos = List.of(
                 EstadoReservaCatalogo.ID_SOLICITADA,
@@ -86,12 +103,9 @@ public class ReservaPagoService {
             throw new IllegalStateException("No se puede marcar PAGADA desde estado actual: " + estado);
         }
         rUpdate.setEstadoReserva(pagada);
-        if (mpId != null) {
-            rUpdate.setMercadopagoPaymentId(mpId);
-        }
+        rUpdate.setIdPago(idTransaccionPagos);
         Reserva saved = reservaRepository.saveAndFlush(rUpdate);
 
-        // 3) Notificación inmediata al paseador (y canales auxiliares) vía STOMP
         Integer idPaseador = null;
         try {
             if (agendaIntegracionClient.isEnabled()) {
@@ -108,7 +122,8 @@ public class ReservaPagoService {
                 saved.getIdReserva(),
                 saved.getIdTutorUsuario(),
                 idPaseador,
-                safe(mpPaymentId)
+                saved.getIdPago(),
+                mpId
         );
         messagingTemplate.convertAndSend("/topic/reservas/" + saved.getIdReserva() + "/pagos", evt);
         if (saved.getIdTutorUsuario() != null) {
@@ -132,8 +147,8 @@ public class ReservaPagoService {
             }
         }
 
-        log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, mpPaymentId={})",
-                saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, safe(mpPaymentId));
+        log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
+                saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
     }
 
     public record PagoConfirmadoEventDTO(
@@ -141,6 +156,7 @@ public class ReservaPagoService {
             Integer idReserva,
             Integer idTutorUsuario,
             Integer idPaseadorUsuario,
+            Long idTransaccionPagos,
             String mpPaymentId
     ) {
     }

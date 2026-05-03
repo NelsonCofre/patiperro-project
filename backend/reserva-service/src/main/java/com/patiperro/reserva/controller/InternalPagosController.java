@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Endpoints internos (servidor-a-servidor) para notificaciones de pago.
- * Cabecera interna validada por {@link JwtAuthenticationFilter} (rutas {@code /api/reserva/interno/**}).
+ * Cabecera interna validada por {@link com.patiperro.reserva.config.JwtAuthenticationFilter} (rutas {@code /api/reserva/interno/**}).
  */
 @RestController
 @RequestMapping("/api/reserva/interno/pagos")
@@ -25,19 +25,35 @@ public class InternalPagosController {
     }
 
     /**
-     * Confirma pago aprobado desde pasarela (ej. Mercado Pago webhook procesado en pagos-service).
-     * Body: { "idReserva": 123, "mpPaymentId": "999999999" }
+     * Enlaza la reserva con {@code transaccion.id_transaccion} en pagos-service (tras crear/actualizar transacción al iniciar checkout).
+     */
+    @PostMapping("/mercadopago/vinculo-transaccion")
+    public ResponseEntity<Void> vincularTransaccion(@RequestBody(required = false) VinculoTransaccionRequest body) {
+        if (body == null || body.idReserva() == null || body.idTransaccionPagos() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        reservaPagoService.vincularTransaccionPagos(body.idReserva(), body.idTransaccionPagos());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Confirma pago aprobado desde pasarela (webhook en pagos-service).
+     * Body: {@code { "idReserva": 123, "idTransaccionPagos": 456, "mpPaymentId": "..." }} (mpPaymentId opcional).
      */
     @PostMapping("/mercadopago/pago-aprobado")
     public ResponseEntity<Void> marcarPagadaMercadoPago(
             @RequestBody(required = false) PagoAprobadoRequest body) {
-        if (body == null || body.idReserva() == null || !StringUtils.hasText(body.mpPaymentId())) {
+        if (body == null || body.idReserva() == null || body.idTransaccionPagos() == null) {
             return ResponseEntity.badRequest().build();
         }
-        reservaPagoService.marcarReservaComoPagada(body.idReserva(), body.mpPaymentId().trim());
+        String mp = StringUtils.hasText(body.mpPaymentId()) ? body.mpPaymentId().trim() : null;
+        reservaPagoService.marcarReservaComoPagada(body.idReserva(), body.idTransaccionPagos(), mp);
         return ResponseEntity.noContent().build();
     }
 
-    public record PagoAprobadoRequest(Integer idReserva, String mpPaymentId) {
+    public record VinculoTransaccionRequest(Integer idReserva, Long idTransaccionPagos) {
+    }
+
+    public record PagoAprobadoRequest(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {
     }
 }

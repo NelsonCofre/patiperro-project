@@ -183,7 +183,7 @@ public class ReservaService {
                 r.getFechaSolicitud()));
 
         boolean pasoPagoPasarela = esPendientePago(estadoActual)
-                || reservaTieneCobroMercadoPago(r)
+                || reservaTieneEnlaceTransaccionPagos(r)
                 || esAceptada(estadoActual)
                 || esEnCurso(estadoActual)
                 || esFinalizada(estadoActual);
@@ -193,7 +193,7 @@ public class ReservaService {
                 pasoPagoPasarela,
                 esPendientePago(estadoActual) ? r.getFechaSolicitud() : null));
 
-        boolean cobroRetenido = reservaTieneCobroMercadoPago(r)
+        boolean cobroRetenido = reservaTieneEnlaceTransaccionPagos(r)
                 || esAceptada(estadoActual)
                 || esEnCurso(estadoActual)
                 || esFinalizada(estadoActual);
@@ -245,11 +245,9 @@ public class ReservaService {
         return steps;
     }
 
-    private static boolean reservaTieneCobroMercadoPago(Reserva r) {
-        if (r == null || r.getMercadopagoPaymentId() == null) {
-            return false;
-        }
-        return !r.getMercadopagoPaymentId().isBlank();
+    /** Hay vínculo a una transacción en pagos-service (checkout iniciado o pago asociado). */
+    private static boolean reservaTieneEnlaceTransaccionPagos(Reserva r) {
+        return r != null && r.getIdPago() != null;
     }
 
     /**
@@ -614,7 +612,7 @@ public class ReservaService {
                 r.getIdReserva().longValue(),
                 r.getIdTutorUsuario().longValue(),
                 r.getMontoTotal(),
-                r.getMercadopagoPaymentId());
+                r.getIdPago());
     }
 
     /**
@@ -1068,33 +1066,31 @@ public class ReservaService {
             
         String correoTutorFinal = (tutor != null) ? tutor.getCorreo() : "sin-correo@patiperro.cl";
 
-        // IMPORTANTE: El constructor debe seguir el orden exacto del DTO (25 campos)
         return new ReservaTutorDetalleResponseDTO(
-    r.getIdReserva(),               // 1: idReserva
-    r.getIdTutorUsuario(),          // 2: idTutorUsuario
-    r.getIdMascota(),               // 3: idMascota
-    mascota != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(), // 4: mascotaNombre
-    r.getIdAgendaBloque(),          // 5: idAgendaBloque
-    bloque != null ? bloque.getIdUsuario() : null, // 6: idPaseador
-    paseador != null ? paseador.getNombreCompleto() : "Paseador", // 7: paseadorNombre
-    bloque != null ? bloque.getFecha() : null,     // 8: fecha (LocalDate)
-    bloque != null ? bloque.getHoraInicio() : null, // 9: horaInicio (LocalDateTime)
-    bloque != null ? bloque.getHoraFinal() : null,  // 10: horaFinal (LocalDateTime)
-    r.getMontoTotal(),              // 11: montoTotal (BigDecimal)
-    r.getIdPago(),                  // 12: idPago
-    r.getMercadopagoPaymentId(),    // 13: mercadopagoPaymentId
-    estado != null ? estado.getIdEstadoReserva() : null, // 14: idEstadoReserva
-    estado != null ? estado.getNombreEstado() : null,    // 15: nombreEstado
-    r.getFechaSolicitud(),          // 16: fechaSolicitud
-    r.getFechaAceptacion(),         // 17: fechaAceptacion
-    r.getFechaInicioReal(),         // 18: fechaInicioReal
-    r.getFechaFin(),                // 19: fechaFin
-    r.getCodigoEncuentro(),         // 20: codigoEncuentro
-    nombreTutorFinal.trim(),        // 21: tutorNombre (ESTABA DESPUÉS)
-    correoTutorFinal,               // 22: tutorCorreo (ESTABA DESPUÉS)
-    r.getCodigoEncuentroExpiraEn(), // 23: codigoEncuentroExpiraEn
-    r.getMotivoRechazo(),           // 24: motivoRechazo
-    r.getDetalleRechazo()           // 25: detalleRechazo
+    r.getIdReserva(),
+    r.getIdTutorUsuario(),
+    r.getIdMascota(),
+    mascota != null ? mascota.getNombre() : "Mascota #" + r.getIdMascota(),
+    r.getIdAgendaBloque(),
+    bloque != null ? bloque.getIdUsuario() : null,
+    paseador != null ? paseador.getNombreCompleto() : "Paseador",
+    bloque != null ? bloque.getFecha() : null,
+    bloque != null ? bloque.getHoraInicio() : null,
+    bloque != null ? bloque.getHoraFinal() : null,
+    r.getMontoTotal(),
+    r.getIdPago(),
+    estado != null ? estado.getIdEstadoReserva() : null,
+    estado != null ? estado.getNombreEstado() : null,
+    r.getFechaSolicitud(),
+    r.getFechaAceptacion(),
+    r.getFechaInicioReal(),
+    r.getFechaFin(),
+    r.getCodigoEncuentro(),
+    nombreTutorFinal.trim(),
+    correoTutorFinal,
+    r.getCodigoEncuentroExpiraEn(),
+    r.getMotivoRechazo(),
+    r.getDetalleRechazo()
 );
     }
 

@@ -15,8 +15,7 @@ import java.util.List;
 
 /**
  * Reintenta devolución MP + correo tutor cuando la reserva ya está en estado que amerita reembolso,
- * tiene {@code mercadopago_payment_id} y aún no tiene {@code mercadopago_reembolso_procesado_en}
- * (p. ej. fallo tras commit, caída del proceso o error transitorio de pagos).
+ * tiene {@code id_pago} (enlace a transacción en pagos) y el estado del reembolso/correo se completa vía pagos-service.
  */
 @Component
 @ConditionalOnProperty(name = "patiperro.reserva.reembolso.reconciliacion.scheduler.enabled", havingValue = "true", matchIfMissing = true)
