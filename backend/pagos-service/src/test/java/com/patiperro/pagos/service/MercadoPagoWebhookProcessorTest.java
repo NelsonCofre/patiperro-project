@@ -2,6 +2,7 @@ package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.model.EstadoPago;
+import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
@@ -15,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -53,17 +55,28 @@ class MercadoPagoWebhookProcessorTest {
                 pagoExternoService);
     }
 
+    private static Transaccion transaccionPendiente(long idTransaccion, long idReserva) {
+        Transaccion tx = new Transaccion();
+        tx.setIdTransaccion(idTransaccion);
+        tx.setIdReserva(idReserva);
+        tx.setEstadoPago(EstadoPago.PENDIENTE);
+        return tx;
+    }
+
     @Test
     void procesar_aprobado_notificaReserva() {
+        when(transaccionRepository.findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                eq(42L), eq(EstadoPago.PENDIENTE)))
+                .thenReturn(Optional.of(transaccionPendiente(555L, 42L)));
         MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
                 999L, "approved", null, "42", java.util.List.of());
         when(mercadoPagoApiClient.obtenerPago("999")).thenReturn(Optional.of(pago));
 
         processor.procesar("payment", "999");
 
-        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq("999"));
+        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq(555L), eq("999"));
         verify(reservaPagosIntegracionClient, never()).notificarPagoNoAprobado(
-                org.mockito.ArgumentMatchers.anyInt(), anyString(), anyString(), anyString());
+                anyInt(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -75,7 +88,7 @@ class MercadoPagoWebhookProcessorTest {
         processor.procesar("payment", "1");
 
         verify(reservaPagosIntegracionClient).notificarPagoNoAprobado(eq(7), eq("1"), eq("rejected"), eq("cc_rejected"));
-        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(org.mockito.ArgumentMatchers.anyInt(), anyString());
+        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(anyInt(), anyLong(), anyString());
     }
 
     @Test
@@ -86,9 +99,9 @@ class MercadoPagoWebhookProcessorTest {
 
         processor.procesar("payment", "2");
 
-        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(org.mockito.ArgumentMatchers.anyInt(), anyString());
+        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(anyInt(), anyLong(), anyString());
         verify(reservaPagosIntegracionClient, never()).notificarPagoNoAprobado(
-                org.mockito.ArgumentMatchers.anyInt(), anyString(), anyString(), anyString());
+                anyInt(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -96,11 +109,14 @@ class MercadoPagoWebhookProcessorTest {
         processor.procesar("merchant_order", "123");
 
         verify(mercadoPagoApiClient, never()).obtenerPago(anyString());
-        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(org.mockito.ArgumentMatchers.anyInt(), anyString());
+        verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(anyInt(), anyLong(), anyString());
     }
 
     @Test
     void procesar_externalReferencePrefijoExtraeIdTrasDosPuntos() {
+        when(transaccionRepository.findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                eq(99L), eq(EstadoPago.PENDIENTE)))
+                .thenReturn(Optional.of(transaccionPendiente(777L, 99L)));
         MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
                 5L, "approved", null, "patiperro:99", java.util.List.of());
         when(mercadoPagoApiClient.obtenerPago("5")).thenReturn(Optional.of(pago));
@@ -108,18 +124,21 @@ class MercadoPagoWebhookProcessorTest {
         processor.procesar("payment", "5");
 
         ArgumentCaptor<Integer> idCaptor = ArgumentCaptor.forClass(Integer.class);
-        verify(reservaPagosIntegracionClient).notificarPagoAprobado(idCaptor.capture(), eq("5"));
+        verify(reservaPagosIntegracionClient).notificarPagoAprobado(idCaptor.capture(), eq(777L), eq("5"));
         assertThat(idCaptor.getValue()).isEqualTo(99);
     }
 
     @Test
     void procesar_externalReferencePatiperroReserva_prefijoCheckout() {
+        when(transaccionRepository.findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                eq(42L), eq(EstadoPago.PENDIENTE)))
+                .thenReturn(Optional.of(transaccionPendiente(888L, 42L)));
         MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
                 6L, "approved", null, "patiperro-reserva:42", java.util.List.of());
         when(mercadoPagoApiClient.obtenerPago("6")).thenReturn(Optional.of(pago));
 
         processor.procesar("payment", "6");
 
-        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq("6"));
+        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq(888L), eq("6"));
     }
 }
