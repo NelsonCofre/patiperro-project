@@ -2,14 +2,14 @@ package com.patiperro.pagos.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.patiperro.pagos.config.MercadoPagoCheckoutProperties;
-import com.patiperro.pagos.config.SecurityConfig;
 import com.patiperro.pagos.dto.checkout.CrearPreferenciaRequest;
+import com.patiperro.pagos.security.JwtService;
 import com.patiperro.pagos.service.MercadoPagoCheckoutService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -28,12 +28,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = MercadoPagoCheckoutController.class)
-@Import(SecurityConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 @EnableConfigurationProperties(MercadoPagoCheckoutProperties.class)
 @TestPropertySource(
         properties = {
                 "patiperro.pagos.interno.secret=test-interno-secret",
-                "patiperro.mercadopago.checkout.use-sandbox=true"
+                "patiperro.mercadopago.checkout.use-sandbox=true",
+                "jwt.secret=test-jwt-secret-key-for-webmvc-pagos-checkout-tests-32"
         })
 class MercadoPagoCheckoutControllerTest {
 
@@ -44,6 +45,9 @@ class MercadoPagoCheckoutControllerTest {
 
     @MockitoBean
     private MercadoPagoCheckoutService mercadoPagoCheckoutService;
+
+    @MockitoBean
+    private JwtService jwtService;
 
     @Test
     void crearPreferencia_sinSecreto_retorna403() throws Exception {

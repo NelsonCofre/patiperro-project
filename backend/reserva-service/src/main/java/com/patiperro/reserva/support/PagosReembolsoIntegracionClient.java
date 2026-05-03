@@ -1,8 +1,10 @@
 package com.patiperro.reserva.support;
 
+import com.patiperro.reserva.dto.integracion.ReembolsoFlagsPagosDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -12,8 +14,11 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Solicita reembolso total en pagos-service (Mercado Pago).
@@ -32,6 +37,9 @@ public class PagosReembolsoIntegracionClient {
     static final String HEADER_IDEMPOTENCY_KEY = "Idempotency-Key";
 
     private static final String URI_REEMBOLSO = "/api/pagos/interno/mercadopago/reembolso";
+    private static final String URI_FLAGS = "/api/pagos/interno/reembolso/flags-reserva/{idReserva}";
+    private static final String URI_CANDIDATOS_CORREO = "/api/pagos/interno/reembolso/candidatos-correo";
+    private static final String URI_MARCAR_CORREO = "/api/pagos/interno/reembolso/marcar-correo-reembolso-enviado";
 
     private static final int BODY_DEBUG_MAX_CHARS = 512;
 
@@ -61,32 +69,101 @@ public class PagosReembolsoIntegracionClient {
         return enabled && restClient != null && StringUtils.hasText(internoSecret);
     }
 
+    public Optional<ReembolsoFlagsPagosDto> consultarFlagsReembolso(Integer idReserva) {
+        if (!isEnabled() || idReserva == null) {
+            return Optional.empty();
+        }
+        try {
+            ReembolsoFlagsPagosDto dto = restClient.get()
+                    .uri(URI_FLAGS, idReserva)
+                    .header(HEADER_INTERNO, internoSecret)
+                    .retrieve()
+                    .body(ReembolsoFlagsPagosDto.class);
+            return Optional.ofNullable(dto);
+        } catch (RestClientResponseException e) {
+            log.warn("Reembolso flags pagos: respuesta no exitosa (reserva={}, status={})", idReserva, e.getStatusCode());
+            return Optional.empty();
+        } catch (RestClientException e) {
+            log.warn("Reembolso flags pagos: llamada no completada (reserva={})", idReserva, e);
+            return Optional.empty();
+        }
+    }
+
+    public List<Integer> listarCandidatosCorreoReembolso(int size) {
+        if (!isEnabled()) {
+            return Collections.emptyList();
+        }
+        int lim = Math.min(Math.max(size, 1), 200);
+        try {
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path(URI_CANDIDATOS_CORREO).queryParam("size", lim).build())
+                    .header(HEADER_INTERNO, internoSecret)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Integer>>() {
+                    });
+        } catch (RestClientResponseException e) {
+            log.warn("Reembolso candidatos correo: respuesta no exitosa (status={})", e.getStatusCode());
+            return Collections.emptyList();
+        } catch (RestClientException e) {
+            log.warn("Reembolso candidatos correo: llamada no completada", e);
+            return Collections.emptyList();
+        }
+    }
+
+    public void marcarCorreoReembolsoEnviadoEnPagos(Integer idReserva) {
+        if (!isEnabled() || idReserva == null) {
+            return;
+        }
+        try {
+            restClient.post()
+                    .uri(URI_MARCAR_CORREO)
+                    .header(HEADER_INTERNO, internoSecret)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("idReserva", idReserva))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            log.warn("Reembolso marcar correo pagos: respuesta no exitosa (reserva={}, status={})", idReserva,
+                    e.getStatusCode());
+        } catch (RestClientException e) {
+            log.warn("Reembolso marcar correo pagos: llamada no completada (reserva={})", idReserva, e);
+        }
+    }
+
     /**
      * @return código HTTP de pagos-service (p. ej. 204 éxito, 502 fallo MP), o {@code 0} si no hubo llamada HTTP
      *         (integración deshabilitada / sin configuración)
      */
     public int solicitarReembolsoTotal(Integer idReserva, String mpPaymentId) {
-        if (!StringUtils.hasText(mpPaymentId)) {
+        if (idReserva == null && !StringUtils.hasText(mpPaymentId)) {
             return 400;
         }
         if (!isEnabled()) {
             log.debug("Integración reembolso pagos deshabilitada o sin config; sin llamada HTTP (reserva={})", idReserva);
             return 0;
         }
-        String trimmedPaymentId = mpPaymentId.trim();
+        String trimmedPaymentId = StringUtils.hasText(mpPaymentId) ? mpPaymentId.trim() : "";
         try {
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("mpPaymentId", trimmedPaymentId);
+            if (StringUtils.hasText(trimmedPaymentId)) {
+                body.put("mpPaymentId", trimmedPaymentId);
+            }
             if (idReserva != null) {
                 body.put("idReserva", idReserva);
             }
-            String idempotencyKey = idempotencyKeyReembolso(idReserva, trimmedPaymentId);
-            var req = restClient.post()
+            if (body.isEmpty()) {
+                return 400;
+            }
+            var reqBuilder = restClient.post()
                     .uri(URI_REEMBOLSO)
                     .header(HEADER_INTERNO, internoSecret)
-                    .header(HEADER_IDEMPOTENCY_KEY, idempotencyKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body);
+            if (StringUtils.hasText(trimmedPaymentId)) {
+                String idempotencyKey = idempotencyKeyReembolso(idReserva, trimmedPaymentId);
+                reqBuilder = reqBuilder.header(HEADER_IDEMPOTENCY_KEY, idempotencyKey);
+            }
+            var req = reqBuilder;
             String correlation = correlationValue(idReserva, trimmedPaymentId);
             if (correlation != null) {
                 req = req.header(HEADER_CORRELATION, correlation);

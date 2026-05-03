@@ -21,9 +21,8 @@ public class ReservaResponseDTO {
     /** Cuando el paseador aceptó (stepper / historial). */
     private LocalDateTime fechaAceptacion;
     private BigDecimal montoTotal;
-    private Integer idPago;
-    /** Id del cobro en Mercado Pago, si ya fue aprobado. */
-    private String mercadopagoPaymentId;
+    /** Id de {@code transaccion} en pagos-service (enlace al cobro). */
+    private Long idPago;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaInicioReal;
@@ -37,4 +36,10 @@ public class ReservaResponseDTO {
     private LocalDateTime agendaHoraFin;
     /** {@code id_usuario} del paseador en agenda_bloque. */
     private Integer idPaseadorUsuario;
+    /** {@code true} si el tutor puede iniciar o reintentar checkout (SOLICITADA / PENDIENTE_PAGO). */
+    private Boolean puedeReintentarPago;
+    /** Último {@code status} MP cuando el cobro no quedó aprobado (webhook). */
+    private String mercadopagoUltimoEstado;
+    private String mercadopagoUltimoEstadoDetalle;
+    private LocalDateTime mercadopagoUltimoEstadoEn;
 }

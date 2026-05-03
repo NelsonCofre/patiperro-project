@@ -3,6 +3,7 @@ package com.patiperro.reserva.dto;
 import com.patiperro.reserva.dto.integracion.AgendaBloqueReservaClientDTO;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
 import com.patiperro.reserva.model.EstadoReserva;
+import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 
 public final class ReservaDtoMapper {
@@ -26,6 +27,8 @@ public final class ReservaDtoMapper {
     public static ReservaResponseDTO toReservaResponse(Reserva r, AgendaBloqueReservaClientDTO bloque) {
         EstadoReserva est = r.getEstadoReserva();
         AgendaBloqueReservaClientDTO b = bloque;
+        Integer idEstado = est != null ? est.getIdEstadoReserva() : null;
+        Boolean puedeReintentarPago = EstadoReservaCatalogo.estadoAdmiteCheckoutOReintentoMercadoPago(idEstado);
         return new ReservaResponseDTO(
                 r.getIdReserva(),
                 r.getIdTutorUsuario(),
@@ -36,8 +39,7 @@ public final class ReservaDtoMapper {
                 r.getFechaAceptacion(),
                 r.getMontoTotal(),
                 r.getIdPago(),
-                r.getMercadopagoPaymentId(),
-                est != null ? est.getIdEstadoReserva() : null,
+                idEstado,
                 est != null ? est.getNombreEstado() : null,
                 r.getFechaInicioReal(),
                 r.getFechaFin(),
@@ -47,7 +49,11 @@ public final class ReservaDtoMapper {
                 r.getDetalleRechazo(),
                 b != null ? b.getHoraInicio() : null,
                 b != null ? b.getHoraFinal() : null,
-                b != null ? b.getIdUsuario() : null);
+                b != null ? b.getIdUsuario() : null,
+                puedeReintentarPago,
+                r.getMercadopagoUltimoEstado(),
+                r.getMercadopagoUltimoEstadoDetalle(),
+                r.getMercadopagoUltimoEstadoEn());
     }
 
     /** Detalle tutor; bloque/mascota/paseador/tutor vienen de integración externa. */
@@ -74,7 +80,6 @@ public final class ReservaDtoMapper {
                 bloque != null ? bloque.getHoraFinal() : null,
                 r.getMontoTotal(),
                 r.getIdPago(),
-                r.getMercadopagoPaymentId(),
                 estado != null ? estado.getIdEstadoReserva() : null,
                 estado != null ? estado.getNombreEstado() : null,
                 r.getFechaSolicitud(),

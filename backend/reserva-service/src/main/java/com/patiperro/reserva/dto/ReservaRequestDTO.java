@@ -41,7 +41,7 @@ public class ReservaRequestDTO {
     @DecimalMin(value = "0.0", inclusive = true)
     private BigDecimal montoTotal;
 
-    private Integer idPago;
+    private Long idPago;
 
     @NotNull
     @Positive

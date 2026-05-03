@@ -36,6 +36,10 @@ public class Transaccion {
     @Column(name = "id_reserva")
     private Long idReserva;
 
+    /**
+     * Id numérico del pago en la pasarela (p. ej. {@code id} de Mercado Pago en {@code GET /v1/payments/{id}}).
+     * Se rellena al confirmar el cobro vía webhook; null mientras el pago sigue solo como preferencia/checkout.
+     */
     @Column(name = "id_pago")
     private Long idPago;
 

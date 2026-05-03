@@ -19,9 +19,8 @@ type SubscribeOptions = {
 };
 
 /**
- * Fallback MVP: mientras el cliente STOMP no esté instalado en el proyecto,
- * mantenemos una API estable para los módulos que esperan eventos de encuentro.
- * El backend puede seguir notificando por polling/refresh sin romper el build.
+ * Placeholder hasta integrar STOMP (SockJS + @stomp/stompjs) contra el broker del backend.
+ * No emite eventos ni errores: la UI debe actualizarse por polling o tras acciones HTTP.
  */
 export function subscribeEncuentroTopic({
   topic,
@@ -30,6 +29,6 @@ export function subscribeEncuentroTopic({
 }: SubscribeOptions): () => void {
   void topic;
   void onEvent;
-  onError?.("El canal en tiempo real se encuentra deshabilitado en este entorno.");
+  void onError;
   return () => {};
 }

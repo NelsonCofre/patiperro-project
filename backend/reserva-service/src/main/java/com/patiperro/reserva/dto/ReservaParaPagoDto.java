@@ -9,5 +9,6 @@ public record ReservaParaPagoDto(
         Long idReserva,
         Long idTutorUsuario,
         BigDecimal montoTotal,
-        String mercadopagoPaymentId) {
+        /** {@code transaccion.id_transaccion} en pagos-service; null si aún no se inició checkout. */
+        Long idTransaccionPagos) {
 }

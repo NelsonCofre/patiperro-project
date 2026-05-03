@@ -67,8 +67,9 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 }
 
 export default function TutorReservas() {
-  const [selectedReserva, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
+  const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
   const { enviarResena } = useResena();
   
@@ -85,16 +86,12 @@ export default function TutorReservas() {
     cancelarReserva
   } = useTutorReservas();
 
+  const selectedReserva =
+    selectedReservaId == null
+      ? null
+      : reservas.find((r) => r.idReserva === selectedReservaId) ?? null;
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
   const selectedPaymentMeta = selectedReserva ? getPaymentStatusMeta(selectedReserva) : null;
-
-  useEffect(() => {
-    if (!selectedReserva) return;
-    const actualizado = reservas.find((r) => r.idReserva === selectedReserva.idReserva);
-    if (actualizado) {
-      setSelectedReserva(actualizado);
-    }
-  }, [reservas, selectedReserva]);
 
   useEffect(() => {
     if (!selectedReserva) return;
@@ -132,7 +129,7 @@ export default function TutorReservas() {
                 <p className={styles.cardEyebrow}>Detalle de reserva</p>
                 <h2>Reserva #{selectedReserva.idReserva}</h2>
               </div>
-              <button type="button" onClick={() => setSelectedReserva(null)}>
+              <button type="button" onClick={() => setSelectedReservaId(null)}>
                 Cerrar
               </button>
             </div>

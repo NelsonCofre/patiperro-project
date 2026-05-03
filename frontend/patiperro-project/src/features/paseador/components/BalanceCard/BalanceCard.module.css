@@ -1,0 +1,149 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 200px;
+  padding: 24px;
+  border: 1px solid #dce7dd;
+  border-radius: 24px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.card::before {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 4px;
+  border-radius: 999px;
+  content: "";
+}
+
+.buttonCard {
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+}
+
+.buttonCard:hover,
+.activeCard {
+  transform: translateY(-3px);
+  border-color: #9ecc9f;
+  box-shadow:
+    0 24px 42px rgba(15, 23, 42, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.primaryCard {
+  background:
+    radial-gradient(circle at top right, rgba(77, 167, 86, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 250, 243, 0.98) 100%);
+}
+
+.retenidoCard {
+  background:
+    radial-gradient(circle at top right, rgba(77, 167, 86, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 250, 243, 0.96) 100%);
+}
+
+.retenidoCard::before {
+  background: linear-gradient(90deg, #4da756 0%, #cbe8cf 100%);
+}
+
+.verificacionCard {
+  background:
+    radial-gradient(circle at top right, rgba(240, 193, 91, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 250, 241, 0.96) 100%);
+}
+
+.verificacionCard::before {
+  background: linear-gradient(90deg, #f0c15b 0%, #f7e2ae 100%);
+}
+
+.disponibleCard {
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.15), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(242, 250, 255, 0.96) 100%);
+}
+
+.disponibleCard::before {
+  background: linear-gradient(90deg, #38bdf8 0%, #bae6fd 100%);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.title {
+  color: #173121;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dce7dd;
+  border-radius: 999px;
+  color: #536475;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.retenidoCard .count {
+  color: #355b3e;
+  border-color: #cfe7d2;
+  background: rgba(234, 247, 236, 0.9);
+}
+
+.verificacionCard .count {
+  color: #8a5b12;
+  border-color: #f3ddb0;
+  background: rgba(255, 248, 232, 0.94);
+}
+
+.disponibleCard .count {
+  color: #075985;
+  border-color: #bfdbfe;
+  background: rgba(239, 249, 255, 0.94);
+}
+
+.amount {
+  color: #183120;
+  font-size: clamp(2rem, 4vw, 2.9rem);
+  line-height: 1;
+}
+
+.retenidoCard .amount {
+  color: #1b4d27;
+}
+
+.verificacionCard .amount {
+  color: #8a5b12;
+}
+
+.disponibleCard .amount {
+  color: #0c4a6e;
+}
+
+.helper {
+  margin: 0;
+  color: #5d6b79;
+  font-size: 0.92rem;
+  line-height: 1.75;
+}

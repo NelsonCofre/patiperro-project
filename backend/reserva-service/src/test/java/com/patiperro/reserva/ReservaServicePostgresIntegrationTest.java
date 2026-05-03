@@ -12,6 +12,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Arranque completo con PostgreSQL gestionado por Testcontainers (Flyway + Hibernate validate).
  * Sin Docker activo el test se omite ({@code disabledWithoutDocker}).
+ * <p>Paso 7 (solo backend): integraciones de reembolso/correo desactivadas aquí para no depender de
+ * pagos-service ni notification-service al levantar el contexto.</p>
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -34,6 +36,8 @@ class ReservaServicePostgresIntegrationTest {
         r.add("patiperro.reserva.solicitud.expiracion.scheduler.enabled", () -> "false");
         r.add("patiperro.reserva.reembolso.reconciliacion.scheduler.enabled", () -> "false");
         r.add("patiperro.reserva.notificacion-reembolso.scheduler.enabled", () -> "false");
+        r.add("patiperro.reserva.integracion.pagos-reembolso.enabled", () -> "false");
+        r.add("patiperro.reserva.integracion.notificacion-reembolso.enabled", () -> "false");
     }
 
     @Test

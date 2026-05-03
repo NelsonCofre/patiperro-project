@@ -71,8 +71,11 @@ export type ReservaPaseadorSolicitudApiDTO = {
 function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendientePaseador["estado"] {
   const u = (nombre ?? "").toUpperCase();
   if (u.includes("SOLICIT")) return "Solicitada";
+  if (u.includes("PAGAD")) return "Pagada";
   if (u.includes("ACEPT")) return "Aceptada";
   if (u.includes("CURSO")) return "En Curso";
+  if (u.includes("FINAL")) return "Finalizada";
+  if (u.includes("DISPON") || u.includes("LIBER")) return "Disponible";
   if (u.includes("RECHAZ")) return "Rechazada";
   return "Solicitada";
 }

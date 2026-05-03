@@ -2,8 +2,11 @@ package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.dto.MercadoPagoRefundResponseDto;
+import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.PagoExterno;
+import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.PagoExternoRepository;
+import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -27,6 +30,7 @@ public class MercadoPagoReembolsoService {
 
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final PagoExternoRepository pagoExternoRepository;
+    private final TransaccionRepository transaccionRepository;
 
     /**
      * @param idReserva opcional, solo para logs y clave de idempotencia hacia MP
@@ -36,6 +40,12 @@ public class MercadoPagoReembolsoService {
     @Transactional
     public int procesarReembolsoTotal(Integer idReserva, String mpPaymentIdRaw, String idempotencyKey) {
         String mpPaymentId = MercadoPagoApiClient.normalizarPaymentId(mpPaymentIdRaw);
+        if (!StringUtils.hasText(mpPaymentId) && idReserva != null) {
+            mpPaymentId = resolverMpPaymentIdPorIdReserva(idReserva)
+                    .map(MercadoPagoApiClient::normalizarPaymentId)
+                    .filter(StringUtils::hasText)
+                    .orElse(null);
+        }
         if (!StringUtils.hasText(mpPaymentId)) {
             return 400;
         }
@@ -72,7 +82,8 @@ public class MercadoPagoReembolsoService {
         String keyMp = MercadoPagoApiClient.sanitizeIdempotencyKey(idempotencyKey);
         if (!StringUtils.hasText(keyMp)) {
             String rid = idReserva != null ? String.valueOf(idReserva) : "na";
-            keyMp = MercadoPagoApiClient.sanitizeIdempotencyKey("patiperro-reembolso-reserva-" + rid + "-mp-" + mpPaymentId);
+            keyMp = MercadoPagoApiClient.sanitizeIdempotencyKey(
+                    "patiperro-reembolso-reserva-" + rid + "-mp-" + mpPaymentId);
         }
 
         Optional<MercadoPagoRefundResponseDto> refundResp = mercadoPagoApiClient.crearReembolsoTotal(mpPaymentId, keyMp);
@@ -138,6 +149,29 @@ public class MercadoPagoReembolsoService {
             return String.valueOf(m.get("id"));
         }
         return null;
+    }
+
+    private Optional<String> resolverMpPaymentIdPorIdReserva(Integer idReserva) {
+        if (idReserva == null) {
+            return Optional.empty();
+        }
+        Optional<Transaccion> txOpt = transaccionRepository.findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                idReserva.longValue(), EstadoPago.APROBADO);
+        if (txOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        Transaccion tx = txOpt.get();
+        Optional<PagoExterno> peOpt = pagoExternoRepository.findByTransaccion_IdTransaccion(tx.getIdTransaccion());
+        if (peOpt.isPresent()) {
+            PagoExterno pe = peOpt.get();
+            if (StringUtils.hasText(pe.getProviderPaymentId())) {
+                return Optional.of(pe.getProviderPaymentId().trim());
+            }
+        }
+        if (tx.getIdPago() != null) {
+            return Optional.of(String.valueOf(tx.getIdPago()));
+        }
+        return Optional.empty();
     }
 
     private static String safe(String s) {

@@ -2,6 +2,7 @@ package com.patiperro.reserva.dto;
 
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
 import com.patiperro.reserva.model.EstadoReserva;
+import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,32 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ReservaDtoMapperTest {
+
+    @Test
+    void toReservaResponse_incluyePagoReintentoYUltimoEstadoMp() {
+        EstadoReserva estado = new EstadoReserva();
+        estado.setIdEstadoReserva(EstadoReservaCatalogo.ID_PENDIENTE_PAGO);
+        estado.setNombreEstado(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+
+        Reserva r = new Reserva();
+        r.setIdReserva(3);
+        r.setIdTutorUsuario(1);
+        r.setIdMascota(2);
+        r.setIdAgendaBloque(4);
+        r.setIdTarifa(5);
+        r.setMontoTotal(new BigDecimal("5000"));
+        r.setEstadoReserva(estado);
+        r.setMercadopagoUltimoEstado("rejected");
+        r.setMercadopagoUltimoEstadoDetalle("cc_rejected_call");
+        r.setMercadopagoUltimoEstadoEn(LocalDateTime.parse("2026-05-02T11:00:00"));
+
+        ReservaResponseDTO dto = ReservaDtoMapper.toReservaResponse(r, null);
+
+        assertThat(dto.getPuedeReintentarPago()).isTrue();
+        assertThat(dto.getMercadopagoUltimoEstado()).isEqualTo("rejected");
+        assertThat(dto.getMercadopagoUltimoEstadoDetalle()).isEqualTo("cc_rejected_call");
+        assertThat(dto.getMercadopagoUltimoEstadoEn()).isEqualTo(LocalDateTime.parse("2026-05-02T11:00:00"));
+    }
 
     @Test
     void toTutorDetalleResponse_mapsEntityAndFlags() {

@@ -50,8 +50,9 @@ public class Reserva {
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
 
+    /** {@code transaccion.id_transaccion} en pagos-service. */
     @Column(name = "id_pago")
-    private Integer idPago;
+    private Long idPago;
 
     /**
      * Id del pago en Mercado Pago (API {@code /v1/payments/{id}}). Se persiste al aprobar el cobro;
