@@ -5,7 +5,6 @@ import {
   formatReservaTime,
   getReservaEstadoMeta,
   isReservaFinalizada,
-  isReservaSolicitada,
 } from "../../utils/reservaEstadoUtils";
 import styles from "./ReservaCard.module.css";
 

@@ -215,6 +215,72 @@
   background: #ffffff;
 }
 
+.withdrawalsSection {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  padding: 24px;
+  border: 1px solid #dce7dd;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.05);
+}
+
+.withdrawalsHeader {
+  margin-bottom: 16px;
+}
+
+.withdrawalsHeader h2 {
+  margin: 0;
+  color: #183120;
+  font-size: 1.35rem;
+}
+
+.withdrawalList {
+  display: grid;
+  gap: 12px;
+}
+
+.withdrawalCard {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid #dce7dd;
+  border-radius: 18px;
+  background: rgba(248, 252, 248, 0.94);
+}
+
+.withdrawalCard strong {
+  display: block;
+  color: #183120;
+}
+
+.withdrawalCard p {
+  margin: 8px 0 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.withdrawalCardSide {
+  text-align: right;
+}
+
+.withdrawalCardSide span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #075985;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: rgba(239, 249, 255, 0.94);
+}
+
 .detailSection {
   max-width: 1180px;
   margin: 0 auto;
@@ -431,5 +497,14 @@
   .feedbackBanner {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .withdrawalCard {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .withdrawalCardSide {
+    text-align: left;
   }
 }

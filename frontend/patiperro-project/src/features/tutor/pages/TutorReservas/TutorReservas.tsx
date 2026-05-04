@@ -17,7 +17,6 @@ import {
   getReservaEstadoMeta
 } from "../../utils/reservaEstadoUtils";
 import styles from "./TutorReservas.module.css";
-import { useResena } from "../../hooks/useResena";
 
 function normalizePaymentStatus(value?: string | null): string {
   return (value ?? "")
@@ -67,11 +66,9 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 }
 
 export default function TutorReservas() {
-  const [setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
-  const { enviarResena } = useResena();
   
   const {
     reservas,
@@ -281,7 +278,7 @@ export default function TutorReservas() {
               <ReservaCard
                 key={reserva.idReserva}
                 reserva={reserva}
-                onDetalle={setSelectedReserva}
+                onDetalle={(item) => setSelectedReservaId(item.idReserva)}
                 onCancelar={(item) => void cancelarReserva(item)}
                 onCalificar={(item) => setReservaParaCalificar(item)} // Implementación nueva: abre el modal real
               />
