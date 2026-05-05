@@ -474,14 +474,16 @@ public class ReservaService {
         if (!pagosBilleteraIntegracionClient.isEnabled() || saved == null) {
             return;
         }
-        Long uid = resolverIdUsuarioPaseador(saved);
-        if (uid == null) {
-            log.debug("Billetera verificación omitida: sin id usuario paseador (idReserva={})", saved.getIdReserva());
-            return;
-        }
         Integer idR = saved.getIdReserva();
         LocalDateTime fin = saved.getFechaFin();
-        Runnable run = () -> pagosBilleteraIntegracionClient.pasarAVerificacion(idR, uid, fin);
+        Runnable run = () -> {
+            Long uid = resolverIdUsuarioPaseador(saved);
+            if (uid == null) {
+                log.debug("Billetera verificación omitida: sin id usuario paseador (idReserva={})", saved.getIdReserva());
+                return;
+            }
+            pagosBilleteraIntegracionClient.pasarAVerificacion(idR, uid, fin);
+        };
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             run.run();
             return;

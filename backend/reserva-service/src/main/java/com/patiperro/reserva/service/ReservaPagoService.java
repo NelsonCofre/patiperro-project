@@ -193,13 +193,36 @@ public class ReservaPagoService {
             Integer idUsuarioWalker) {
         Runnable task =
                 () -> {
+                    Integer uid = idUsuarioWalker;
+                    // Si no se pudo resolver el id del paseador antes del commit (best-effort),
+                    // se reintenta justo después del commit para mejorar la sincronía "instantánea".
                     if (acreditarBilletera
                             && pagosBilleteraIntegracionClient.isEnabled()
-                            && idUsuarioWalker != null
+                            && uid == null
+                            && agendaIntegracionClient.isEnabled()
+                            && idAgendaBloque != null
+                            && idTransaccionWallet != null
+                            && idReservaWallet != null) {
+                        try {
+                            AgendaBloqueReservaClientDTO bloque =
+                                    agendaIntegracionClient.obtenerBloquePorIdInterno(idAgendaBloque);
+                            uid = bloque != null ? bloque.getIdUsuario() : null;
+                        } catch (RuntimeException e) {
+                            log.warn(
+                                    "Pago aprobado: reintento idPaseador tras commit falló (idReserva={}, idAgendaBloque={})",
+                                    idReservaWallet,
+                                    idAgendaBloque,
+                                    e);
+                        }
+                    }
+
+                    if (acreditarBilletera
+                            && pagosBilleteraIntegracionClient.isEnabled()
+                            && uid != null
                             && idTransaccionWallet != null
                             && idReservaWallet != null) {
                         pagosBilleteraIntegracionClient.acreditarRetenido(
-                                idReservaWallet, idUsuarioWalker.longValue(), idTransaccionWallet);
+                                idReservaWallet, uid.longValue(), idTransaccionWallet);
                     }
                     sincronizarBloqueAgendaReservadoTrasPago(idAgendaBloque);
                 };

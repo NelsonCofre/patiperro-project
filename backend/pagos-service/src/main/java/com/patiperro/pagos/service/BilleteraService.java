@@ -311,7 +311,7 @@ public class BilleteraService {
                 new BilleteraBucketResponse(
                         "retenido",
                         "Saldo Retenido",
-                        "Servicios pagados que aún no han finalizado o siguen en curso.",
+                        "Este saldo corresponde a servicios pagados que aún no han finalizado. Una vez que marques el paseo como terminado, este monto iniciará su proceso de liberación.",
                         retAgg,
                         sumaBruto(itemsRet),
                         sumaComision(itemsRet),

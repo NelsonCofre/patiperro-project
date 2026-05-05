@@ -37,20 +37,30 @@ public class PagosBilleteraIntegracionClient {
 
     public PagosBilleteraIntegracionClient(
             RestClient.Builder restClientBuilder,
-            @Value("${patiperro.reserva.integracion.pagos-reembolso.enabled:false}") boolean enabled,
-            @Value("${patiperro.reserva.integracion.pagos-reembolso.base-url:http://localhost:8087}") String baseUrl,
-            @Value("${patiperro.reserva.integracion.pagos-reembolso.interno.secret:}") String internoSecret,
-            @Value("${patiperro.reserva.integracion.pagos-reembolso.connect-timeout-ms:5000}") long connectTimeoutMs,
-            @Value("${patiperro.reserva.integracion.pagos-reembolso.read-timeout-ms:30000}") long readTimeoutMs) {
-        this.enabled = enabled;
-        String base = normalizeBaseUrl(baseUrl);
+            // Compatibilidad: billetera puede tener llaves dedicadas; si no existen, cae a pagos-reembolso.*
+            @Value("${patiperro.reserva.integracion.pagos-billetera.enabled:}") String billeteraEnabledRaw,
+            @Value("${patiperro.reserva.integracion.pagos-billetera.base-url:}") String billeteraBaseUrlRaw,
+            @Value("${patiperro.reserva.integracion.pagos-billetera.interno.secret:}") String billeteraSecretRaw,
+            @Value("${patiperro.reserva.integracion.pagos-billetera.connect-timeout-ms:}") String billeteraConnectTimeoutRaw,
+            @Value("${patiperro.reserva.integracion.pagos-billetera.read-timeout-ms:}") String billeteraReadTimeoutRaw,
+
+            @Value("${patiperro.reserva.integracion.pagos-reembolso.enabled:false}") boolean reembolsoEnabled,
+            @Value("${patiperro.reserva.integracion.pagos-reembolso.base-url:http://localhost:8087}") String reembolsoBaseUrl,
+            @Value("${patiperro.reserva.integracion.pagos-reembolso.interno.secret:}") String reembolsoSecret,
+            @Value("${patiperro.reserva.integracion.pagos-reembolso.connect-timeout-ms:5000}") long reembolsoConnectTimeoutMs,
+            @Value("${patiperro.reserva.integracion.pagos-reembolso.read-timeout-ms:30000}") long reembolsoReadTimeoutMs) {
+        this.enabled = resolveEnabled(billeteraEnabledRaw, reembolsoEnabled);
+        String base = normalizeBaseUrl(resolveNonBlank(billeteraBaseUrlRaw, reembolsoBaseUrl));
+        long connectTimeoutMs = resolveLong(billeteraConnectTimeoutRaw, reembolsoConnectTimeoutMs);
+        long readTimeoutMs = resolveLong(billeteraReadTimeoutRaw, reembolsoReadTimeoutMs);
         this.restClient = base.isEmpty()
                 ? null
                 : restClientBuilder
                         .requestFactory(requestFactory(connectTimeoutMs, readTimeoutMs))
                         .baseUrl(base)
                         .build();
-        this.internoSecret = internoSecret != null ? internoSecret.trim() : "";
+        String secret = resolveNonBlank(billeteraSecretRaw, reembolsoSecret);
+        this.internoSecret = secret != null ? secret.trim() : "";
     }
 
     public boolean isEnabled() {
@@ -114,6 +124,33 @@ public class PagosBilleteraIntegracionClient {
             b = b.substring(0, b.length() - 1);
         }
         return b;
+    }
+
+    private static boolean resolveEnabled(String raw, boolean fallback) {
+        if (!StringUtils.hasText(raw)) {
+            return fallback;
+        }
+        String t = raw.trim();
+        return Boolean.parseBoolean(t);
+    }
+
+    private static String resolveNonBlank(String preferred, String fallback) {
+        if (StringUtils.hasText(preferred)) {
+            return preferred;
+        }
+        return fallback;
+    }
+
+    private static long resolveLong(String raw, long fallback) {
+        if (!StringUtils.hasText(raw)) {
+            return fallback;
+        }
+        String t = raw.trim();
+        try {
+            return Long.parseLong(t);
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     private static SimpleClientHttpRequestFactory requestFactory(long connectTimeoutMs, long readTimeoutMs) {

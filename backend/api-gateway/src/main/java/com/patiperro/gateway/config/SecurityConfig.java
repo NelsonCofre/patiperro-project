@@ -48,13 +48,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Paso 7 (rechazo con reembolso): MP/reembolso y billetera vía */interno/* nunca por el borde.
                         // Denegación explícita + patrón (defensa en profundidad si se añaden rutas amplias).
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/interno/**")).denyAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/reserva/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/reserva/interno/**")).denyAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/agenda/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/agenda/interno/**")).denyAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/tutores/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/tutores/interno/**")).denyAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/mascotas/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/mascotas/interno/**")).denyAll()
                         // Internos servidor-a-servidor (resto de microservicios con mismo layout).
                         // PathPattern solo permite ** al inicio/fin; un segmento entre /api/ e /interno/ es /*/.
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno/**")).denyAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .requestMatchers(
