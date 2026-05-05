@@ -1,6 +1,21 @@
 // Base comun del backend/gateway consumido por el frontend.
 export const API_BASE_URL = "http://localhost:8080";
 
+/**
+ * En desarrollo, checkout con Bricks debe ir directo a pagos-service: el gateway WebMVC no reenvía
+ * {@code Authorization} a los microservicios. En build de producción se usa el gateway.
+ */
+export const PAGOS_CHECKOUT_API_BASE =
+  typeof import.meta !== "undefined" && import.meta.env.DEV
+    ? "http://localhost:8087"
+    : API_BASE_URL;
+
+/** Backend MVP aislado de Checkout Pro (pago-service). */
+export const PAGO_SERVICE_API_BASE =
+  typeof import.meta !== "undefined" && import.meta.env.DEV
+    ? "http://localhost:8088"
+    : API_BASE_URL;
+
 /** Tras login paseador se guarda idPaseador para llamadas /api/agenda/bloques/usuario/{id}. */
 export const PASEADOR_ID_SESSION_KEY = "patiperro_paseador_id";
 
@@ -83,7 +98,12 @@ export const API_ENDPOINTS = {
   },
   pagos: {
     checkoutSimulado: `${API_BASE_URL}/api/pagos/checkout/simulado`,
-    checkoutPro: `${API_BASE_URL}/api/pagos/checkout/checkout-pro`
+    /** Checkout API: token del Payment Brick (en dev contra :8087 por JWT; en prod vía gateway). */
+    pagoBrick: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/checkout/pago-brick`,
+    /** Checkout Pro autenticado para tutor (crea preferencia con access token en backend). */
+    checkoutProPreferenciaTutor: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/checkout/pro/preferencia`,
+    /** Sandbox MVP: crea preferencia Checkout Pro en pagos-service (endpoint interno con secret). */
+    checkoutProPreferencias: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/interno/mercadopago/checkout/preferencia`
   },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,

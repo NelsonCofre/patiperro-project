@@ -40,6 +40,22 @@ public class InternalPagosController {
      * Confirma pago aprobado desde pasarela (ej. Mercado Pago webhook procesado en pagos-service).
      * Body: {@code { "idReserva": 123, "idTransaccionPagos": 456, "mpPaymentId": "999999999" }}
      */
+    /**
+     * Al iniciar checkout en pagos-service: persiste {@code reserva.id_pago} = id transacción local.
+     * Body: {@code { "idReserva": 123, "idTransaccionPagos": 456 }}
+     */
+    @PostMapping(value = "/mercadopago/vinculo-transaccion", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> vincularTransaccionMercadoPago(
+            @RequestHeader(value = HEADER_CORRELATION_ID, required = false) String correlationId,
+            @RequestBody(required = false) VinculoTransaccionRequest body) {
+        logCorrelation(correlationId, "vinculo-transaccion");
+        if (body == null || body.idReserva() == null || body.idTransaccionPagos() == null) {
+            return badRequest("Faltan idReserva o idTransaccionPagos.");
+        }
+        reservaPagoService.vincularTransaccionPagos(body.idReserva(), body.idTransaccionPagos());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping(value = "/mercadopago/pago-aprobado", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> marcarPagadaMercadoPago(
             @RequestHeader(value = HEADER_CORRELATION_ID, required = false) String correlationId,
@@ -102,6 +118,9 @@ public class InternalPagosController {
         if (StringUtils.hasText(correlationId)) {
             log.debug("Interno pagos {} correlationId={}", operacion, correlationId.trim());
         }
+    }
+
+    public record VinculoTransaccionRequest(Integer idReserva, Long idTransaccionPagos) {
     }
 
     public record PagoAprobadoRequest(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {

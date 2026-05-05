@@ -32,6 +32,8 @@ import org.springframework.util.StringUtils;
 
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import org.springframework.web.util.UrlPathHelper;
+
 
 
 import java.io.IOException;
@@ -43,6 +45,8 @@ import java.util.Collections;
 @Component
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final UrlPathHelper PATH_HELPER = UrlPathHelper.defaultInstance;
 
 
 
@@ -78,7 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             throws ServletException, IOException {
 
-        String path = request.getServletPath();
+        String path = PATH_HELPER.getPathWithinApplication(request);
 
         if (path.startsWith("/api/reserva/interno")) {
 

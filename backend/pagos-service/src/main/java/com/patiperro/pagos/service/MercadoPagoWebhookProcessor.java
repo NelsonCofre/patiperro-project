@@ -17,8 +17,11 @@ import java.util.Optional;
 /**
  * Procesamiento pesado del webhook: consulta MP y avisa a reserva-service.
  * Ejecutado en hilo aparte para responder 200 rápido al webhook.
- * <p>Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1) más notificación de
- * rechazados e ignorar estados intermedios (V2).</p>
+ * <p>
+ * Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1)
+ * más notificación de
+ * rechazados e ignorar estados intermedios (V2).
+ * </p>
  */
 @Component
 public class MercadoPagoWebhookProcessor {
@@ -60,7 +63,8 @@ public class MercadoPagoWebhookProcessor {
 
             MercadoPagoPaymentDto pago = pagoOpt.get();
             String status = pago.status();
-            String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString() : MercadoPagoApiClient.normalizarPaymentId(paymentId);
+            String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString()
+                    : MercadoPagoApiClient.normalizarPaymentId(paymentId);
 
             Integer idReserva = resolverIdReserva(pago);
 
@@ -82,7 +86,8 @@ public class MercadoPagoWebhookProcessor {
                         idTransaccionPagos = tx.getIdTransaccion();
                     }
                 } catch (RuntimeException ex) {
-                    log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
+                    log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva,
+                            ex);
                 }
                 if (idTransaccionPagos == null) {
                     idTransaccionPagos = transaccionRepository
@@ -93,7 +98,8 @@ public class MercadoPagoWebhookProcessor {
                 }
                 if (idTransaccionPagos != null) {
                     reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, idTransaccionPagos, mpId);
-                    log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
+                    log.info(
+                            "Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
                             idReserva, idTransaccionPagos, mpId);
                 } else {
                     log.warn("Webhook MP: pago aprobado {} sin transacción PENDIENTE ni APROBADA (idReserva={})", mpId,
@@ -119,7 +125,8 @@ public class MercadoPagoWebhookProcessor {
 
             String detail = pago.statusDetail();
             reservaPagosIntegracionClient.notificarPagoNoAprobado(idReserva, mpId, status, detail);
-            log.info("Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
+            log.info(
+                    "Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
                     idReserva, mpId, status);
         } catch (RuntimeException e) {
             log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
@@ -127,9 +134,10 @@ public class MercadoPagoWebhookProcessor {
     }
 
     /**
-     * Estados donde el cobro puede seguir evolucionando; no persistimos intento fallido todavía.
+     * Estados donde el cobro puede seguir evolucionando; no persistimos intento
+     * fallido todavía.
      */
-    private static boolean esEstadoIntermedioMercadoPago(String status) {
+    public static boolean esEstadoIntermedioMercadoPago(String status) {
         if (!StringUtils.hasText(status)) {
             return false;
         }
@@ -148,11 +156,18 @@ public class MercadoPagoWebhookProcessor {
         try {
             return Integer.parseInt(ref);
         } catch (NumberFormatException ignored) {
+            if (ref.regionMatches(true, 0, "reserva-", 0, 8) && ref.length() > 8) {
+                try {
+                    return Integer.parseInt(ref.substring(8).trim());
+                } catch (NumberFormatException ignored2) {
+                    // sigue con estrategia por ':'
+                }
+            }
             int colon = ref.lastIndexOf(':');
             if (colon >= 0 && colon < ref.length() - 1) {
                 try {
                     return Integer.parseInt(ref.substring(colon + 1).trim());
-                } catch (NumberFormatException ignored2) {
+                } catch (NumberFormatException ignored3) {
                     return null;
                 }
             }

@@ -124,6 +124,8 @@ public class MercadoPagoApiClient {
             if (!StringUtils.hasText(init) && !StringUtils.hasText(sandbox)) {
                 return Optional.empty();
             }
+            log.info("Mercado Pago: preferencia creada (flujo=checkout-pro, preferenceId={}, token={})",
+                    prefId, tokenFingerprint());
             return Optional.of(new MercadoPagoPreferenceCreatedDto(prefId, init, sandbox));
         } catch (RestClientResponseException e) {
             log.warn("Mercado Pago: crear preferencia respondió {} ({})", e.getStatusCode().value(),
@@ -322,6 +324,8 @@ public class MercadoPagoApiClient {
                     return Optional.empty();
                 }
                 MercadoPagoPreferenceResponseDto dto = objectMapper.readValue(body, MercadoPagoPreferenceResponseDto.class);
+                log.info("Mercado Pago: preferencia creada (flujo=checkout-interno, preferenceId={}, token={})",
+                        dto.id(), tokenFingerprint());
                 return Optional.ofNullable(dto);
             } catch (RestClientResponseException e) {
                 int code = e.getStatusCode().value();
@@ -348,6 +352,69 @@ public class MercadoPagoApiClient {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Crea un pago con token de tarjeta ({@code POST /v1/payments}) — Checkout API sin preferencia.
+     */
+    public MercadoPagoPaymentDto crearPagoConToken(Map<String, Object> body, String idempotencyKeyRaw) {
+        if (body == null || body.isEmpty()) {
+            throw new IllegalArgumentException("body de pago vacío");
+        }
+        if (!StringUtils.hasText(accessToken)) {
+            throw new MercadoPagoCrearPagoException(401, "{\"message\":\"access token no configurado\"}");
+        }
+        final String jsonBody;
+        try {
+            jsonBody = objectMapper.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("no se serializó el cuerpo del pago", e);
+        }
+        String key = sanitizeIdempotencyKey(idempotencyKeyRaw);
+        long delayMs = retryInitialDelayMs;
+        for (int attempt = 1; attempt <= retryMaxAttempts; attempt++) {
+            try {
+                RequestBodySpec post = restClient.post()
+                        .uri("/v1/payments")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON);
+                if (StringUtils.hasText(key)) {
+                    post = post.header("Idempotency-Key", key);
+                }
+                String response = post.body(jsonBody)
+                        .retrieve()
+                        .body(String.class);
+                if (!StringUtils.hasText(response)) {
+                    throw new MercadoPagoCrearPagoException(502, "respuesta vacía");
+                }
+                MercadoPagoPaymentDto dto = objectMapper.readValue(response, MercadoPagoPaymentDto.class);
+                log.info("Mercado Pago: POST /v1/payments creado (id={}, status={}, token={})",
+                        dto.id(), dto.status(), tokenFingerprint());
+                return dto;
+            } catch (RestClientResponseException e) {
+                int code = e.getStatusCode().value();
+                String errBody = e.getResponseBodyAsString();
+                if (isTransientHttpStatus(code) && attempt < retryMaxAttempts) {
+                    log.warn("Mercado Pago: POST /v1/payments respondió {} — reintento {}/{}",
+                            code, attempt, retryMaxAttempts);
+                    sleepBackoff(delayMs);
+                    delayMs = nextBackoffDelay(delayMs);
+                    continue;
+                }
+                throw new MercadoPagoCrearPagoException(code, errBody != null ? errBody : "");
+            } catch (RestClientException e) {
+                if (attempt >= retryMaxAttempts) {
+                    throw new MercadoPagoCrearPagoException(0, "error de red: " + e.getMessage());
+                }
+                log.warn("Mercado Pago: POST /v1/payments error de red — reintento {}/{}",
+                        attempt, retryMaxAttempts, e);
+                sleepBackoff(delayMs);
+                delayMs = nextBackoffDelay(delayMs);
+            } catch (JsonProcessingException e) {
+                throw new MercadoPagoCrearPagoException(502, "JSON inválido en respuesta de pago");
+            }
+        }
+        throw new MercadoPagoCrearPagoException(502, "agotados reintentos");
     }
 
     private static void logPreferenceHttp(int code, RestClientResponseException e) {
@@ -450,5 +517,15 @@ public class MercadoPagoApiClient {
             s = s.substring(0, q).trim();
         }
         return s;
+    }
+
+    private String tokenFingerprint() {
+        if (!StringUtils.hasText(accessToken)) {
+            return "empty";
+        }
+        int len = accessToken.length();
+        int keep = Math.min(6, len);
+        String suffix = accessToken.substring(len - keep);
+        return "len=" + len + ",***" + suffix;
     }
 }

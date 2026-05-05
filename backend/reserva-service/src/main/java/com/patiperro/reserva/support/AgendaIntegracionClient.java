@@ -59,7 +59,8 @@ public class AgendaIntegracionClient {
                     .uri("/api/agenda/bloques/usuario/{idUsuario}", idUsuario)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + rawJwt.trim())
                     .retrieve()
-                    .body(new ParameterizedTypeReference<List<AgendaBloqueReservaClientDTO>>() {});
+                    .body(new ParameterizedTypeReference<List<AgendaBloqueReservaClientDTO>>() {
+                    });
         } catch (RestClientResponseException e) {
             throw new IllegalStateException(
                     "Agenda-service respondió " + e.getStatusCode() + ": " + e.getResponseBodyAsString(), e);
@@ -134,8 +135,10 @@ public class AgendaIntegracionClient {
     }
 
     /**
-     * Libera el bloque tras reglas validadas en reserva-service (p. ej. cancelación por tutor).
-     * Usa credencial compartida con agenda-service ({@code patiperro.agenda.interno.secret}).
+     * Libera el bloque tras reglas validadas en reserva-service (p. ej. cancelación
+     * por tutor).
+     * Usa credencial compartida con agenda-service
+     * ({@code patiperro.agenda.interno.secret}).
      */
     public void marcarBloqueDisponibleInterno(Integer idAgendaBloque) {
         if (!isEnabled()) {
