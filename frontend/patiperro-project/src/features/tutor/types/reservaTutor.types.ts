@@ -21,6 +21,10 @@ export type ReservaTutorDetalleDTO = {
   paymentStatus?: string | null;
   paymentPreferenceId?: string | null;
   paymentInitPoint?: string | null;
+  paymentTransactionId?: string | null;
+  paymentOrderId?: string | null;
+  paymentConfirmedAt?: string | null;
+  paymentReceiptEmailSent?: boolean | null;
   mensajeRetencionFondos?: string | null;
   calificada: boolean;
 };

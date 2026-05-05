@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
+import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
 import ReservaCard from "../../components/ReservaCard/ReservaCard";
 import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
 import SaldoRetenidoNotice from "../../components/SaldoRetenidoNotice/SaldoRetenidoNotice";
@@ -68,6 +69,7 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 export default function TutorReservas() {
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
+  const [paymentSummaryReserva, setPaymentSummaryReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
   
   const {
@@ -185,6 +187,20 @@ export default function TutorReservas() {
                   message={selectedReserva.mensajeRetencionFondos}
                   onOpenInfo={() => setShowRetencionInfo(true)}
                 />
+
+                {(normalizePaymentStatus(selectedReserva.paymentStatus).includes("pagad") ||
+                  selectedReserva.idPago != null) ? (
+                  <div className={styles.paymentSummaryRow}>
+                    <span>Resumen disponible para consulta historica y descarga.</span>
+                    <button
+                      type="button"
+                      className={styles.summaryButton}
+                      onClick={() => setPaymentSummaryReserva(selectedReserva)}
+                    >
+                      Ver resumen de transaccion
+                    </button>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
@@ -280,6 +296,7 @@ export default function TutorReservas() {
                 reserva={reserva}
                 onDetalle={(item) => setSelectedReservaId(item.idReserva)}
                 onCancelar={(item) => void cancelarReserva(item)}
+                onVerResumenPago={setPaymentSummaryReserva}
                 onCalificar={(item) => setReservaParaCalificar(item)} // Implementación nueva: abre el modal real
               />
             ))}
@@ -310,6 +327,13 @@ export default function TutorReservas() {
           }} 
         />
       )}
+
+      {paymentSummaryReserva ? (
+        <PaymentSummaryModal
+          reserva={paymentSummaryReserva}
+          onClose={() => setPaymentSummaryReserva(null)}
+        />
+      ) : null}
 
       {/* MODAL DE INFO RETENCION (Existente) */}
       {showRetencionInfo ? (
