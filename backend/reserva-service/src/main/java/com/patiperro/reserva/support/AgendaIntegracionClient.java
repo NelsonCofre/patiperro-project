@@ -162,6 +162,33 @@ public class AgendaIntegracionClient {
         }
     }
 
+    /**
+     * Marca bloque reservado tras cobro confirmado (sin JWT del tutor). Idempotente en agenda si ya estaba reservado.
+     */
+    public void marcarBloqueReservadoInterno(Integer idAgendaBloque) {
+        if (!isEnabled()) {
+            return;
+        }
+        if (!StringUtils.hasText(agendaInternoSecret)) {
+            throw new IllegalStateException(
+                    "Falta patiperro.reserva.agenda-interno.secret para marcar reservado interno en agenda-service");
+        }
+        try {
+            restClient.patch()
+                    .uri("/api/agenda/interno/bloques/{id}/marcar-reservado", idAgendaBloque)
+                    .header(HEADER_AGENDA_INTERNO, agendaInternoSecret)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException(
+                    "Agenda-service (interno marcar-reservado) respondió " + e.getStatusCode() + ": "
+                            + e.getResponseBodyAsString(),
+                    e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo contactar agenda-service: " + e.getMessage(), e);
+        }
+    }
+
     public AgendaBloqueResumenDTO obtenerBloque(Integer idAgendaBloque, String rawJwt) {
         if (!isEnabled()) {
             return null;

@@ -3,6 +3,7 @@ package com.patiperro.pagos.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -14,6 +15,10 @@ public record MercadoPagoPaymentDto(
         @JsonProperty("status") String status,
         @JsonProperty("status_detail") String statusDetail,
         @JsonProperty("external_reference") String externalReference,
+        @JsonProperty("transaction_amount") BigDecimal transactionAmount,
+        @JsonProperty("currency_id") String currencyId,
+        @JsonProperty("date_approved") String dateApproved,
+        @JsonProperty("payment_type_id") String paymentTypeId,
         @JsonProperty("refunds") List<Object> refunds
 ) {
     public MercadoPagoPaymentDto {

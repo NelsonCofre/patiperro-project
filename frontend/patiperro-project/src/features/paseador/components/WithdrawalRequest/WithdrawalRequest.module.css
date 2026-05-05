@@ -1,0 +1,202 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(8px);
+}
+
+.modal {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid #dce7dd;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.22);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 0 14px;
+  padding: 0 14px;
+  border: 1px solid #dce7dd;
+  border-radius: 999px;
+  color: #2f7d35;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.header h2 {
+  margin: 0;
+  color: #183120;
+  font-size: 1.7rem;
+}
+
+.description {
+  margin: 12px 0 0;
+  color: #5d6b79;
+  line-height: 1.7;
+}
+
+.closeButton {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #dce7dd;
+  border-radius: 8px;
+  color: #355143;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summaryCard,
+.accountCard {
+  padding: 18px 20px;
+  border: 1px solid #dce7dd;
+  border-radius: 20px;
+  background: rgba(248, 252, 248, 0.94);
+}
+
+.summaryCard span,
+.field span {
+  display: block;
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.summaryCard strong {
+  color: #183120;
+  font-size: 1.4rem;
+}
+
+.field {
+  display: grid;
+  gap: 10px;
+}
+
+.field input,
+.field select {
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid #cfe2d1;
+  border-radius: 8px;
+  color: #183120;
+  font: inherit;
+  background: #ffffff;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid rgba(77, 167, 86, 0.18);
+  border-color: #8bc691;
+}
+
+.accountCard strong {
+  display: block;
+  color: #183120;
+  font-size: 1rem;
+}
+
+.accountCard p,
+.accountCard span {
+  margin: 8px 0 0;
+  color: #5d6b79;
+  line-height: 1.6;
+}
+
+.errorBox {
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #991b1b;
+  background: #fff7f7;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-end;
+}
+
+.helper {
+  margin: 0;
+  max-width: 460px;
+  color: #5d6b79;
+  line-height: 1.7;
+}
+
+.submitButton {
+  min-height: 48px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+  box-shadow: 0 16px 28px rgba(21, 128, 61, 0.2);
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+@media (max-width: 720px) {
+  .modal {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .header,
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .submitButton {
+    width: 100%;
+  }
+}

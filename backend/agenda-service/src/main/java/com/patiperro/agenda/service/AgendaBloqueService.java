@@ -131,14 +131,7 @@ public class AgendaBloqueService {
      * X-Patiperro-Interno-Secret.
      */
     public AgendaBloqueResponseDTO obtenerInterno(Integer idAgenda, String secretRecibido) {
-        String esperado = internoSecret != null ? internoSecret.trim() : "";
-        if (!StringUtils.hasText(esperado)) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Interno agenda no configurado (patiperro.agenda.interno.secret)");
-        }
-        if (secretRecibido == null || !esperado.equals(secretRecibido.trim())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Credencial interna inválida");
-        }
+        assertInternoSecretValid(secretRecibido);
         return AgendaDtoMapper.toBloqueResponse(obtenerEntidad(idAgenda));
     }
 
@@ -207,6 +200,34 @@ public class AgendaBloqueService {
      */
     @Transactional
     public AgendaBloqueResponseDTO marcarDisponibleInterno(Integer idAgenda, String secretRecibido) {
+        assertInternoSecretValid(secretRecibido);
+        AgendaBloque bloque = obtenerEntidad(idAgenda);
+        return pasarBloqueReservadoADisponible(bloque);
+    }
+
+    /**
+     * Marca el bloque como reservado sin JWT (p. ej. tras cobro confirmado desde reserva-service).
+     * Idempotente si ya está reservado.
+     */
+    @Transactional
+    public AgendaBloqueResponseDTO marcarReservadoInterno(Integer idAgenda, String secretRecibido) {
+        assertInternoSecretValid(secretRecibido);
+        AgendaBloque bloque = obtenerEntidad(idAgenda);
+        EstadoBloque disponible = estadoPorNombre(nombreEstadoDisponible);
+        EstadoBloque reservado = estadoPorNombre(nombreEstadoReservado);
+        Integer actual = bloque.getEstadoBloque() != null ? bloque.getEstadoBloque().getIdEstado() : null;
+        if (actual != null && actual.equals(reservado.getIdEstado())) {
+            return AgendaDtoMapper.toBloqueResponse(bloque);
+        }
+        if (actual == null || !actual.equals(disponible.getIdEstado())) {
+            throw new IllegalStateException(
+                    "El bloque no está disponible para marcar reservado (sincronía post-pago)");
+        }
+        bloque.setEstadoBloque(reservado);
+        return AgendaDtoMapper.toBloqueResponse(agendaBloqueRepository.save(bloque));
+    }
+
+    private void assertInternoSecretValid(String secretRecibido) {
         String esperado = internoSecret != null ? internoSecret.trim() : "";
         if (!StringUtils.hasText(esperado)) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -215,8 +236,6 @@ public class AgendaBloqueService {
         if (secretRecibido == null || !esperado.equals(secretRecibido.trim())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Credencial interna inválida");
         }
-        AgendaBloque bloque = obtenerEntidad(idAgenda);
-        return pasarBloqueReservadoADisponible(bloque);
     }
 
     private AgendaBloqueResponseDTO pasarBloqueReservadoADisponible(AgendaBloque bloque) {

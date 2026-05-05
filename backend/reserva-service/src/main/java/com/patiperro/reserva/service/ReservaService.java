@@ -18,6 +18,7 @@ import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaParaPagoDto;
+import com.patiperro.reserva.dto.interno.InternoBilleteraReservaDetalleDto;
 import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
@@ -31,6 +32,7 @@ import com.patiperro.reserva.event.PaseoIniciadoDomainEvent;
 import com.patiperro.reserva.event.ReservaEventPublisher;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.MascotaIntegracionClient;
+import com.patiperro.reserva.support.PagosBilleteraIntegracionClient;
 import com.patiperro.reserva.support.PagosCheckoutIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import com.patiperro.reserva.support.TutorIntegracionClient;
@@ -54,6 +56,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +84,7 @@ public class ReservaService {
     private final ReservaReembolsoService reservaReembolsoService;
     private final ReservaPagoService reservaPagoService;
     private final PagosCheckoutIntegracionClient pagosCheckoutIntegracionClient;
+    private final PagosBilleteraIntegracionClient pagosBilleteraIntegracionClient;
 
     @Value("${patiperro.reserva.codigo.validacion-expira-minutos:30}")
     private int codigoExpiraMinutos;
@@ -410,6 +414,9 @@ public class ReservaService {
                 programarReembolsoMercadoPagoTrasCommit(saved.getIdReserva(), saved);
             }
         }
+        if (esFinalizada(nuevo)) {
+            programarBilleteraPasarVerificacionTrasCommit(saved);
+        }
         return ReservaDtoMapper.toReservaResponse(saved);
     }
 
@@ -471,16 +478,62 @@ public class ReservaService {
                             + "ReservaReembolsoService no invocará pagos-service hasta existir id (idReserva={})",
                     idReserva);
         }
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+        Runnable despuesDeCommit = () -> {
+            pagosBilleteraIntegracionClient.revertirRetenido(idReserva);
             reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            despuesDeCommit.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                reservaReembolsoService.procesarReembolsoYNotificar(idReserva);
+                despuesDeCommit.run();
             }
         });
+    }
+
+    private void programarBilleteraPasarVerificacionTrasCommit(Reserva saved) {
+        if (!pagosBilleteraIntegracionClient.isEnabled() || saved == null) {
+            return;
+        }
+        Integer idR = saved.getIdReserva();
+        LocalDateTime fin = saved.getFechaFin();
+        Runnable run = () -> {
+            Long uid = resolverIdUsuarioPaseador(saved);
+            if (uid == null) {
+                log.debug("Billetera verificación omitida: sin id usuario paseador (idReserva={})", saved.getIdReserva());
+                return;
+            }
+            pagosBilleteraIntegracionClient.pasarAVerificacion(idR, uid, fin);
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            run.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                run.run();
+            }
+        });
+    }
+
+    private Long resolverIdUsuarioPaseador(Reserva r) {
+        if (r == null || !agendaIntegracionClient.isEnabled()) {
+            return null;
+        }
+        try {
+            AgendaBloqueReservaClientDTO bloque = agendaIntegracionClient.obtenerBloquePorIdInterno(r.getIdAgendaBloque());
+            if (bloque == null || bloque.getIdUsuario() == null) {
+                return null;
+            }
+            return bloque.getIdUsuario().longValue();
+        } catch (RuntimeException e) {
+            log.warn("No se pudo resolver id usuario paseador (idReserva={})", r.getIdReserva(), e);
+            return null;
+        }
     }
 
     @Transactional
@@ -824,6 +877,52 @@ public class ReservaService {
         return salida;
     }
 
+    /**
+     * Vista interna para enriquecer ítems de billetera en pagos-service.
+     * Omite reservas inexistentes, bloques de otros paseadores o fallos puntuales de agenda (por ítem).
+     */
+    @Transactional(readOnly = true)
+    public List<InternoBilleteraReservaDetalleDto> listarDetallesBilleteraInterno(
+            Long idUsuarioPaseador, List<Integer> idsReserva) {
+        if (idUsuarioPaseador == null || idsReserva == null || idsReserva.isEmpty()) {
+            return List.of();
+        }
+        if (!agendaIntegracionClient.isEnabled()) {
+            log.debug("detalles billetera interno: integración agenda deshabilitada");
+            return List.of();
+        }
+        LinkedHashSet<Integer> uniq = new LinkedHashSet<>(idsReserva);
+        List<InternoBilleteraReservaDetalleDto> salida = new ArrayList<>();
+        int idPaseadorInt = idUsuarioPaseador.intValue();
+        for (Integer idReserva : uniq) {
+            if (idReserva == null) {
+                continue;
+            }
+            Optional<Reserva> opt = reservaRepository.findById(idReserva);
+            if (opt.isEmpty()) {
+                continue;
+            }
+            Reserva r = opt.get();
+            AgendaBloqueReservaClientDTO bloque;
+            try {
+                bloque = agendaIntegracionClient.obtenerBloquePorIdInterno(r.getIdAgendaBloque());
+            } catch (RuntimeException ex) {
+                log.debug(
+                        "detalles billetera interno: sin bloque agenda reserva={} ({})",
+                        idReserva,
+                        ex.getMessage());
+                continue;
+            }
+            if (bloque == null
+                    || bloque.getIdUsuario() == null
+                    || bloque.getIdUsuario() != idPaseadorInt) {
+                continue;
+            }
+            salida.add(mapearInternoBilleteraDetalle(r, bloque));
+        }
+        return salida;
+    }
+
     public List<ReservaResponseDTO> listarPorMascota(Integer idMascota) {
         return reservaRepository.findByIdMascota(idMascota).stream()
                 .map(ReservaDtoMapper::toReservaResponse)
@@ -907,6 +1006,51 @@ public class ReservaService {
     private boolean isCodigoBloqueado(Reserva r) {
         LocalDateTime ahora = LocalDateTime.now(clock);
         return r.getCodigoBloqueadoHasta() != null && ahora.isBefore(r.getCodigoBloqueadoHasta());
+    }
+
+    private InternoBilleteraReservaDetalleDto mapearInternoBilleteraDetalle(
+            Reserva r, AgendaBloqueReservaClientDTO bloque) {
+        String fechaAgenda = "";
+        String horaIni = "";
+        if (bloque != null) {
+            if (bloque.getFecha() != null) {
+                fechaAgenda = bloque.getFecha().toString();
+            }
+            horaIni = formatearHoraMinuto(bloque.getHoraInicio());
+        }
+        String tutorNombre = tutorNombreInternoBilletera(r.getIdTutorUsuario());
+        String mascotaNombre = "Mascota #" + r.getIdMascota();
+        try {
+            MascotaInternoDetalleResponseDTO detalleMascota =
+                    mascotaIntegracionClient.obtenerDetalleInterno(r.getIdMascota());
+            if (detalleMascota != null && StringUtils.hasText(detalleMascota.getNombre())) {
+                mascotaNombre = detalleMascota.getNombre().trim();
+            } else {
+                MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(r.getIdMascota());
+                if (portada != null && StringUtils.hasText(portada.getNombre())) {
+                    mascotaNombre = portada.getNombre().trim();
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // mismo criterio que panel paseador
+        }
+        EstadoReserva estado = r.getEstadoReserva();
+        String nombreEstado = estado != null ? estado.getNombreEstado() : null;
+        return new InternoBilleteraReservaDetalleDto(
+                r.getIdReserva(), mascotaNombre, tutorNombre, fechaAgenda, horaIni, nombreEstado);
+    }
+
+    private String tutorNombreInternoBilletera(Integer idTutorUsuario) {
+        if (idTutorUsuario == null) {
+            return "Tutor";
+        }
+        String correo = tutorIntegracionClient.obtenerCorreoInterno(idTutorUsuario.longValue());
+        if (!StringUtils.hasText(correo)) {
+            return "Tutor #" + idTutorUsuario;
+        }
+        int at = correo.indexOf('@');
+        String local = at > 0 ? correo.substring(0, at).trim() : correo.trim();
+        return local.isEmpty() ? "Tutor #" + idTutorUsuario : local;
     }
 
     private ReservaPaseadorSolicitudResponseDTO mapearSolicitudPaseador(

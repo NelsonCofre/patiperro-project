@@ -4,6 +4,7 @@ import styles from "./AvailableBalance.module.css";
 type AvailableBalanceProps = {
   bucket: BilleteraBucket;
   onWithdraw: () => void;
+  isSubmitting?: boolean;
 };
 
 function formatMoney(value: number): string {
@@ -14,7 +15,11 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
-export default function AvailableBalance({ bucket, onWithdraw }: AvailableBalanceProps) {
+export default function AvailableBalance({
+  bucket,
+  onWithdraw,
+  isSubmitting = false
+}: AvailableBalanceProps) {
   const canWithdraw = bucket.amount > 0;
   const disabledMessage =
     "Necesitas saldo disponible mayor a $0 para solicitar un retiro.";
@@ -67,10 +72,10 @@ export default function AvailableBalance({ bucket, onWithdraw }: AvailableBalanc
           <button
             type="button"
             className={styles.withdrawButton}
-            disabled={!canWithdraw}
+            disabled={!canWithdraw || isSubmitting}
             onClick={onWithdraw}
           >
-            Retirar fondos
+            {isSubmitting ? "Procesando retiro..." : "Retirar fondos"}
           </button>
           {!canWithdraw ? <span className={styles.tooltip}>{disabledMessage}</span> : null}
         </div>
