@@ -10,6 +10,7 @@ import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
 import com.patiperro.pagos.reserva.dto.ReservaConsultaDto;
+import com.patiperro.pagos.service.NetoTransaccionService;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class CheckoutProService {
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final TransaccionRepository transaccionRepository;
     private final ReservaPagosIntegracionClient reservaPagosIntegracionClient;
+    private final NetoTransaccionService netoTransaccionService;
 
     @Value("${patiperro.pagos.checkout.front-base-url:http://localhost:5173}")
     private String frontBaseUrl;
@@ -70,21 +72,23 @@ public class CheckoutProService {
         Transaccion tx = transaccionRepository
                 .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(reserva.idReserva(), EstadoPago.PENDIENTE)
                 .map(existing -> {
-                    existing.setMontoBruto(reserva.montoTotal());
-                    existing.setComisionApp(BigDecimal.ZERO);
-                    existing.setMontoNeto(reserva.montoTotal());
+                    aplicarMontosEstimadosPendiente(existing, reserva.montoTotal());
                     return existing;
                 })
-                .orElseGet(() -> Transaccion.builder()
-                        .idReserva(reserva.idReserva())
-                        .montoBruto(reserva.montoTotal())
-                        .comisionApp(BigDecimal.ZERO)
-                        .montoNeto(reserva.montoTotal())
-                        .origen(Origen.CLIENTE)
-                        .destino(Destino.BANCO)
-                        .estadoPago(EstadoPago.PENDIENTE)
-                        .tipoTransaccion(TipoTransaccion.PAGO_CLIENTE)
-                        .build());
+                .orElseGet(() -> {
+                    Transaccion nueva = Transaccion.builder()
+                            .idReserva(reserva.idReserva())
+                            .montoBruto(BigDecimal.ZERO)
+                            .comisionApp(BigDecimal.ZERO)
+                            .montoNeto(BigDecimal.ZERO)
+                            .origen(Origen.CLIENTE)
+                            .destino(Destino.BANCO)
+                            .estadoPago(EstadoPago.PENDIENTE)
+                            .tipoTransaccion(TipoTransaccion.PAGO_CLIENTE)
+                            .build();
+                    aplicarMontosEstimadosPendiente(nueva, reserva.montoTotal());
+                    return nueva;
+                });
         transaccionRepository.save(tx);
         reservaPagosIntegracionClient.vincularTransaccionReserva(reserva.idReserva().intValue(), tx.getIdTransaccion());
 
@@ -119,6 +123,16 @@ public class CheckoutProService {
         }
 
         return new CheckoutProResponseDto(initPoint, created.preferenceId());
+    }
+
+    /**
+     * Montos estimados en checkout (transacción {@link EstadoPago#PENDIENTE}); el definitivo se fija en el webhook al aprobar MP.
+     */
+    private void aplicarMontosEstimadosPendiente(Transaccion tx, BigDecimal montoReserva) {
+        NetoTransaccionService.ResultadoNeto netos = netoTransaccionService.calcularConFallbackSinComision(montoReserva);
+        tx.setMontoBruto(montoReserva);
+        tx.setComisionApp(netos.comisionApp());
+        tx.setMontoNeto(netos.montoNeto());
     }
 
     private static String trimTrailingSlash(String u) {

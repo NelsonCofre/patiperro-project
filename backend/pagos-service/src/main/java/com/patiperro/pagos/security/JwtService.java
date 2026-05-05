@@ -29,12 +29,28 @@ public class JwtService {
     /** Mismo claim que emite tutores-service ({@code tutorId} = id tutor en BD, alineado con {@code id_tutor_usuario} en reserva). */
     public static final String CLAIM_TUTOR_ID = "tutorId";
 
+    /** Igual que {@code com.patiperro.paseador.auth.service.JwtService#CLAIM_PASEADOR_ID} (coincide con {@code id_usuario} en agenda / billetera). */
+    public static final String CLAIM_PASEADOR_ID = "paseadorId";
+
     public Long extractTutorId(String token) {
         Claims c = parseClaims(token);
         Object v = c.get(CLAIM_TUTOR_ID);
         if (v == null) {
             v = c.get("usuarioId");
         }
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        return Long.parseLong(v.toString());
+    }
+
+    /** {@code null} si el token no incluye el claim (p. ej. JWT de tutor). */
+    public Long extractPaseadorId(String token) {
+        Claims c = parseClaims(token);
+        Object v = c.get(CLAIM_PASEADOR_ID);
         if (v == null) {
             return null;
         }

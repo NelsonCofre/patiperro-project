@@ -1,27 +1,87 @@
 package com.patiperro.pagos.reserva;
 
+import com.patiperro.pagos.reserva.dto.ReservaBilleteraDetalleDto;
 import com.patiperro.pagos.reserva.dto.ReservaConsultaDto;
+import com.patiperro.pagos.reserva.dto.ReservaInternoBilleteraDetallesRequest;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 @Component
 public class ReservaConsultaClient {
 
+    private static final Logger log = LoggerFactory.getLogger(ReservaConsultaClient.class);
+
     private final RestClient restClient;
     private final String internoSecret;
+    private final boolean billeteraDetallesEnabled;
 
     public ReservaConsultaClient(
             RestClient.Builder restClientBuilder,
             @Value("${patiperro.pagos.integracion.reserva.base-url:http://localhost:8085}") String baseUrl,
-            @Value("${patiperro.pagos.integracion.reserva.interno.secret:}") String internoSecret) {
+            @Value("${patiperro.pagos.integracion.reserva.interno.secret:}") String internoSecret,
+            @Value("${patiperro.pagos.integracion.reserva.billetera-detalles.enabled:true}")
+                    boolean billeteraDetallesEnabled) {
         String base = baseUrl == null ? "" : baseUrl.trim();
         this.restClient = base.isEmpty() ? null : restClientBuilder.baseUrl(base).build();
         this.internoSecret = internoSecret != null ? internoSecret.trim() : "";
+        this.billeteraDetallesEnabled = billeteraDetallesEnabled;
+    }
+
+    private boolean isBilleteraDetallesConfigured() {
+        return billeteraDetallesEnabled && restClient != null && StringUtils.hasText(internoSecret);
+    }
+
+    /**
+     * Enriquecimiento opcional para GET billetera paseador. Si falla la red o está deshabilitado,
+     * devuelve mapa vacío (la billetera sigue respondiendo con montos y fases).
+     */
+    public Map<Integer, ReservaBilleteraDetalleDto> obtenerDetallesBilleteraPaseador(
+            Long idUsuarioPaseador, List<Integer> idsReserva) {
+        if (!isBilleteraDetallesConfigured()
+                || idUsuarioPaseador == null
+                || idsReserva == null
+                || idsReserva.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            List<ReservaBilleteraDetalleDto> lista = restClient
+                    .post()
+                    .uri("/api/reserva/interno/billetera/detalles-paseador")
+                    .header(ReservaPagosIntegracionClient.HEADER_INTERNO, internoSecret)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ReservaInternoBilleteraDetallesRequest(idUsuarioPaseador, idsReserva))
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<ReservaBilleteraDetalleDto>>() {});
+            if (lista == null || lista.isEmpty()) {
+                return Map.of();
+            }
+            Map<Integer, ReservaBilleteraDetalleDto> map = new LinkedHashMap<>();
+            for (ReservaBilleteraDetalleDto d : lista) {
+                if (d != null && d.idReserva() != null) {
+                    map.put(d.idReserva(), d);
+                }
+            }
+            return map;
+        } catch (RestClientResponseException e) {
+            log.warn("reserva-service billetera-detalles HTTP {} — ítems sin enriquecer", e.getStatusCode());
+            return Map.of();
+        } catch (RestClientException e) {
+            log.warn("reserva-service billetera-detalles no disponible — ítems sin enriquecer", e);
+            return Map.of();
+        }
     }
 
     public ReservaConsultaDto obtenerReservaParaPago(Long idReserva) {

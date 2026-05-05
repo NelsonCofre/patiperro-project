@@ -8,6 +8,7 @@ import com.patiperro.reserva.model.Reserva;
 import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.NotificacionPagoIntegracionClient;
+import com.patiperro.reserva.support.PagosBilleteraIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -15,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -37,6 +40,7 @@ public class ReservaPagoService {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificacionPagoIntegracionClient notificacionPagoIntegracionClient;
     private final PaseadorIntegracionClient paseadorIntegracionClient;
+    private final PagosBilleteraIntegracionClient pagosBilleteraIntegracionClient;
 
     /**
      * Persiste el enlace a la transacción en pagos-service (checkout iniciado desde pagos-service).
@@ -57,10 +61,11 @@ public class ReservaPagoService {
     }
 
     /**
-     * Idempotente: si ya está PAGADA, no repite efectos laterales.
+     * Idempotente: si ya está PAGADA, no repite STOMP/notificación/billetera; aún persiste {@code mpPaymentId}
+     * si faltaba y reintenta sincronizar agenda vía interno tras commit.
      *
      * @param idTransaccionPagos {@code transaccion.id_transaccion} en pagos-service
-     * @param mpPaymentId        opcional; solo para eventos STOMP / logs (el cobro MP queda en pagos)
+     * @param mpPaymentId        opcional; si viene, se guarda en {@code mercadopago_payment_id} (reembolsos / soporte)
      */
     @Transactional
     public void marcarReservaComoPagada(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {
@@ -80,13 +85,23 @@ public class ReservaPagoService {
             if (yaPagada) {
                 log.info("Pago aprobado idempotente: reserva ya estaba PAGADA (idReserva={}, idTransaccion={}, mp={})",
                         idReserva, idTransaccionPagos, mpId);
+                boolean needSave = false;
                 if (r.getIdPago() == null) {
                     r.setIdPago(idTransaccionPagos);
-                    reservaRepository.save(r);
+                    needSave = true;
                 } else if (!r.getIdPago().equals(idTransaccionPagos)) {
                     log.warn("Pago aprobado idempotente: reserva ya tenía otro id_pago; no se sobrescribe (idReserva={})",
                             idReserva);
                 }
+                String mpPersistId = truncate(mpId, MP_PAYMENT_ID_MAX);
+                if (mpPersistId != null && !StringUtils.hasText(r.getMercadopagoPaymentId())) {
+                    r.setMercadopagoPaymentId(mpPersistId);
+                    needSave = true;
+                }
+                if (needSave) {
+                    reservaRepository.save(r);
+                }
+                programarSincroniaExternaTrasCommitPago(r.getIdAgendaBloque(), false, null, null, null);
                 return;
             }
         }
@@ -109,6 +124,10 @@ public class ReservaPagoService {
         }
         rUpdate.setEstadoReserva(pagada);
         rUpdate.setIdPago(idTransaccionPagos);
+        String mpPersistId = truncate(mpId, MP_PAYMENT_ID_MAX);
+        if (mpPersistId != null) {
+            rUpdate.setMercadopagoPaymentId(mpPersistId);
+        }
         Reserva saved = reservaRepository.saveAndFlush(rUpdate);
 
         Integer idPaseador = null;
@@ -152,12 +171,65 @@ public class ReservaPagoService {
             }
         }
 
+        programarSincroniaExternaTrasCommitPago(
+                saved.getIdAgendaBloque(), true, saved.getIdReserva(), saved.getIdPago(), idPaseador);
+
         log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
                 saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
     }
 
     private static final int MP_ESTADO_MAX = 32;
     private static final int MP_DETALLE_MAX = 120;
+    private static final int MP_PAYMENT_ID_MAX = 64;
+
+    /**
+     * Tras COMMIT de la reserva: acreditación billetera (solo primera vez PAGADA) y sincronía agenda (siempre best-effort).
+     */
+    private void programarSincroniaExternaTrasCommitPago(
+            Integer idAgendaBloque,
+            boolean acreditarBilletera,
+            Integer idReservaWallet,
+            Long idTransaccionWallet,
+            Integer idUsuarioWalker) {
+        Runnable task =
+                () -> {
+                    if (acreditarBilletera
+                            && pagosBilleteraIntegracionClient.isEnabled()
+                            && idUsuarioWalker != null
+                            && idTransaccionWallet != null
+                            && idReservaWallet != null) {
+                        pagosBilleteraIntegracionClient.acreditarRetenido(
+                                idReservaWallet, idUsuarioWalker.longValue(), idTransaccionWallet);
+                    }
+                    sincronizarBloqueAgendaReservadoTrasPago(idAgendaBloque);
+                };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            task.run();
+                        }
+                    });
+        } else {
+            task.run();
+        }
+    }
+
+    private void sincronizarBloqueAgendaReservadoTrasPago(Integer idAgendaBloque) {
+        if (!agendaIntegracionClient.isEnabled() || idAgendaBloque == null) {
+            return;
+        }
+        try {
+            agendaIntegracionClient.marcarBloqueReservadoInterno(idAgendaBloque);
+            log.debug("Sincronía post-pago: bloque {} marcado reservado en agenda-service", idAgendaBloque);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Sincronía post-pago: no se pudo marcar bloque {} como reservado en agenda (reserva sigue PAGADA)",
+                    idAgendaBloque,
+                    e);
+        }
+    }
 
     /**
      * {@code true} si el tutor puede volver a intentar el pago en pasarela (misma regla que registro de fallo MP).

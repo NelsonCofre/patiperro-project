@@ -36,4 +36,9 @@ public class Billetera {
     @Builder.Default
     @Column(name = "saldo_retenido", nullable = false, precision = 14, scale = 2)
     private BigDecimal saldoRetenido = BigDecimal.ZERO;
+
+    /** Fondos post-finalización en ventana N / N+1 antes de pasar a {@link #saldoActual}. */
+    @Builder.Default
+    @Column(name = "saldo_verificacion", nullable = false, precision = 14, scale = 2)
+    private BigDecimal saldoVerificacion = BigDecimal.ZERO;
 }
