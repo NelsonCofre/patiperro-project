@@ -42,6 +42,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             null,
                             Collections.singletonList(new SimpleGrantedAuthority("ROLE_TUTOR")));
                     SecurityContextHolder.getContext().setAuthentication(auth);
+                } else {
+                    Long paseadorId = jwtService.extractPaseadorId(token);
+                    if (paseadorId != null) {
+                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                paseadorId,
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    }
                 }
             } catch (Exception ignored) {
                 // Token invalido: no autenticar; SecurityConfig devolvera 403 si la ruta lo exige.

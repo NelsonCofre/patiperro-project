@@ -1,5 +1,6 @@
 package com.patiperro.pagos.service;
 
+import com.patiperro.pagos.config.PagosWebhookProperties;
 import com.patiperro.pagos.dto.MercadoPagoPaymentDto;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.Transaccion;
@@ -12,6 +13,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Optional;
 
 /**
@@ -29,16 +32,22 @@ public class MercadoPagoWebhookProcessor {
     private final ReservaPagosIntegracionClient reservaPagosIntegracionClient;
     private final TransaccionRepository transaccionRepository;
     private final PagoExternoService pagoExternoService;
+    private final NetoTransaccionService netoTransaccionService;
+    private final PagosWebhookProperties pagosWebhookProperties;
 
     public MercadoPagoWebhookProcessor(
             MercadoPagoApiClient mercadoPagoApiClient,
             ReservaPagosIntegracionClient reservaPagosIntegracionClient,
             TransaccionRepository transaccionRepository,
-            PagoExternoService pagoExternoService) {
+            PagoExternoService pagoExternoService,
+            NetoTransaccionService netoTransaccionService,
+            PagosWebhookProperties pagosWebhookProperties) {
         this.mercadoPagoApiClient = mercadoPagoApiClient;
         this.reservaPagosIntegracionClient = reservaPagosIntegracionClient;
         this.transaccionRepository = transaccionRepository;
         this.pagoExternoService = pagoExternoService;
+        this.netoTransaccionService = netoTransaccionService;
+        this.pagosWebhookProperties = pagosWebhookProperties;
     }
 
     @Async
@@ -69,17 +78,34 @@ public class MercadoPagoWebhookProcessor {
                     log.warn("Webhook MP: pago aprobado {} sin external_reference reconocible para id reserva", mpId);
                     return;
                 }
+                if (pagosWebhookProperties.isLogApprovedDetails()) {
+                    log.info(
+                            "Webhook MP: pago approved detalle (mpPaymentId={}, idReserva={}, transaction_amount={}, currency_id={}, date_approved={}, payment_type_id={})",
+                            mpId,
+                            idReserva,
+                            pago.transactionAmount(),
+                            pago.currencyId(),
+                            pago.dateApproved(),
+                            pago.paymentTypeId());
+                }
+                advertirSiMonedaInesperada(pago, mpId, idReserva);
+
                 Long idTransaccionPagos = null;
+                boolean transicionDesdePendiente = false;
                 try {
                     Optional<Transaccion> pendiente = transaccionRepository
                             .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
                                     idReserva.longValue(), EstadoPago.PENDIENTE);
                     if (pendiente.isPresent()) {
                         Transaccion tx = pendiente.get();
+                        BigDecimal brutoCheckoutPrevio = tx.getMontoBruto();
+                        aplicarMontosNetoDesdePago(tx, pago);
+                        advertirSiMontoCheckoutDifiereDeMp(brutoCheckoutPrevio, pago, idReserva, mpId);
                         pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
                         tx.setEstadoPago(EstadoPago.APROBADO);
                         transaccionRepository.save(tx);
                         idTransaccionPagos = tx.getIdTransaccion();
+                        transicionDesdePendiente = true;
                     }
                 } catch (RuntimeException ex) {
                     log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
@@ -90,6 +116,11 @@ public class MercadoPagoWebhookProcessor {
                                     idReserva.longValue(), EstadoPago.APROBADO)
                             .map(Transaccion::getIdTransaccion)
                             .orElse(null);
+                }
+                if (!transicionDesdePendiente && idTransaccionPagos != null) {
+                    log.debug(
+                            "Webhook MP: pago {} sin fila PENDIENTE (ya aprobado o reintento); se notifica reserva por idempotencia (idReserva={}, idTransaccion={})",
+                            mpId, idReserva, idTransaccionPagos);
                 }
                 if (idTransaccionPagos != null) {
                     reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, idTransaccionPagos, mpId);
@@ -123,6 +154,80 @@ public class MercadoPagoWebhookProcessor {
                     idReserva, mpId, status);
         } catch (RuntimeException e) {
             log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
+        }
+    }
+
+    /**
+     * Persiste bruto (MP o checkout), comisión y neto. Ante fallo inesperado mantiene comportamiento seguro (sin comisión, neto ≈ bruto).
+     */
+    private void advertirSiMonedaInesperada(MercadoPagoPaymentDto pago, String mpId, Integer idReserva) {
+        if (!pagosWebhookProperties.isWarnOnCurrencyMismatch()) {
+            return;
+        }
+        String esperada = pagosWebhookProperties.getExpectedCurrencyId();
+        String actual = pago.currencyId();
+        if (!StringUtils.hasText(esperada) || !StringUtils.hasText(actual)) {
+            return;
+        }
+        if (actual.trim().equalsIgnoreCase(esperada.trim())) {
+            return;
+        }
+        log.warn(
+                "Webhook MP: currency_id del pago ({}) distinto del esperado ({}) — sin abortar (mpPaymentId={}, idReserva={})",
+                actual.trim(),
+                esperada.trim(),
+                mpId,
+                idReserva);
+    }
+
+    /**
+     * Solo observabilidad: no modifica montos (ya aplicados desde MP / checkout).
+     */
+    private void advertirSiMontoCheckoutDifiereDeMp(
+            BigDecimal montoBrutoCheckoutPrevio,
+            MercadoPagoPaymentDto pago,
+            Integer idReserva,
+            String mpId) {
+        if (!pagosWebhookProperties.isWarnOnCheckoutMpAmountMismatch()) {
+            return;
+        }
+        if (montoBrutoCheckoutPrevio == null || montoBrutoCheckoutPrevio.signum() <= 0) {
+            return;
+        }
+        BigDecimal mpAmount = pago.transactionAmount();
+        if (mpAmount == null || mpAmount.signum() <= 0) {
+            return;
+        }
+        BigDecimal tol = pagosWebhookProperties.getAmountMismatchToleranceClp();
+        if (tol == null || tol.signum() < 0) {
+            tol = BigDecimal.ONE;
+        }
+        tol = tol.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal diff = montoBrutoCheckoutPrevio.subtract(mpAmount).abs().setScale(2, RoundingMode.HALF_UP);
+        if (diff.compareTo(tol) > 0) {
+            log.warn(
+                    "Webhook MP: monto checkout {} vs transaction_amount MP {} (diff={}) — idReserva={}, mpPaymentId={}",
+                    montoBrutoCheckoutPrevio,
+                    mpAmount,
+                    diff,
+                    idReserva,
+                    mpId);
+        }
+    }
+
+    private void aplicarMontosNetoDesdePago(Transaccion tx, MercadoPagoPaymentDto pago) {
+        try {
+            BigDecimal bruto = netoTransaccionService.resolverMontoBruto(pago, tx);
+            NetoTransaccionService.ResultadoNeto netos = netoTransaccionService.calcularConFallbackSinComision(bruto);
+            tx.setMontoBruto(bruto);
+            tx.setComisionApp(netos.comisionApp());
+            tx.setMontoNeto(netos.montoNeto());
+        } catch (RuntimeException ex) {
+            log.warn("Webhook MP: no se aplicaron netos desde MP; se conserva bruto de transacción sin comisión (idReserva={})",
+                    tx.getIdReserva(), ex);
+            BigDecimal fb = tx.getMontoBruto() != null ? tx.getMontoBruto() : BigDecimal.ZERO;
+            tx.setComisionApp(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            tx.setMontoNeto(fb.setScale(2, RoundingMode.HALF_UP));
         }
     }
 

@@ -3,7 +3,11 @@
 #
 # Rutas hacia reserva-service están separadas por prefijo (/api/reserva, /api/reservas,
 # /api/tutor, /api/bookings): mismo host; orden no suele importar salvo solapes futuros.
-# /api/*/interno/** se deniega en SecurityConfig (no exponer internos por el gateway público).
+#
+# Rechazo con reembolso (paso 7): el tutor/paseador usan JWT sobre rutas públicas ya mapeadas
+# (p. ej. PATCH /api/reserva/{id}/status, GET /api/tutor/bookings). La devolución MP y
+# ajustes de billetera son solo servidor-a-servidor; /api/pagos/interno/** y /api/reserva/interno/**
+# se deniegan en SecurityConfig (también el patrón /api/*/interno/**).
 # =============================================================================
 
 spring:
@@ -67,6 +71,11 @@ spring:
               uri: ${RESENA_SERVICE_URI:http://localhost:8088}
               predicates:
                 - Path=/api/resenas/**
+            # pagos-service (webhooks, billetera paseador vía JWT; no exponer /api/pagos/interno/** en borde público).
+            - id: pagos-service
+              uri: ${PAGOS_SERVICE_URI:http://localhost:8087}
+              predicates:
+                - Path=/api/pagos/**
 
 server:
   port: ${GATEWAY_PORT:8080}

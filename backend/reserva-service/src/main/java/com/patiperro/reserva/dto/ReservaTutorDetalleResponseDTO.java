@@ -44,4 +44,8 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime mercadopagoUltimoEstadoEn;
     /** {@code true} si el tutor puede reintentar el pago (estado SOLICITADA / PENDIENTE_PAGO). */
     private Boolean puedeReintentarPago;
+    /** Cuándo pagos-service confirmó reembolso MP (idempotencia); visible vía gateway en listados tutor. */
+    private LocalDateTime mercadopagoReembolsoProcesadoEn;
+    /** Cuándo se registró envío del correo de reembolso al tutor (puede ser null hasta el job). */
+    private LocalDateTime notificacionReembolsoEnviadaEn;
 }

@@ -6,6 +6,8 @@ import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
+import com.patiperro.reserva.dto.interno.InternoBilleteraDetallesRequest;
+import com.patiperro.reserva.dto.interno.InternoBilleteraReservaDetalleDto;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +60,16 @@ public class ReservaController {
         } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
+    }
+
+    /**
+     * Datos de presentación para ítems de billetera (pagos-service). Secreto interno vía filtro.
+     * Solo incluye reservas cuyo bloque de agenda pertenece al {@code idUsuarioPaseador} indicado.
+     */
+    @PostMapping("/interno/billetera/detalles-paseador")
+    public List<InternoBilleteraReservaDetalleDto> detallesBilleteraInterno(
+            @Valid @RequestBody InternoBilleteraDetallesRequest body) {
+        return service.listarDetallesBilleteraInterno(body.idUsuarioPaseador(), body.idsReserva());
     }
 
     // =========================================================================

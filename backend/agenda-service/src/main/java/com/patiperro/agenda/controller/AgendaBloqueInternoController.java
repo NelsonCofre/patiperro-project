@@ -38,4 +38,11 @@ public class AgendaBloqueInternoController {
             @RequestHeader(value = HEADER_INTERNO, required = false) String secret) {
         return service.marcarDisponibleInterno(id, secret);
     }
+
+    @PatchMapping("/{id}/marcar-reservado")
+    public AgendaBloqueResponseDTO marcarReservado(
+            @PathVariable Integer id,
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secret) {
+        return service.marcarReservadoInterno(id, secret);
+    }
 }
