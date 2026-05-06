@@ -205,4 +205,59 @@ public class MercadoPagoWebhookProcessor {
             return null;
         }
     }
+
+    private void aplicarMontosNetoDesdePago(Transaccion tx, MercadoPagoPaymentDto pago) {
+        if (tx == null) {
+            return;
+        }
+        BigDecimal bruto = netoTransaccionService.resolverMontoBruto(pago, tx);
+        tx.setMontoBruto(bruto);
+        NetoTransaccionService.ResultadoNeto netos = netoTransaccionService.calcularConFallbackSinComision(bruto);
+        tx.setComisionApp(netos.comisionApp());
+        tx.setMontoNeto(netos.montoNeto());
+    }
+
+    private void advertirSiMontoCheckoutDifiereDeMp(
+            BigDecimal montoBrutoCheckoutPrevio,
+            MercadoPagoPaymentDto pago,
+            Integer idReserva,
+            String mpPaymentId) {
+        if (!pagosWebhookProperties.isWarnOnCheckoutMpAmountMismatch()) {
+            return;
+        }
+        if (montoBrutoCheckoutPrevio == null || pago == null || pago.transactionAmount() == null) {
+            return;
+        }
+        BigDecimal previo = montoBrutoCheckoutPrevio.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal mp = pago.transactionAmount().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal diff = previo.subtract(mp).abs();
+        BigDecimal tolerancia = Optional.ofNullable(pagosWebhookProperties.getAmountMismatchToleranceClp())
+                .orElse(BigDecimal.ZERO)
+                .abs()
+                .setScale(2, RoundingMode.HALF_UP);
+        if (diff.compareTo(tolerancia) > 0) {
+            log.warn(
+                    "Webhook MP: monto checkout difiere de MP sobre tolerancia (idReserva={}, mpPaymentId={}, brutoCheckoutPrevio={}, transaction_amount={}, diff={}, tolerancia={})",
+                    idReserva, mpPaymentId, previo, mp, diff, tolerancia);
+        }
+    }
+
+    private void advertirSiMonedaInesperada(MercadoPagoPaymentDto pago, String mpPaymentId, Integer idReserva) {
+        if (!pagosWebhookProperties.isWarnOnCurrencyMismatch()) {
+            return;
+        }
+        if (pago == null) {
+            return;
+        }
+        String actual = pago.currencyId();
+        String esperada = pagosWebhookProperties.getExpectedCurrencyId();
+        if (!StringUtils.hasText(esperada) || !StringUtils.hasText(actual)) {
+            return;
+        }
+        if (!esperada.trim().equalsIgnoreCase(actual.trim())) {
+            log.warn(
+                    "Webhook MP: moneda inesperada (idReserva={}, mpPaymentId={}, currency_id={}, expectedCurrencyId={})",
+                    idReserva, mpPaymentId, actual, esperada);
+        }
+    }
 }
