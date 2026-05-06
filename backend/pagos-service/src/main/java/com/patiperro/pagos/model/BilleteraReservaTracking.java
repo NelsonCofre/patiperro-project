@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -21,7 +22,12 @@ import java.time.LocalDateTime;
  * Una fila por reserva con cobro que afecta la billetera del paseador (retenido → verificación → liberado).
  */
 @Entity
-@Table(name = "billetera_reserva_tracking")
+@Table(
+        name = "billetera_reserva_tracking",
+        indexes = {
+                @Index(name = "idx_billetera_tracking_paseador_liberado", columnList = "id_usuario_paseador, liberado_en"),
+                @Index(name = "idx_billetera_tracking_fase_liberado", columnList = "fase, liberado_en")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

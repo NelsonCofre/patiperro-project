@@ -2,24 +2,34 @@ package com.patiperro.pagos.controller;
 
 import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.SolicitarRetiroPaseadorRequest;
 import com.patiperro.pagos.service.BilleteraService;
+import com.patiperro.pagos.service.RetiroPaseadorService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/pagos/paseador/billetera")
+@PreAuthorize("hasRole('PASEADOR')")
 public class BilleteraPaseadorController {
 
     private final BilleteraService billeteraService;
+    private final RetiroPaseadorService retiroPaseadorService;
 
-    public BilleteraPaseadorController(BilleteraService billeteraService) {
+    public BilleteraPaseadorController(BilleteraService billeteraService, RetiroPaseadorService retiroPaseadorService) {
         this.billeteraService = billeteraService;
+        this.retiroPaseadorService = retiroPaseadorService;
     }
 
     @GetMapping
@@ -59,6 +69,22 @@ public class BilleteraPaseadorController {
             case "disponible" -> ResponseEntity.ok(resumen.disponible());
             default -> ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         };
+    }
+
+    /**
+     * Descuenta {@code saldo_actual} en la misma transacción que registra {@link com.patiperro.pagos.model.TipoTransaccion#RETIRO_PASEADOR}.
+     */
+    @PostMapping("/retiros")
+    public ResponseEntity<RetiroPaseadorResponse> solicitarRetiro(
+            @Valid @RequestBody SolicitarRetiroPaseadorRequest body,
+            Authentication authentication) {
+        Long idUsuario = resolvePaseadorIdOrNull(authentication);
+        if (idUsuario == null) {
+            return ResponseEntity.status(authentication == null || !authentication.isAuthenticated()
+                    ? HttpStatus.UNAUTHORIZED
+                    : HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(retiroPaseadorService.solicitarRetiro(idUsuario, body.monto()));
     }
 
     private static Long resolvePaseadorIdOrNull(Authentication authentication) {

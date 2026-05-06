@@ -82,6 +82,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (path.startsWith("/api/reserva/interno")) {
 
+            // Preflight CORS: no envía cabecera interna; el método real sigue exigiendo secreto.
+            if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+
+                filterChain.doFilter(request, response);
+
+                return;
+
+            }
+
             if (!StringUtils.hasText(internoSecret)) {
 
                 response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);

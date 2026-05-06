@@ -3,6 +3,7 @@ package com.patiperro.gateway.config;
 import com.patiperro.gateway.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -46,6 +47,8 @@ public class SecurityConfig {
                 // proxied pueden
                 // no coincidir -> la peticion cae en /api/** authenticated() y responde 403.
                 .authorizeHttpRequests(auth -> auth
+                        // Preflight CORS solo sobre API proxied (reduce superficie frente a OPTIONS /**).
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
                         // Paso 7 (rechazo con reembolso): MP/reembolso y billetera vía */interno/* nunca por el borde.
                         // Denegación explícita + patrón (defensa en profundidad si se añaden rutas amplias).
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/interno")).denyAll()
@@ -62,7 +65,7 @@ public class SecurityConfig {
                         // PathPattern solo permite ** al inicio/fin; un segmento entre /api/ e /interno/ es /*/.
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno")).denyAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/*/interno/**")).denyAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/paseadores/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .requestMatchers(
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/register"),
                                 PathPatternRequestMatcher.pathPattern("/api/auth/tutores/login"),
@@ -78,6 +81,10 @@ public class SecurityConfig {
                                 PathPatternRequestMatcher.pathPattern("/api/resenas/**"))
                         .permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/webhooks/**")).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/paseador/**"))
+                                .hasRole("PASEADOR")
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/checkout/**"))
+                                .hasRole("TUTOR")
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

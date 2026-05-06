@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,9 +45,19 @@ public class BilleteraService {
     private final BilleteraReservaTrackingRepository trackingRepository;
     private final TransaccionRepository transaccionRepository;
     private final ReservaConsultaClient reservaConsultaClient;
+    private final BilleteraLiberacionTransaccionalService billeteraLiberacionTransaccionalService;
 
     @Value("${patiperro.pagos.billetera.zona:America/Santiago}")
     private String zonaId;
+
+    /** Tope de filas del historial de liberaciones en GET billetera (acotado por seguridad y rendimiento). */
+    @Value("${patiperro.pagos.billetera.historial-liberaciones-max:100}")
+    private int historialLiberacionesMax;
+
+    private Pageable pageableHistorialLiberaciones() {
+        int cap = Math.max(1, Math.min(historialLiberacionesMax, 500));
+        return PageRequest.of(0, cap);
+    }
 
     /**
      * Idempotente por {@code id_reserva}: si ya existe tracking, no altera saldos.
@@ -219,7 +231,10 @@ public class BilleteraService {
         log.warn("Billetera revertir: fase {} no soportada (idReserva={})", t.getFase(), idReserva);
     }
 
-    @Transactional
+    /**
+     * Programación masiva: una transacción independiente por candidato vía
+     * {@link BilleteraLiberacionTransaccionalService} (idempotente si {@code liberado_en} ya existe).
+     */
     public int ejecutarLiberacionesPendientes() {
         ZoneId zone = ZoneId.of(zonaId);
         LocalDate hoy = LocalDate.now(zone);
@@ -235,28 +250,12 @@ public class BilleteraService {
             if (hoy.isBefore(disponibleDesde)) {
                 continue;
             }
-            liberarUno(t, zone);
-            liberados++;
+            if (t.getIdTracking() != null
+                    && billeteraLiberacionTransaccionalService.liberarSiPendiente(t.getIdTracking(), zone)) {
+                liberados++;
+            }
         }
         return liberados;
-    }
-
-    private void liberarUno(BilleteraReservaTracking t, ZoneId zone) {
-        BigDecimal neto = nz(t.getMontoNeto());
-        Billetera b = obtenerOCrearBilletera(t.getIdUsuarioPaseador());
-        BigDecimal ver = nz(b.getSaldoVerificacion()).subtract(neto).setScale(SCALE, RoundingMode.HALF_UP);
-        BigDecimal disp = nz(b.getSaldoActual()).add(neto).setScale(SCALE, RoundingMode.HALF_UP);
-        if (ver.signum() < 0) {
-            log.warn("Billetera liberación: saldo_verificacion negativo (reserva={}); se fija a cero", t.getIdReserva());
-            ver = BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
-        }
-        b.setSaldoVerificacion(ver);
-        b.setSaldoActual(disp);
-        billeteraRepository.save(b);
-
-        t.setLiberadoEn(LocalDateTime.now(zone));
-        trackingRepository.save(t);
-        log.info("Billetera: liberado a disponible reserva={} neto={}", t.getIdReserva(), neto);
     }
 
     @Transactional(readOnly = true)
@@ -305,6 +304,32 @@ public class BilleteraService {
         itemsRet = aplicarYOrdenarDetalles(itemsRet, detallePorReserva);
         itemsVer = aplicarYOrdenarDetalles(itemsVer, detallePorReserva);
 
+        List<BilleteraReservaTracking> liberados =
+                trackingRepository.findByIdUsuarioPaseadorAndLiberadoEnIsNotNullOrderByLiberadoEnDesc(
+                        idUsuarioPaseador, pageableHistorialLiberaciones());
+        List<BilleteraReservaItemResponse> itemsLibHistorial = new ArrayList<>();
+        for (BilleteraReservaTracking t : liberados) {
+            itemsLibHistorial.add(
+                    new BilleteraReservaItemResponse(
+                            t.getIdReserva(),
+                            t.getMontoBruto(),
+                            t.getComisionApp(),
+                            t.getMontoNeto(),
+                            "LIBERADO_A_DISPONIBLE",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null));
+        }
+        List<Integer> idsHistorial =
+                itemsLibHistorial.stream().map(BilleteraReservaItemResponse::idReserva).filter(Objects::nonNull).distinct().toList();
+        Map<Integer, ReservaBilleteraDetalleDto> detalleHistorial =
+                reservaConsultaClient.obtenerDetallesBilleteraPaseador(idUsuarioPaseador, idsHistorial);
+        itemsLibHistorial = itemsLibHistorial.stream()
+                .map(i -> enriquecerItem(i, detalleHistorial))
+                .toList();
+
         LocalDateTime updatedAt = LocalDateTime.now(zone);
 
         return new BilleteraResumenPaseadorResponse(
@@ -327,11 +352,13 @@ public class BilleteraService {
                 new BilleteraBucketResponse(
                         "disponible",
                         "Saldo Disponible",
-                        "Fondos liberados listos para retiro.",
+                        "El monto mostrado es tu saldo disponible neto actual (columna saldo_actual). "
+                                + "El historial de liberaciones se entrega aparte; su suma puede no coincidir si hubo retiros u otros movimientos.",
                         dispAgg,
                         BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP),
                         BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP),
                         List.of()),
+                itemsLibHistorial,
                 updatedAt);
     }
 

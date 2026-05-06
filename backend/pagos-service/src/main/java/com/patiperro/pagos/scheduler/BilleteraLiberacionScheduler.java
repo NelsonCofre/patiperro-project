@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Libera fondos de verificación a disponible según regla calendario N+2 (desde {@code fecha_fin_servicio}).
+ * <p>Por defecto corre una vez al día a las 00:00:01 en {@code patiperro.pagos.billetera.liberacion.zone}
+ * (hereda {@code patiperro.pagos.billetera.zona}). Para desarrollo, sobrescribir
+ * {@code patiperro.pagos.billetera.liberacion.cron} (p. ej. cada hora).</p>
  */
 @Component
 @ConditionalOnProperty(name = "patiperro.pagos.billetera.liberacion.enabled", havingValue = "true", matchIfMissing = true)
@@ -22,7 +25,9 @@ public class BilleteraLiberacionScheduler {
         this.billeteraService = billeteraService;
     }
 
-    @Scheduled(cron = "${patiperro.pagos.billetera.liberacion.cron:0 0 * * * *}")
+    @Scheduled(
+            cron = "${patiperro.pagos.billetera.liberacion.cron:1 0 0 * * *}",
+            zone = "${patiperro.pagos.billetera.liberacion.zone:${patiperro.pagos.billetera.zona:America/Santiago}}")
     public void liberarPendientes() {
         try {
             int n = billeteraService.ejecutarLiberacionesPendientes();
