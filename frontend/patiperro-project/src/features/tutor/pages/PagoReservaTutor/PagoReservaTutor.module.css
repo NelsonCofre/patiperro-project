@@ -119,3 +119,9 @@
   color: #8a1f1f;
   border: 1px solid #f3b6b6;
 }
+
+.brickSection {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px dashed #d9def8;
+}

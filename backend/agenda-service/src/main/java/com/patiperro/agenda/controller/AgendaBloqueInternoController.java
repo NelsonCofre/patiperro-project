@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Operaciones servidor-a-servidor (p. ej. reserva-service tras cancelación del tutor).
+ * Operaciones servidor-a-servidor (p. ej. reserva-service tras cancelación del
+ * tutor).
  */
 @RestController
 @RequestMapping("/api/agenda/interno/bloques")
@@ -23,7 +24,8 @@ public class AgendaBloqueInternoController {
     private final AgendaBloqueService service;
 
     /**
-     * Lectura servidor-a-servidor de un bloque (p. ej. para resolver el paseador dueño del bloque).
+     * Lectura servidor-a-servidor de un bloque (p. ej. para resolver el paseador
+     * dueño del bloque).
      */
     @GetMapping("/{id}")
     public AgendaBloqueResponseDTO obtenerInterno(
@@ -37,5 +39,12 @@ public class AgendaBloqueInternoController {
             @PathVariable Integer id,
             @RequestHeader(value = HEADER_INTERNO, required = false) String secret) {
         return service.marcarDisponibleInterno(id, secret);
+    }
+
+    @PatchMapping("/{id}/marcar-reservado")
+    public AgendaBloqueResponseDTO marcarReservado(
+            @PathVariable Integer id,
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secret) {
+        return service.marcarReservadoInterno(id, secret);
     }
 }

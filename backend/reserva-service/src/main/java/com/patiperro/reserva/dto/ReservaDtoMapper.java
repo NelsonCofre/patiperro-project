@@ -95,7 +95,9 @@ public final class ReservaDtoMapper {
                 r.getMercadopagoUltimoEstado(),
                 r.getMercadopagoUltimoEstadoDetalle(),
                 r.getMercadopagoUltimoEstadoEn(),
-                puedeReintentarPago);
+                puedeReintentarPago,
+                r.getMercadopagoReembolsoProcesadoEn(),
+                r.getNotificacionReembolsoEnviadaEn());
     }
 
     private static String nombreTutorParaDetalle(TutorReservaClientDTO tutor, Integer idTutorUsuario) {

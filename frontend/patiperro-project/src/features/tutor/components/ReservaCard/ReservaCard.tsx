@@ -5,7 +5,6 @@ import {
   formatReservaTime,
   getReservaEstadoMeta,
   isReservaFinalizada,
-  isReservaSolicitada,
 } from "../../utils/reservaEstadoUtils";
 import styles from "./ReservaCard.module.css";
 
@@ -31,17 +30,20 @@ type Props = {
   onDetalle: (reserva: ReservaTutorDetalleDTO) => void;
   onCancelar: (reserva: ReservaTutorDetalleDTO) => void;
   onCalificar: (reserva: ReservaTutorDetalleDTO) => void;
+  onVerResumenPago: (reserva: ReservaTutorDetalleDTO) => void;
 };
 
 export default function ReservaCard({
   reserva,
   onDetalle,
   onCalificar,
+  onVerResumenPago,
 }: Props) {
   const estado = getReservaEstadoMeta(reserva);
   const paymentLabel = getPaymentLabel(reserva);
   const finalizada = isReservaFinalizada(reserva);
   const yaCalificada = reserva.calificada;
+  const pagoConfirmado = normalizePaymentStatus(reserva.paymentStatus).includes("pagad") || reserva.idPago != null;
 
   return (
     <article className={styles.card}>
@@ -73,6 +75,16 @@ export default function ReservaCard({
           <button type="button" className={styles.secondaryButton} onClick={() => onDetalle(reserva)}>
             Ver detalle
           </button>
+
+          {pagoConfirmado ? (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => onVerResumenPago(reserva)}
+            >
+              Resumen pago
+            </button>
+          ) : null}
           
           {finalizada && (
             <button

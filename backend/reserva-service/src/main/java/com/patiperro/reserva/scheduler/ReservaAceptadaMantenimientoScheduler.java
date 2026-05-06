@@ -33,7 +33,9 @@ public class ReservaAceptadaMantenimientoScheduler {
     private final ReservaService reservaService;
     private final Clock clock;
 
-    @Scheduled(fixedDelayString = "${patiperro.reserva.aceptada-mantenimiento.fixed-delay-ms:300000}")
+    @Scheduled(
+            initialDelayString = "${patiperro.reserva.aceptada-mantenimiento.initial-delay-ms:120000}",
+            fixedDelayString = "${patiperro.reserva.aceptada-mantenimiento.fixed-delay-ms:300000}")
     public void ejecutar() {
         LocalDateTime ahora = LocalDateTime.now(clock);
         int idAceptada = EstadoReservaCatalogo.ID_ACEPTADA;

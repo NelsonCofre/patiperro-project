@@ -70,6 +70,7 @@ public class PagoExternoService {
         e.setProviderPaymentId(paymentId);
         e.setExternalReference(externalReference);
         e.setStatus(safe(pago.status()));
+        e.setStatusDetail(safe(pago.statusDetail()));
         if ("approved".equalsIgnoreCase(safe(pago.status())) && e.getFechaAprobacion() == null) {
             e.setFechaAprobacion(LocalDateTime.now());
         }

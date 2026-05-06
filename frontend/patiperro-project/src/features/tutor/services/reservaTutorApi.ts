@@ -315,7 +315,8 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
     fechaAceptacion: reserva.fechaAceptacion,
     fechaInicioReal: reserva.fechaInicioReal,
     fechaFin: reserva.fechaFin,
-    codigoEncuentro: reserva.codigoEncuentro
+    codigoEncuentro: reserva.codigoEncuentro,
+    calificada: false
   }));
 }
 

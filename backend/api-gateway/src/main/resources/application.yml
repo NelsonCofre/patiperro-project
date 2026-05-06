@@ -4,6 +4,7 @@
 # Rutas hacia reserva-service están separadas por prefijo (/api/reserva, /api/reservas,
 # /api/tutor, /api/bookings): mismo host; orden no suele importar salvo solapes futuros.
 # /api/*/interno/** se deniega en SecurityConfig (no exponer internos por el gateway público).
+# /api/pagos/** se proxifica a pagos-service (ruta pagos-service arriba).
 # =============================================================================
 
 spring:
@@ -67,6 +68,12 @@ spring:
               uri: ${RESENA_SERVICE_URI:http://localhost:8088}
               predicates:
                 - Path=/api/resenas/**
+            # pagos-service: Checkout (Pro/Bricks), webhooks MP y demás /api/pagos/** → pagos-service.
+            # Seguridad: webhooks públicos; checkout tutor; endpoints paseador con ROLE_PASEADOR (ver SecurityConfig).
+            - id: pagos-service
+              uri: ${PAGOS_SERVICE_URI:http://localhost:8087}
+              predicates:
+                - Path=/api/pagos/**
 
 server:
   port: ${GATEWAY_PORT:8080}

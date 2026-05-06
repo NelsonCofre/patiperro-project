@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import AvailableBalance from "../../components/AvailableBalance/AvailableBalance";
 import BalanceCard from "../../components/BalanceCard/BalanceCard";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
+import WithdrawalRequest from "../../components/WithdrawalRequest/WithdrawalRequest";
 import { usePaseadorBilletera } from "../../hooks/usePaseadorBilletera";
 import type {
   BilleteraBucketKey,
@@ -82,9 +83,16 @@ export default function PaseadorBilletera() {
     reload,
     withdrawalNotice,
     setWithdrawalNotice,
-    withdrawAvailableBalance
+    withdrawAvailableBalance,
+    withdrawalError,
+    setWithdrawalError,
+    isSubmittingWithdrawal,
+    bankAccounts,
+    pendingWithdrawals,
+    minWithdrawalAmount
   } = usePaseadorBilletera();
   const [selectedBucket, setSelectedBucket] = useState<BilleteraBucketKey>("retenido");
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
 
   const currentBucket = useMemo(() => {
     if (selectedBucket === "verificacion") return data.verificacion;
@@ -154,8 +162,10 @@ export default function PaseadorBilletera() {
 
       <AvailableBalance
         bucket={data.disponible}
+        isSubmitting={isSubmittingWithdrawal}
         onWithdraw={() => {
-          withdrawAvailableBalance();
+          setWithdrawalError("");
+          setIsWithdrawalModalOpen(true);
           setSelectedBucket("disponible");
         }}
       />
@@ -167,6 +177,32 @@ export default function PaseadorBilletera() {
             Cerrar
           </button>
         </div>
+      ) : null}
+
+      {pendingWithdrawals.length > 0 ? (
+        <section className={styles.withdrawalsSection}>
+          <div className={styles.withdrawalsHeader}>
+            <div>
+              <p className={styles.cardEyebrow}>Retiros en proceso</p>
+              <h2>Solicitudes registradas</h2>
+            </div>
+          </div>
+
+          <div className={styles.withdrawalList}>
+            {pendingWithdrawals.map((withdrawal) => (
+              <article key={withdrawal.operationId} className={styles.withdrawalCard}>
+                <div>
+                  <strong>{withdrawal.operationId}</strong>
+                  <p>{withdrawal.bankLabel}</p>
+                </div>
+                <div className={styles.withdrawalCardSide}>
+                  <strong>{formatMoney(withdrawal.amount)}</strong>
+                  <span>{withdrawal.status}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className={styles.detailSection}>
@@ -211,6 +247,23 @@ export default function PaseadorBilletera() {
           </article>
         )}
       </section>
+
+      <WithdrawalRequest
+        isOpen={isWithdrawalModalOpen}
+        availableAmount={data.disponible.amount}
+        minWithdrawalAmount={minWithdrawalAmount}
+        bankAccounts={bankAccounts}
+        isSubmitting={isSubmittingWithdrawal}
+        submitError={withdrawalError}
+        onClose={() => {
+          if (isSubmittingWithdrawal) return;
+          setWithdrawalError("");
+          setIsWithdrawalModalOpen(false);
+        }}
+        onSubmit={async (amount, bankAccountId) => {
+          await withdrawAvailableBalance(amount, bankAccountId);
+        }}
+      />
     </main>
   );
 }
