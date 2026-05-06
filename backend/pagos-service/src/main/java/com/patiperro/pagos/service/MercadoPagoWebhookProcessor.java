@@ -20,8 +20,11 @@ import java.util.Optional;
 /**
  * Procesamiento pesado del webhook: consulta MP y avisa a reserva-service.
  * Ejecutado en hilo aparte para responder 200 rápido al webhook.
- * <p>Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1) más notificación de
- * rechazados e ignorar estados intermedios (V2).</p>
+ * <p>
+ * Fusiona: persistencia transacción/pago externo solo en {@code approved} (V1)
+ * más notificación de
+ * rechazados e ignorar estados intermedios (V2).
+ * </p>
  */
 @Component
 public class MercadoPagoWebhookProcessor {
@@ -69,7 +72,8 @@ public class MercadoPagoWebhookProcessor {
 
             MercadoPagoPaymentDto pago = pagoOpt.get();
             String status = pago.status();
-            String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString() : MercadoPagoApiClient.normalizarPaymentId(paymentId);
+            String mpId = StringUtils.hasText(pago.idAsString()) ? pago.idAsString()
+                    : MercadoPagoApiClient.normalizarPaymentId(paymentId);
 
             Integer idReserva = resolverIdReserva(pago);
 
@@ -108,7 +112,8 @@ public class MercadoPagoWebhookProcessor {
                         transicionDesdePendiente = true;
                     }
                 } catch (RuntimeException ex) {
-                    log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva, ex);
+                    log.warn("Webhook MP: no se pudo persistir pago externo / transacción (idReserva={})", idReserva,
+                            ex);
                 }
                 if (idTransaccionPagos == null) {
                     idTransaccionPagos = transaccionRepository
@@ -124,7 +129,8 @@ public class MercadoPagoWebhookProcessor {
                 }
                 if (idTransaccionPagos != null) {
                     reservaPagosIntegracionClient.notificarPagoAprobado(idReserva, idTransaccionPagos, mpId);
-                    log.info("Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
+                    log.info(
+                            "Webhook MP: notificado pago aprobado a reserva-service (idReserva={}, idTransaccion={}, mpPaymentId={})",
                             idReserva, idTransaccionPagos, mpId);
                 } else {
                     log.warn("Webhook MP: pago aprobado {} sin transacción PENDIENTE ni APROBADA (idReserva={})", mpId,
@@ -150,7 +156,8 @@ public class MercadoPagoWebhookProcessor {
 
             String detail = pago.statusDetail();
             reservaPagosIntegracionClient.notificarPagoNoAprobado(idReserva, mpId, status, detail);
-            log.info("Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
+            log.info(
+                    "Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
                     idReserva, mpId, status);
         } catch (RuntimeException e) {
             log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
@@ -158,83 +165,10 @@ public class MercadoPagoWebhookProcessor {
     }
 
     /**
-     * Persiste bruto (MP o checkout), comisión y neto. Ante fallo inesperado mantiene comportamiento seguro (sin comisión, neto ≈ bruto).
+     * Estados donde el cobro puede seguir evolucionando; no persistimos intento
+     * fallido todavía.
      */
-    private void advertirSiMonedaInesperada(MercadoPagoPaymentDto pago, String mpId, Integer idReserva) {
-        if (!pagosWebhookProperties.isWarnOnCurrencyMismatch()) {
-            return;
-        }
-        String esperada = pagosWebhookProperties.getExpectedCurrencyId();
-        String actual = pago.currencyId();
-        if (!StringUtils.hasText(esperada) || !StringUtils.hasText(actual)) {
-            return;
-        }
-        if (actual.trim().equalsIgnoreCase(esperada.trim())) {
-            return;
-        }
-        log.warn(
-                "Webhook MP: currency_id del pago ({}) distinto del esperado ({}) — sin abortar (mpPaymentId={}, idReserva={})",
-                actual.trim(),
-                esperada.trim(),
-                mpId,
-                idReserva);
-    }
-
-    /**
-     * Solo observabilidad: no modifica montos (ya aplicados desde MP / checkout).
-     */
-    private void advertirSiMontoCheckoutDifiereDeMp(
-            BigDecimal montoBrutoCheckoutPrevio,
-            MercadoPagoPaymentDto pago,
-            Integer idReserva,
-            String mpId) {
-        if (!pagosWebhookProperties.isWarnOnCheckoutMpAmountMismatch()) {
-            return;
-        }
-        if (montoBrutoCheckoutPrevio == null || montoBrutoCheckoutPrevio.signum() <= 0) {
-            return;
-        }
-        BigDecimal mpAmount = pago.transactionAmount();
-        if (mpAmount == null || mpAmount.signum() <= 0) {
-            return;
-        }
-        BigDecimal tol = pagosWebhookProperties.getAmountMismatchToleranceClp();
-        if (tol == null || tol.signum() < 0) {
-            tol = BigDecimal.ONE;
-        }
-        tol = tol.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal diff = montoBrutoCheckoutPrevio.subtract(mpAmount).abs().setScale(2, RoundingMode.HALF_UP);
-        if (diff.compareTo(tol) > 0) {
-            log.warn(
-                    "Webhook MP: monto checkout {} vs transaction_amount MP {} (diff={}) — idReserva={}, mpPaymentId={}",
-                    montoBrutoCheckoutPrevio,
-                    mpAmount,
-                    diff,
-                    idReserva,
-                    mpId);
-        }
-    }
-
-    private void aplicarMontosNetoDesdePago(Transaccion tx, MercadoPagoPaymentDto pago) {
-        try {
-            BigDecimal bruto = netoTransaccionService.resolverMontoBruto(pago, tx);
-            NetoTransaccionService.ResultadoNeto netos = netoTransaccionService.calcularConFallbackSinComision(bruto);
-            tx.setMontoBruto(bruto);
-            tx.setComisionApp(netos.comisionApp());
-            tx.setMontoNeto(netos.montoNeto());
-        } catch (RuntimeException ex) {
-            log.warn("Webhook MP: no se aplicaron netos desde MP; se conserva bruto de transacción sin comisión (idReserva={})",
-                    tx.getIdReserva(), ex);
-            BigDecimal fb = tx.getMontoBruto() != null ? tx.getMontoBruto() : BigDecimal.ZERO;
-            tx.setComisionApp(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
-            tx.setMontoNeto(fb.setScale(2, RoundingMode.HALF_UP));
-        }
-    }
-
-    /**
-     * Estados donde el cobro puede seguir evolucionando; no persistimos intento fallido todavía.
-     */
-    private static boolean esEstadoIntermedioMercadoPago(String status) {
+    public static boolean esEstadoIntermedioMercadoPago(String status) {
         if (!StringUtils.hasText(status)) {
             return false;
         }
@@ -253,11 +187,18 @@ public class MercadoPagoWebhookProcessor {
         try {
             return Integer.parseInt(ref);
         } catch (NumberFormatException ignored) {
+            if (ref.regionMatches(true, 0, "reserva-", 0, 8) && ref.length() > 8) {
+                try {
+                    return Integer.parseInt(ref.substring(8).trim());
+                } catch (NumberFormatException ignored2) {
+                    // sigue con estrategia por ':'
+                }
+            }
             int colon = ref.lastIndexOf(':');
             if (colon >= 0 && colon < ref.length() - 1) {
                 try {
                     return Integer.parseInt(ref.substring(colon + 1).trim());
-                } catch (NumberFormatException ignored2) {
+                } catch (NumberFormatException ignored3) {
                     return null;
                 }
             }

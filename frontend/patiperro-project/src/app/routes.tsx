@@ -4,6 +4,7 @@ import LoginTutor from "../features/auth/pages/LoginTutor/LoginTutor";
 import RegisterPaseador from "../features/auth/pages/RegisterPaseador/RegisterPaseador";
 import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
 import LandingHome from "../features/home/pages/LandingHome/LandingHome";
+import CheckoutProSandboxPage from "../features/labs/pages/CheckoutProSandboxPage/CheckoutProSandboxPage";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
@@ -12,6 +13,7 @@ import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/Pase
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
 import PagoReservaTutor from "../features/tutor/pages/PagoReservaTutor/PagoReservaTutor";
+import TutorCheckoutRetornoPage from "../features/tutor/pages/TutorCheckoutRetorno/TutorCheckoutRetornoPage";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
 import TutorReservas from "../features/tutor/pages/TutorReservas/TutorReservas";
 
@@ -42,7 +44,21 @@ export default function AppRoutes() {
       <Route path="/tutor/mascota/nueva" element={<AddMascota />} />
       <Route path="/tutor/solicitud-paseo" element={<SolicitudPaseo />} />
       <Route path="/tutor/pago-reserva" element={<PagoReservaTutor />} />
+      <Route
+        path="/tutor/reservas/pago/exito"
+        element={<TutorCheckoutRetornoPage tipo="success" />}
+      />
+      <Route
+        path="/tutor/reservas/pago/error"
+        element={<TutorCheckoutRetornoPage tipo="failure" />}
+      />
+      <Route
+        path="/tutor/reservas/pago/pendiente"
+        element={<TutorCheckoutRetornoPage tipo="pending" />}
+      />
       <Route path="/tutor/reservas" element={<TutorReservas />} />
+      {/* Modulo aislado de pruebas Checkout Pro (MVP sandbox). */}
+      <Route path="/labs/checkout-pro" element={<CheckoutProSandboxPage />} />
       {/* Fallback para rutas desconocidas. */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

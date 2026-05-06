@@ -94,15 +94,18 @@ public class ReservaService {
     private int codigoBloqueoMinutos;
 
     /**
-     * Si es true, STOMP/integración se ejecuta tras COMMIT. Si false, se mantiene el comportamiento
+     * Si es true, STOMP/integración se ejecuta tras COMMIT. Si false, se mantiene
+     * el comportamiento
      * inline (útil para rollback de pruebas o despliegues sensibles).
      */
     @Value("${patiperro.reserva.paseo.efectos-despues-de-commit:true}")
     private boolean paseoEfectosDespuesDeCommit;
 
     /**
-     * Si es true, bloquea transiciones a EN_CURSO vía {@code PATCH /status} (p. ej. {@code INICIAR_PASEO}).
-     * El camino permitido queda en validar PIN. Desactiva explícitamente a {@code false} si aún dependen del PATCH.
+     * Si es true, bloquea transiciones a EN_CURSO vía {@code PATCH /status} (p. ej.
+     * {@code INICIAR_PASEO}).
+     * El camino permitido queda en validar PIN. Desactiva explícitamente a
+     * {@code false} si aún dependen del PATCH.
      */
     @Value("${patiperro.reserva.paseo.bloquear-inicio-sin-codigo:true}")
     private boolean bloquearInicioSinCodigo;
@@ -131,7 +134,8 @@ public class ReservaService {
         r.setIdMascota(dto.getIdMascota());
         r.setIdAgendaBloque(dto.getIdAgendaBloque());
         r.setIdTarifa(dto.getIdTarifa());
-        // Marca de servidor para trazabilidad consistente (no depender del reloj del cliente).
+        // Marca de servidor para trazabilidad consistente (no depender del reloj del
+        // cliente).
         r.setFechaSolicitud(LocalDateTime.now(clock));
         r.setFechaAceptacion(dto.getFechaAceptacion());
         r.setMontoTotal(dto.getMontoTotal());
@@ -169,10 +173,12 @@ public class ReservaService {
 
     /**
      * Crea preferencia Mercado Pago Checkout Pro para el tutor autenticado.
-     * Si la reserva está {@link EstadoReservaCatalogo#NOMBRE_SOLICITADA}, pasa a {@link EstadoReservaCatalogo#NOMBRE_PENDIENTE_PAGO}.
+     * Si la reserva está {@link EstadoReservaCatalogo#NOMBRE_SOLICITADA}, pasa a
+     * {@link EstadoReservaCatalogo#NOMBRE_PENDIENTE_PAGO}.
      */
     @Transactional
-    public TutorCheckoutPreferenciaResponseDTO iniciarCheckoutMercadoPago(Integer idReserva, String rawJwt, String idempotencyKey) {
+    public TutorCheckoutPreferenciaResponseDTO iniciarCheckoutMercadoPago(Integer idReserva, String rawJwt,
+            String idempotencyKey) {
         Reserva r = reservaRepository.findById(idReserva)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reserva no encontrada"));
         try {
@@ -181,15 +187,18 @@ public class ReservaService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, ex.getMessage());
         }
         if (!reservaPagoService.permiteReintentarPago(r)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "La reserva no admite iniciar o reintentar el pago en este estado.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La reserva no admite iniciar o reintentar el pago en este estado.");
         }
         if (!pagosCheckoutIntegracionClient.isEnabled()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Pago con pasarela no disponible (configuración).");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Pago con pasarela no disponible (configuración).");
         }
         EstadoReserva est = r.getEstadoReserva();
         if (est != null && est.getIdEstadoReserva() != null
                 && est.getIdEstadoReserva().equals(EstadoReservaCatalogo.ID_SOLICITADA)) {
-            EstadoReserva pendiente = estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+            EstadoReserva pendiente = estadoReservaService
+                    .obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
             r.setEstadoReserva(pendiente);
             r = reservaRepository.save(r);
         }
@@ -201,7 +210,8 @@ public class ReservaService {
     }
 
     /**
-     * Timeline de estados para la UI: solicitud, pasarela de pago, flujo del paseo y cierres excepcionales.
+     * Timeline de estados para la UI: solicitud, pasarela de pago, flujo del paseo
+     * y cierres excepcionales.
      */
     public BookingTimelineResponseDTO obtenerTimelineReserva(Integer idReserva, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
@@ -217,11 +227,11 @@ public class ReservaService {
                 r.getIdAgendaBloque(),
                 estadoActual != null ? estadoActual.getIdEstadoReserva() : null,
                 estadoActual != null ? estadoActual.getNombreEstado() : null,
-                steps
-        );
+                steps);
     }
 
-    private List<BookingTimelineResponseDTO.TimelineStepDTO> construirPasosTimeline(Reserva r, EstadoReserva estadoActual) {
+    private List<BookingTimelineResponseDTO.TimelineStepDTO> construirPasosTimeline(Reserva r,
+            EstadoReserva estadoActual) {
         List<BookingTimelineResponseDTO.TimelineStepDTO> steps = new ArrayList<>();
         steps.add(new BookingTimelineResponseDTO.TimelineStepDTO(
                 "solicitada",
@@ -321,7 +331,8 @@ public class ReservaService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para ver esta reserva");
         }
         if (!esAceptada(r.getEstadoReserva())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La reserva no está en estado válido para mostrar código");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La reserva no está en estado válido para mostrar código");
         }
         if (r.getCodigoEncuentro() == null || r.getCodigoEncuentroExpiraEn() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "La reserva aún no tiene código activo");
@@ -345,8 +356,7 @@ public class ReservaService {
                 codigo4,
                 r.getCodigoEncuentroExpiraEn(),
                 segundos,
-                regenerado
-        );
+                regenerado);
     }
 
     @Transactional
@@ -372,11 +382,16 @@ public class ReservaService {
 
     /**
      * Decisión del paseador (aceptar / rechazar / …).
-     * <p>Paso 5 (solo backend, PDF): si pasa a RECHAZADA y la reserva estaba PAGADA (cobro retenido), se programa
-     * devolución MP tras commit mediante {@link #programarReembolsoMercadoPagoTrasCommit(Integer, Reserva)}.</p>
+     * <p>
+     * Paso 5 (solo backend, PDF): si pasa a RECHAZADA y la reserva estaba PAGADA
+     * (cobro retenido), se programa
+     * devolución MP tras commit mediante
+     * {@link #programarReembolsoMercadoPagoTrasCommit(Integer, Reserva)}.
+     * </p>
      */
     @Transactional
-    public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto, String rawJwt) {
+    public ReservaResponseDTO aplicarDecisionPaseador(Integer idReserva, BookingStatusPatchRequestDTO dto,
+            String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
         validarPaseadorPropietarioReserva(r, rawJwt);
         EstadoReserva actual = r.getEstadoReserva();
@@ -406,9 +421,13 @@ public class ReservaService {
     }
 
     /**
-     * Job: expira solicitud por plazo de aceptación (sin JWT). Idempotente si otro hilo ya cambió el estado.
-     * <p>Paso 5 (PDF): expiración por plazo — si la reserva estaba PAGADA (cobro), misma devolución MP tras commit
-     * que en rechazo/cancelación tutor con cobro.</p>
+     * Job: expira solicitud por plazo de aceptación (sin JWT). Idempotente si otro
+     * hilo ya cambió el estado.
+     * <p>
+     * Paso 5 (PDF): expiración por plazo — si la reserva estaba PAGADA (cobro),
+     * misma devolución MP tras commit
+     * que en rechazo/cancelación tutor con cobro.
+     * </p>
      */
     @Transactional
     public void expirarReservaPorPlazoAceptacionJobItem(Integer idReserva) {
@@ -436,12 +455,17 @@ public class ReservaService {
     }
 
     /**
-     * Punto único para paso 5 (disparadores PDF): no llama a Mercado Pago dentro de la transacción actual.
-     * El cobro debe estar referenciado en {@code mercadopago_payment_id} (persistido al aprobar pago en
-     * {@link ReservaPagoService#marcarReservaComoPagada}); si falta, se registra advertencia para operación.
+     * Punto único para paso 5 (disparadores PDF): no llama a Mercado Pago dentro de
+     * la transacción actual.
+     * El cobro debe estar referenciado en {@code mercadopago_payment_id}
+     * (persistido al aprobar pago en
+     * {@link ReservaPagoService#marcarReservaComoPagada}); si falta, se registra
+     * advertencia para operación.
      *
-     * @param reservaAuditoriaPaymentId reserva ya persistida con el estado de cierre; solo para comprobar
-     *                                  si existe id de pago MP antes del async (puede ser {@code null}).
+     * @param reservaAuditoriaPaymentId reserva ya persistida con el estado de
+     *                                  cierre; solo para comprobar
+     *                                  si existe id de pago MP antes del async
+     *                                  (puede ser {@code null}).
      */
     private void programarReembolsoMercadoPagoTrasCommit(Integer idReserva, Reserva reservaAuditoriaPaymentId) {
         if (idReserva == null) {
@@ -590,8 +614,7 @@ public class ReservaService {
                 true,
                 estado != null ? estado.getIdEstadoReserva() : null,
                 estado != null ? estado.getNombreEstado() : null,
-                saved.getFechaInicioReal()
-        );
+                saved.getFechaInicioReal());
     }
 
     private static int intentosConFallback(Reserva r) {
@@ -628,12 +651,12 @@ public class ReservaService {
                 r.getCodigoIntentosFallidos() != null ? r.getCodigoIntentosFallidos() : 0,
                 r.getCodigoBloqueadoHasta(),
                 segundos != null ? Math.max(1, segundos) : null,
-                mensaje
-        );
+                mensaje);
     }
 
     /**
-     * {@code PATCH /status}: decisión del paseador ({@link #aplicarDecisionPaseador}) o del tutor
+     * {@code PATCH /status}: decisión del paseador
+     * ({@link #aplicarDecisionPaseador}) o del tutor
      * ({@link #aplicarCancelacionTutor}).
      */
     @Transactional
@@ -645,8 +668,12 @@ public class ReservaService {
     }
 
     /**
-     * El tutor anula la reserva antes de que el paseador la acepte: SOLICITADA, PENDIENTE_PAGO o PAGADA.
-     * <p>Paso 5 (PDF): si estaba PAGADA (cobro), programa devolución MP tras commit (CANCELADA con cobro).</p>
+     * El tutor anula la reserva antes de que el paseador la acepte: SOLICITADA,
+     * PENDIENTE_PAGO o PAGADA.
+     * <p>
+     * Paso 5 (PDF): si estaba PAGADA (cobro), programa devolución MP tras commit
+     * (CANCELADA con cobro).
+     * </p>
      */
     @Transactional
     public ReservaResponseDTO aplicarCancelacionTutor(Integer idReserva, TutorDecision decision, String rawJwt) {
@@ -661,8 +688,8 @@ public class ReservaService {
                     "Solo puede cancelar una solicitud pendiente de aceptación (SOLICITADA, PENDIENTE_PAGO o PAGADA)");
         }
         boolean eraPagada = esPagada(actual);
-        EstadoReserva cancelada =
-                estadoReservaService.obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
+        EstadoReserva cancelada = estadoReservaService
+                .obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_CANCELADA);
         r.setEstadoReserva(cancelada);
         aplicarMarcaTiempoTransicion(r, cancelada);
         Reserva saved = reservaRepository.save(r);
@@ -692,7 +719,8 @@ public class ReservaService {
         if (idsAgendaBloque == null || idsAgendaBloque.isEmpty()) {
             return false; // No hay bloques para validar //
         }
-        // Reserva que aún retiene el bloque: solicitada/pendiente pago/pagada/aceptada/en curso
+        // Reserva que aún retiene el bloque: solicitada/pendiente
+        // pago/pagada/aceptada/en curso
         // (no rechazada ni cancelada ni finalizada).
         List<Integer> estadosComprometidos = List.of(
                 EstadoReservaCatalogo.ID_SOLICITADA,
@@ -700,16 +728,16 @@ public class ReservaService {
                 EstadoReservaCatalogo.ID_PAGADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_EN_CURSO);
-        
+
         // Ejecuta la consulta de existencia en el repositorio //
         return reservaRepository.existsByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
-            idsAgendaBloque,
-            estadosComprometidos
-        );
+                idsAgendaBloque,
+                estadosComprometidos);
     }
 
     /**
-     * Datos mínimos para iniciar checkout en pagos-service (llamada interna con secreto compartido).
+     * Datos mínimos para iniciar checkout en pagos-service (llamada interna con
+     * secreto compartido).
      */
     @Transactional(readOnly = true)
     public ReservaParaPagoDto obtenerParaPagoInterno(Integer idReserva) {
@@ -736,8 +764,10 @@ public class ReservaService {
     }
 
     /**
-     * Listado del tutor: con integración a agenda activa, ordena por inicio programado del bloque
-     * (futuras primero ascendente, luego pasadas descendente) y exige JWT del tutor.
+     * Listado del tutor: con integración a agenda activa, ordena por inicio
+     * programado del bloque
+     * (futuras primero ascendente, luego pasadas descendente) y exige JWT del
+     * tutor.
      * Sin integración, devuelve el listado sin ordenar por bloque.
      */
     public List<ReservaResponseDTO> listarPorTutor(Integer idTutorUsuario, String rawJwt) {
@@ -751,8 +781,8 @@ public class ReservaService {
         LocalDateTime ahora = LocalDateTime.now(clock);
         List<ReservaConInicio> conInicio = new ArrayList<>(reservas.size());
         for (Reserva r : reservas) {
-            AgendaBloqueReservaClientDTO bloque =
-                    agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            AgendaBloqueReservaClientDTO bloque = agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(),
+                    rawJwt);
             conInicio.add(new ReservaConInicio(r, resolverInicioPaseo(r, bloque), bloque));
         }
         List<ReservaConInicio> futuras = conInicio.stream()
@@ -778,7 +808,8 @@ public class ReservaService {
         return reserva.getFechaSolicitud();
     }
 
-    private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {}
+    private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {
+    }
 
     public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(Integer idTutorUsuario, String rawJwt) {
         validarTutorJwt(idTutorUsuario, rawJwt);
@@ -802,7 +833,8 @@ public class ReservaService {
     }
 
     /**
-     * Reservas visibles en el panel del paseador cuyo bloque de agenda pertenece al paseador
+     * Reservas visibles en el panel del paseador cuyo bloque de agenda pertenece al
+     * paseador
      * (JWT {@code paseadorId}): SOLICITADA, ACEPTADA, EN_CURSO y RECHAZADA.
      */
     public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
@@ -811,8 +843,8 @@ public class ReservaService {
         if (!agendaIntegracionClient.isEnabled()) {
             return List.of();
         }
-        List<AgendaBloqueReservaClientDTO> bloques =
-                agendaIntegracionClient.listarBloquesPorUsuario(idPaseador, rawJwt);
+        List<AgendaBloqueReservaClientDTO> bloques = agendaIntegracionClient.listarBloquesPorUsuario(idPaseador,
+                rawJwt);
         if (bloques.isEmpty()) {
             return List.of();
         }
@@ -835,8 +867,8 @@ public class ReservaService {
         List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
         for (Reserva r : reservas) {
             AgendaBloqueReservaClientDTO bloque = bloquePorId.get(r.getIdAgendaBloque());
-            TutorReservaClientDTO tutor =
-                    tutorIntegracionClient.obtenerTutor(r.getIdTutorUsuario().longValue(), rawJwt);
+            TutorReservaClientDTO tutor = tutorIntegracionClient.obtenerTutor(r.getIdTutorUsuario().longValue(),
+                    rawJwt);
             salida.add(mapearSolicitudPaseador(r, bloque, tutor));
         }
         salida.sort(Comparator.comparing(
@@ -936,8 +968,7 @@ public class ReservaService {
         if (paseadorId == null) {
             throw new IllegalArgumentException("JWT sin claim paseadorId");
         }
-        AgendaBloqueReservaClientDTO bloque =
-                agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+        AgendaBloqueReservaClientDTO bloque = agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
         if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
             throw new IllegalArgumentException("No tienes permiso para modificar esta reserva");
         }
@@ -961,8 +992,8 @@ public class ReservaService {
 
         Long paseadorId = jwtService.extractPaseadorId(rawJwt);
         if (paseadorId != null) {
-            AgendaBloqueReservaClientDTO bloque =
-                    agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            AgendaBloqueReservaClientDTO bloque = agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(),
+                    rawJwt);
             if (bloque.getIdUsuario() == null || bloque.getIdUsuario().longValue() != paseadorId) {
                 throw new IllegalArgumentException("No tienes permiso para ver esta reserva");
             }
@@ -1089,7 +1120,8 @@ public class ReservaService {
         String mascotaCaracter = "";
         String mascotaCuidados = "";
         try {
-            MascotaInternoDetalleResponseDTO detalleMascota = mascotaIntegracionClient.obtenerDetalleInterno(r.getIdMascota());
+            MascotaInternoDetalleResponseDTO detalleMascota = mascotaIntegracionClient
+                    .obtenerDetalleInterno(r.getIdMascota());
             if (detalleMascota != null) {
                 mascotaFotoUrl = detalleMascota.getFotoPerfil();
                 if (detalleMascota.getNombre() != null && !detalleMascota.getNombre().isBlank()) {
@@ -1112,7 +1144,8 @@ public class ReservaService {
                 }
             }
         } catch (RuntimeException ignored) {
-            // Si mascotas no está o falla el interno, el panel del paseador sigue mostrando nombre genérico.
+            // Si mascotas no está o falla el interno, el panel del paseador sigue mostrando
+            // nombre genérico.
         }
 
         return new ReservaPaseadorSolicitudResponseDTO(
@@ -1307,7 +1340,8 @@ public class ReservaService {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {
                 return;
             }
-            throw new IllegalArgumentException("Desde SOLICITADA o PENDIENTE_PAGO solo se permite ACEPTADA o RECHAZADA");
+            throw new IllegalArgumentException(
+                    "Desde SOLICITADA o PENDIENTE_PAGO solo se permite ACEPTADA o RECHAZADA");
         }
         if (esPagada(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {
@@ -1372,7 +1406,8 @@ public class ReservaService {
     }
 
     /**
-     * Inicio programado del paseo: hora del bloque de agenda, o fecha a 00:00, o ahora.
+     * Inicio programado del paseo: hora del bloque de agenda, o fecha a 00:00, o
+     * ahora.
      */
     private LocalDateTime resolverInicioProgramadoPaseo(
             AgendaBloqueReservaClientDTO bloque, Reserva r, LocalDateTime ahora) {
@@ -1411,7 +1446,8 @@ public class ReservaService {
     }
 
     /**
-     * Job: solo rellena {@code codigoEncuentroExpiraEn} si faltaba; sin JWT (fallback de inicio vía reserva).
+     * Job: solo rellena {@code codigoEncuentroExpiraEn} si faltaba; sin JWT
+     * (fallback de inicio vía reserva).
      */
     @Transactional
     public void rellenarCodigoEncuentroExpiraJobItem(Integer idReserva) {
@@ -1419,7 +1455,8 @@ public class ReservaService {
     }
 
     /**
-     * Tras vencer el PIN (sin inicio real): regenera un nuevo PIN y reinicia su expiración.
+     * Tras vencer el PIN (sin inicio real): regenera un nuevo PIN y reinicia su
+     * expiración.
      */
     @Transactional
     public void regenerarCodigoEncuentroPorExpiracionJobItem(Integer idReserva) {
@@ -1439,7 +1476,8 @@ public class ReservaService {
     }
 
     /**
-     * Si aún aceptada y faltaba solo la expiración del PIN, la calcula (listado tutor / job).
+     * Si aún aceptada y faltaba solo la expiración del PIN, la calcula (listado
+     * tutor / job).
      */
     private Reserva rellenarCodigoEncuentroExpiraSiAplica(Integer idReserva, String rawJwt) {
         Reserva r = obtenerEntidad(idReserva);
@@ -1500,7 +1538,8 @@ public class ReservaService {
     }
 
     private static boolean esPendientePago(EstadoReserva e) {
-        return coincideIdONombre(e, EstadoReservaCatalogo.ID_PENDIENTE_PAGO, EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
+        return coincideIdONombre(e, EstadoReservaCatalogo.ID_PENDIENTE_PAGO,
+                EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
     }
 
     private static boolean esPagada(EstadoReserva e) {

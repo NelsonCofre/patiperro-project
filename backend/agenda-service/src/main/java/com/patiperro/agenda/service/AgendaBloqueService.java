@@ -66,7 +66,8 @@ public class AgendaBloqueService {
 
     /**
      * Bloques horarios del paseador en el rango (oferta para tutores).
-     * Excluye fechas con bloqueo personal de día completo ({@code agenda_bloqueo_dia}).
+     * Excluye fechas con bloqueo personal de día completo
+     * ({@code agenda_bloqueo_dia}).
      */
     public List<AgendaBloqueResponseDTO> listarBloquesOfertables(Integer idUsuario, LocalDate desde, LocalDate hasta) {
         if (desde.isAfter(hasta)) {
@@ -107,7 +108,8 @@ public class AgendaBloqueService {
     }
 
     /**
-     * Paseadores con al menos un bloque disponible desde {@code desdeFecha} (típicamente hoy en el servidor).
+     * Paseadores con al menos un bloque disponible desde {@code desdeFecha}
+     * (típicamente hoy en el servidor).
      */
     public List<Integer> buscarIdUsuariosDisponiblesDesdeFecha(LocalDate desdeFecha, Integer idEstadoDisponible) {
         if (desdeFecha == null) {
@@ -125,7 +127,8 @@ public class AgendaBloqueService {
 
     /**
      * Lectura de bloque invocada por otro microservicio (sin JWT).
-     * Protegida por {@code patiperro.agenda.interno.secret} vía header X-Patiperro-Interno-Secret.
+     * Protegida por {@code patiperro.agenda.interno.secret} vía header
+     * X-Patiperro-Interno-Secret.
      */
     public AgendaBloqueResponseDTO obtenerInterno(Integer idAgenda, String secretRecibido) {
         assertInternoSecretValid(secretRecibido);
@@ -192,7 +195,8 @@ public class AgendaBloqueService {
     }
 
     /**
-     * Liberación del bloque invocada por reserva-service (cancelación tutor u otra regla de negocio ya validada allí).
+     * Liberación del bloque invocada por reserva-service (cancelación tutor u otra
+     * regla de negocio ya validada allí).
      */
     @Transactional
     public AgendaBloqueResponseDTO marcarDisponibleInterno(Integer idAgenda, String secretRecibido) {
@@ -293,7 +297,8 @@ public class AgendaBloqueService {
         List<AgendaBloqueResponseDTO> creados = new ArrayList<>();
 
         for (LocalDate fecha = primerDia; !fecha.isAfter(ultimoDia); fecha = fecha.plusDays(1)) {
-            if (fecha.getDayOfWeek() != diaObjetivo) continue;
+            if (fecha.getDayOfWeek() != diaObjetivo)
+                continue;
             if (fecha.isBefore(hoy)) {
                 omitidosPasado++;
                 continue;
@@ -339,10 +344,13 @@ public class AgendaBloqueService {
                 .orElseThrow(() -> new IllegalStateException("No existe estado_bloque con nombre: " + nombre));
     }
 
-    private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio, LocalDateTime fin) {
+    private static boolean haySolapeHorario(List<AgendaBloque> bloques, LocalDate fecha, LocalDateTime inicio,
+            LocalDateTime fin) {
         for (AgendaBloque b : bloques) {
-            if (!b.getFecha().equals(fecha)) continue;
-            if (inicio.isBefore(b.getHoraFinal()) && fin.isAfter(b.getHoraInicio())) return true;
+            if (!b.getFecha().equals(fecha))
+                continue;
+            if (inicio.isBefore(b.getHoraFinal()) && fin.isAfter(b.getHoraInicio()))
+                return true;
         }
         return false;
     }
@@ -369,13 +377,15 @@ public class AgendaBloqueService {
     }
 
     private static String normalizarNombreDia(String nombre) {
-        if (nombre == null) return "";
+        if (nombre == null)
+            return "";
         String n = Normalizer.normalize(nombre.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD);
         return n.replaceAll("\\p{M}+", "");
     }
 
     private boolean esEstadoReservado(EstadoBloque estadoBloque) {
-        if (estadoBloque == null || estadoBloque.getNombre() == null) return false;
+        if (estadoBloque == null || estadoBloque.getNombre() == null)
+            return false;
         return "reservado".equalsIgnoreCase(estadoBloque.getNombre().trim());
     }
 
@@ -384,7 +394,8 @@ public class AgendaBloqueService {
                 .orElseThrow(() -> new IllegalArgumentException("Bloque de agenda no encontrado"));
     }
 
-    private void validarParametrosBusquedaFranja(LocalDate fecha, LocalDateTime inicioBuscado, LocalDateTime finBuscado) {
+    private void validarParametrosBusquedaFranja(LocalDate fecha, LocalDateTime inicioBuscado,
+            LocalDateTime finBuscado) {
         if (finBuscado.isBefore(inicioBuscado) || finBuscado.isEqual(inicioBuscado)) {
             throw new IllegalArgumentException("La hora de término debe ser posterior a la hora de inicio");
         }
@@ -401,13 +412,15 @@ public class AgendaBloqueService {
     }
 
     private EstadoBloque resolverEstado(Integer idEstado) {
-        if (idEstado == null) throw new IllegalArgumentException("estado_bloque es obligatorio");
+        if (idEstado == null)
+            throw new IllegalArgumentException("estado_bloque es obligatorio");
         return estadoBloqueRepository.findById(idEstado)
                 .orElseThrow(() -> new IllegalArgumentException("Estado de bloque no encontrado: " + idEstado));
     }
 
     private DiaSemana resolverDia(Integer idDia) {
-        if (idDia == null) throw new IllegalArgumentException("dia_semana es obligatorio");
+        if (idDia == null)
+            throw new IllegalArgumentException("dia_semana es obligatorio");
         return diaSemanaRepository.findById(idDia)
                 .orElseThrow(() -> new IllegalArgumentException("Día de la semana no encontrado: " + idDia));
     }
