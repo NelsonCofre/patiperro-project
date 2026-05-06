@@ -50,7 +50,9 @@ export default function TutorDashboard() {
     refLat,
     refLon,
     minRating,
-    setMinRating
+    setMinRating,
+    maxPriceFilter,
+    setMaxPriceFilter
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
@@ -196,6 +198,8 @@ export default function TutorDashboard() {
             onResetFilters={resetFilters}
             minRating={minRating}
             onMinRatingChange={setMinRating}
+            maxPrice={maxPriceFilter}
+            onMaxPriceChange={setMaxPriceFilter}
           />
         )}
 

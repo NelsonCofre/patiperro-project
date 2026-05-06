@@ -4,6 +4,7 @@ import com.patiperro.paseador.client.AgendaDisponibilidadClient;
 import com.patiperro.paseador.dto.user.PaseadorPerfilDTO;
 import com.patiperro.paseador.model.Paseador;
 import com.patiperro.paseador.repository.PaseadorRepository;
+import com.patiperro.paseador.repository.TarifaPaseadorRepository;
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
 import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import jakarta.persistence.EntityManager;
@@ -92,6 +93,8 @@ public class PaseadorBusquedaService {
 
     private final PaseadorRepository paseadorRepository;
     private final AgendaDisponibilidadClient agendaDisponibilidadClient;
+
+    private final TarifaPaseadorRepository tarifaRepository;
 
     /**
      * Candidatos por distancia; opcionalmente restringidos a quienes tienen bloque
@@ -228,6 +231,10 @@ public class PaseadorBusquedaService {
             Paseador p = entidades.get(id);
             if (p == null) continue;
             CandidatoGeo cg = porId.get(id);
+            
+            // NUEVO: Buscamos la tarifa más barata
+            Integer tarifaMinima = tarifaRepository.findTarifaMinimaByPaseadorId(p.getId());
+
             resultados.add(PaseadorCercanoResponseDTO.builder()
                     .idPaseador(p.getId())
                     .nombreCompleto(nombrePublico(p))
@@ -237,6 +244,8 @@ public class PaseadorBusquedaService {
                     .radioCoberturaKm(cg.radioCoberturaKm())
                     .latitud(cg.latitud())
                     .longitud(cg.longitud())
+                    // NUEVO: Lo agregamos al builder
+                    .tarifaDesde(tarifaMinima != null ? tarifaMinima : 0)
                     .build());
         }
 
@@ -303,6 +312,10 @@ public class PaseadorBusquedaService {
                 continue;
             }
             CandidatoGeo cg = porId.get(id);
+            
+            // NUEVO: Buscamos la tarifa más barata
+            Integer tarifaMinima = tarifaRepository.findTarifaMinimaByPaseadorId(p.getId());
+
             salida.add(PaseadorCercanoResponseDTO.builder()
                     .idPaseador(p.getId())
                     .nombreCompleto(nombrePublico(p))
@@ -312,8 +325,12 @@ public class PaseadorBusquedaService {
                     .radioCoberturaKm(cg.radioCoberturaKm())
                     .latitud(cg.latitud())
                     .longitud(cg.longitud())
+                    // NUEVO: Lo agregamos al builder
+                    .tarifaDesde(tarifaMinima != null ? tarifaMinima : 0)
                     .build());
         }
+        
+        // ESTA ES LA LÍNEA QUE FALTABA
         return salida;
     }
 

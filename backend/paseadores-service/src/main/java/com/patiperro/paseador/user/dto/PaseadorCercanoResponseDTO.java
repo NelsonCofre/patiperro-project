@@ -23,4 +23,5 @@ public class PaseadorCercanoResponseDTO {
     private BigDecimal radioCoberturaKm;
     private Double latitud;
     private Double longitud;
+    private Integer tarifaDesde;
 }

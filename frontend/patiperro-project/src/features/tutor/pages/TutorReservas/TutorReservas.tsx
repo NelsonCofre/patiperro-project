@@ -67,7 +67,7 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 }
 
 export default function TutorReservas() {
-  const [setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [selectedReservaState, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);

@@ -24,9 +24,10 @@ type Props = {
   filteredCount: number;
   hasActiveFilters: boolean;
   onResetFilters: () => void;
-  // Nuevas props para la historia de usuario de calificación
   minRating: number;
   onMinRatingChange: (rating: number) => void;
+  maxPrice: string; 
+  onMaxPriceChange: (value: string) => void;
 };
 
 const SORT_OPTIONS: { value: PaseadoresSortMode; label: string }[] = [
@@ -58,7 +59,9 @@ export default function PaseadoresFilterBar({
   hasActiveFilters,
   onResetFilters,
   minRating,
-  onMinRatingChange
+  onMinRatingChange,
+  maxPrice,
+  onMaxPriceChange
 }: Props) {
   const [radiusDraft, setRadiusDraft] = useState(() => String(searchRadiusKm));
 
@@ -244,6 +247,44 @@ export default function PaseadoresFilterBar({
               </option>
             ))}
           </select>
+        </label>
+
+        {/* NUEVO FILTRO: PRECIO MÁXIMO */}
+        <label className={styles.field}>
+          <span className={styles.label}>Precio Máximo ($/hr)</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="number"
+              className={styles.input}
+              min="1"
+              placeholder="Ej: 5000"
+              value={maxPrice}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "" || Number(val) > 0) {
+                  onMaxPriceChange(val);
+                }
+              }}
+            />
+            {maxPrice !== "" && (
+              <button
+                type="button"
+                onClick={() => onMaxPriceChange("")}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  color: '#666',
+                  padding: '0 4px'
+                }}
+                title="Limpiar precio"
+                aria-label="Limpiar filtro de precio"
+              >
+                &times;
+              </button>
+            )}
+          </div>
         </label>
 
         <div className={styles.fieldGrow}>

@@ -1,7 +1,5 @@
 package com.patiperro.reserva.config;
 
-
-
 import com.patiperro.reserva.controller.InternalPagosController;
 
 import com.patiperro.reserva.security.JwtService;
@@ -32,25 +30,17 @@ import org.springframework.util.StringUtils;
 
 import org.springframework.web.filter.OncePerRequestFilter;
 
-
-
 import java.io.IOException;
 
 import java.util.Collections;
-
-
 
 @Component
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-
-
     private final JwtService jwtService;
 
     private final String internoSecret;
-
-
 
     public JwtAuthenticationFilter(
 
@@ -64,8 +54,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     }
 
-
-
     @Override
 
     protected void doFilterInternal(
@@ -78,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             throws ServletException, IOException {
 
-        String path = request.getServletPath();
+        String path = request.getRequestURI();
 
         if (path.startsWith("/api/reserva/interno")) {
 
@@ -106,8 +94,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         }
 
-
-
         String token = extractToken(request);
 
         if (token == null) {
@@ -118,8 +104,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         }
 
-
-
         if (!jwtService.isTokenValid(token)) {
 
             filterChain.doFilter(request, response);
@@ -127,8 +111,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
 
         }
-
-
 
         String subject = jwtService.extractSubject(token);
 
@@ -147,8 +129,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
 
     }
-
-
 
     private String extractToken(HttpServletRequest request) {
 
@@ -191,4 +171,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
 }
-

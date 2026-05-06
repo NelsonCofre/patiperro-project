@@ -54,7 +54,7 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     distanciaKm: dto.distanciaKm,
     // Nota: calificacionPromedio se inicializa con lo que traiga la API o 0
     calificacionPromedio: dto.calificacionPromedio ?? 0, 
-    precioBase: 0,
+    precioBase: dto.tarifaDesde ?? 0, // <--- AHORA SÍ TOMA EL PRECIO REAL
     disponible: true,
     perfilCompleto: true,
     tieneBloqueDisponibleFuturo: true,
@@ -63,7 +63,7 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     proximoBloque: "-",
     bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora.",
     latitud: dto.latitud,
-    longitud: dto.longitud
+    longitud: dto.longitud,
   };
 }
 
@@ -92,6 +92,7 @@ export function usePaseadoresHome() {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [coordinates, setCoordinates] = useState<TutorCoordinates | null>(null);
   const [locationError, setLocationError] = useState("");
+  const [maxPriceFilter, setMaxPriceFilter] = useState<string>("");
 
   const refLat = useMemo(() => {
     if (locationStatus === "granted" && coordinates) {
@@ -320,6 +321,15 @@ export function usePaseadoresHome() {
       });
     }
 
+    // NUEVO: Filtro por Precio Máximo
+    if (maxPriceFilter !== "") {
+      const maximo = Number(maxPriceFilter);
+      if (!Number.isNaN(maximo) && maximo > 0) {
+        // Utilizamos precioBase que ya está definido en tu mapCercanoToHome
+        list = list.filter((p) => p.precioBase <= maximo);
+      }
+    }
+
     // 4. Ordenamiento
     switch (sortMode) {
       case "name":
@@ -333,11 +343,11 @@ export function usePaseadoresHome() {
     }
 
     return list;
-  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode, minRating]);
+  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode, minRating, maxPriceFilter]); // <-- DEPENDENCIA CORREGIDA
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime, minRating]);
+  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime, minRating, maxPriceFilter]);
 
   const visiblePaseadores = useMemo(
     () => filteredPaseadores.slice(0, visibleCount),
@@ -354,6 +364,7 @@ export function usePaseadoresHome() {
     setAvailabilityStartTime("");
     setAvailabilityEndTime("");
     setMinRating(0);
+    setMaxPriceFilter(""); // <-- Agrega esta línea
   }, []);
 
   const loadMore = useCallback(() => {
@@ -438,11 +449,14 @@ export function usePaseadoresHome() {
     setMinRating,
     refLat,
     refLon,
+    maxPriceFilter, // <-- Exportar el valor
+    setMaxPriceFilter, // <-- Exportar la función para cambiarlo
     hasActiveFilters:
       queryText.trim().length > 0 ||
       maxDistanceFilterKm != null ||
       sortMode !== "distance" ||
       scheduleFilterState.hasAny ||
-      minRating > 0
+      minRating > 0 ||
+      maxPriceFilter !== "" // <-- Activa el botón de "Limpiar filtros"
   };
 }
