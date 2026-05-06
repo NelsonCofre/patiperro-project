@@ -286,7 +286,8 @@ public class BilleteraService {
                     null,
                     null,
                     null,
-                    null);
+                    null,
+                    t.getIdTransaccionPagos());
             if (t.getFase() == BilleteraReservaFase.EN_RETENIDO) {
                 itemsRet.add(item);
             } else {
@@ -320,7 +321,8 @@ public class BilleteraService {
                             null,
                             null,
                             null,
-                            null));
+                            null,
+                            t.getIdTransaccionPagos()));
         }
         List<Integer> idsHistorial =
                 itemsLibHistorial.stream().map(BilleteraReservaItemResponse::idReserva).filter(Objects::nonNull).distinct().toList();
@@ -391,7 +393,8 @@ public class BilleteraService {
                 d.tutorNombre(),
                 d.fechaAgenda(),
                 d.horaInicio(),
-                d.nombreEstadoReserva());
+                d.nombreEstadoReserva(),
+                i.idTransaccionPagos());
     }
 
     /**

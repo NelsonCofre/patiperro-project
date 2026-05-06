@@ -14,6 +14,11 @@ public record BilleteraReservaItemResponse(
         String fechaAgenda,
         String horaInicio,
         /** Nombre legible del estado de la reserva en dominio reserva (ej. PAGADA); puede ser null. */
-        String nombreEstadoReserva
+        String nombreEstadoReserva,
+        /**
+         * Cobro del tutor en pagos-service ({@code transaccion.id_transaccion}); conciliación con el mismo ID que la
+         * auditoría de liberación (opción A). Null solo si el ítem no tiene tracking de cobro asociado.
+         */
+        Long idTransaccionPagos
 ) {
 }

@@ -1,10 +1,10 @@
 package com.patiperro.reserva.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.patiperro.reserva.config.properties.PagosCheckoutIntegracionProperties;
 import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -47,21 +47,18 @@ public class PagosCheckoutIntegracionClient {
     public PagosCheckoutIntegracionClient(
             RestClient.Builder restClientBuilder,
             ObjectMapper objectMapper,
-            @Value("${patiperro.reserva.integracion.pagos-checkout.enabled:false}") boolean enabled,
-            @Value("${patiperro.reserva.integracion.pagos-checkout.base-url:http://localhost:8087}") String baseUrl,
-            @Value("${patiperro.reserva.integracion.pagos-checkout.interno.secret:}") String internoSecret,
-            @Value("${patiperro.reserva.integracion.pagos-checkout.connect-timeout-ms:5000}") long connectTimeoutMs,
-            @Value("${patiperro.reserva.integracion.pagos-checkout.read-timeout-ms:30000}") long readTimeoutMs) {
+            PagosCheckoutIntegracionProperties props) {
         this.objectMapper = objectMapper;
-        this.enabled = enabled;
-        String base = normalizeBaseUrl(baseUrl);
+        this.enabled = props.isEnabled();
+        String base = normalizeBaseUrl(props.getBaseUrl());
         this.restClient = base.isEmpty()
                 ? null
                 : restClientBuilder
-                        .requestFactory(requestFactory(connectTimeoutMs, readTimeoutMs))
+                        .requestFactory(requestFactory(props.getConnectTimeoutMs(), props.getReadTimeoutMs()))
                         .baseUrl(base)
                         .build();
-        this.internoSecret = internoSecret != null ? internoSecret.trim() : "";
+        String rawSecret = props.getInterno().getSecret();
+        this.internoSecret = rawSecret != null ? rawSecret.trim() : "";
     }
 
     public boolean isEnabled() {
