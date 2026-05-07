@@ -1,9 +1,10 @@
 package com.patiperro.pagos;
 
 import com.patiperro.pagos.config.ComisionPlataformaProperties;
-import com.patiperro.pagos.config.PagosWebhookProperties;
 import com.patiperro.pagos.config.MercadoPagoCheckoutProperties;
 import com.patiperro.pagos.config.MercadoPagoRetryProperties;
+import com.patiperro.pagos.config.PagosWebhookProperties;
+import com.patiperro.pagos.config.RetiroProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -17,7 +18,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         MercadoPagoRetryProperties.class,
         MercadoPagoCheckoutProperties.class,
         ComisionPlataformaProperties.class,
-        PagosWebhookProperties.class
+        PagosWebhookProperties.class,
+        RetiroProperties.class
 })
 public class PagosServiceApplication {
 

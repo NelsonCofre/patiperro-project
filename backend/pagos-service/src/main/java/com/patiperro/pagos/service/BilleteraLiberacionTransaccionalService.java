@@ -4,6 +4,7 @@ import com.patiperro.pagos.model.Billetera;
 import com.patiperro.pagos.model.BilleteraReservaFase;
 import com.patiperro.pagos.model.BilleteraReservaTracking;
 import com.patiperro.pagos.model.BilleteraSaldoAuditoria;
+import com.patiperro.pagos.repository.BilleteraDisputaReservaRepository;
 import com.patiperro.pagos.repository.BilleteraRepository;
 import com.patiperro.pagos.repository.BilleteraReservaTrackingRepository;
 import com.patiperro.pagos.repository.BilleteraSaldoAuditoriaRepository;
@@ -26,7 +27,9 @@ import java.time.ZoneId;
  * que un fallo puntual no revierta liberaciones ya válidas. Idempotente si {@code liberado_en} ya está fijado.
  *
  * <p>Bloqueo pesimístico en tracking y billetera para evitar doble liberación concurrente; auditoría opción A
- * referencia el cobro original ({@code id_transaccion_pagos}).</p>
+ * referencia el cobro original ({@code id_transaccion_pagos}). No libera si hay disputa activa para la reserva
+ * ({@link com.patiperro.pagos.repository.BilleteraDisputaReservaRepository}), coherente con abrir/cerrar disputa
+ * que bloquea la misma fila de tracking cuando existe.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -39,6 +42,7 @@ public class BilleteraLiberacionTransaccionalService {
     private final BilleteraRepository billeteraRepository;
     private final BilleteraReservaTrackingRepository trackingRepository;
     private final BilleteraSaldoAuditoriaRepository billeteraSaldoAuditoriaRepository;
+    private final BilleteraDisputaReservaRepository billeteraDisputaReservaRepository;
 
     /**
      * @return {@code true} si en esta ejecución se persistió la liberación
@@ -69,6 +73,11 @@ public class BilleteraLiberacionTransaccionalService {
         LocalDate diaFin = t.getFechaFinServicio().atZone(zone).toLocalDate();
         LocalDate disponibleDesde = diaFin.plusDays(2);
         if (hoy.isBefore(disponibleDesde)) {
+            return false;
+        }
+
+        if (billeteraDisputaReservaRepository.existsByIdReservaAndDisputaActivaTrue(t.getIdReserva())) {
+            log.info("Billetera liberación omitida: disputa activa (reserva={})", t.getIdReserva());
             return false;
         }
 

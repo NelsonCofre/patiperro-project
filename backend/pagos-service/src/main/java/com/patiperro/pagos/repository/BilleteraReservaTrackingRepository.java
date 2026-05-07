@@ -18,6 +18,10 @@ public interface BilleteraReservaTrackingRepository extends JpaRepository<Billet
     @Query("SELECT t FROM BilleteraReservaTracking t WHERE t.idTracking = :idTracking")
     Optional<BilleteraReservaTracking> findByIdTrackingForUpdate(@Param("idTracking") Long idTracking);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM BilleteraReservaTracking t WHERE t.idReserva = :idReserva")
+    Optional<BilleteraReservaTracking> findByIdReservaForUpdate(@Param("idReserva") Integer idReserva);
+
     Optional<BilleteraReservaTracking> findByIdReserva(Integer idReserva);
 
     List<BilleteraReservaTracking> findByIdUsuarioPaseadorAndFase(Long idUsuarioPaseador, BilleteraReservaFase fase);

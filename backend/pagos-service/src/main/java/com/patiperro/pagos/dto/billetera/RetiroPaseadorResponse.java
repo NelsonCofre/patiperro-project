@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public record RetiroPaseadorResponse(
         Long idTransaccion,
         BigDecimal montoRetirado,
-        BigDecimal saldoDisponibleTrasRetiro
+        BigDecimal saldoDisponibleTrasRetiro,
+        String mensaje
 ) {
 }
