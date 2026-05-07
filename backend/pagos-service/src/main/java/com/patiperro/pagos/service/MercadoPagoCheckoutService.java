@@ -2,10 +2,18 @@ package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.config.MercadoPagoCheckoutProperties;
 import com.patiperro.pagos.dto.MercadoPagoPreferenceResponseDto;
+import com.patiperro.pagos.model.Destino;
+import com.patiperro.pagos.model.EstadoPago;
+import com.patiperro.pagos.model.Origen;
+import com.patiperro.pagos.model.TipoTransaccion;
+import com.patiperro.pagos.model.Transaccion;
+import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.support.MercadoPagoApiClient;
+import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -27,12 +35,21 @@ public class MercadoPagoCheckoutService {
 
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final MercadoPagoCheckoutProperties checkoutProperties;
+    private final TransaccionRepository transaccionRepository;
+    private final PagoExternoService pagoExternoService;
+    private final ReservaPagosIntegracionClient reservaPagosIntegracionClient;
 
     public MercadoPagoCheckoutService(
             MercadoPagoApiClient mercadoPagoApiClient,
-            MercadoPagoCheckoutProperties checkoutProperties) {
+            MercadoPagoCheckoutProperties checkoutProperties,
+            TransaccionRepository transaccionRepository,
+            PagoExternoService pagoExternoService,
+            ReservaPagosIntegracionClient reservaPagosIntegracionClient) {
         this.mercadoPagoApiClient = mercadoPagoApiClient;
         this.checkoutProperties = checkoutProperties;
+        this.transaccionRepository = transaccionRepository;
+        this.pagoExternoService = pagoExternoService;
+        this.reservaPagosIntegracionClient = reservaPagosIntegracionClient;
     }
 
     /**
@@ -40,6 +57,7 @@ public class MercadoPagoCheckoutService {
      * Se usa formato {@code external_reference = "reserva-" + idReserva} para mantener paridad
      * con el prototipo validado en pago-service.
      */
+    @Transactional
     public Optional<PreferenciaCheckoutCreada> crearPreferenciaReserva(
             Integer idReserva,
             BigDecimal montoTotal,
@@ -98,12 +116,47 @@ public class MercadoPagoCheckoutService {
 
         logCuerpoPreferenciaAntesDePost(idReserva, body);
 
+        Transaccion tx = transaccionRepository
+                .findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(idReserva.longValue(), EstadoPago.PENDIENTE)
+                .map(existing -> {
+                    existing.setMontoBruto(montoTotal);
+                    existing.setComisionApp(BigDecimal.ZERO);
+                    existing.setMontoNeto(montoTotal);
+                    existing.setOrigen(Origen.CLIENTE);
+                    existing.setDestino(Destino.BANCO);
+                    existing.setTipoTransaccion(TipoTransaccion.PAGO_CLIENTE);
+                    return existing;
+                })
+                .orElseGet(() -> Transaccion.builder()
+                        .idReserva(idReserva.longValue())
+                        .montoBruto(montoTotal)
+                        .comisionApp(BigDecimal.ZERO)
+                        .montoNeto(montoTotal)
+                        .origen(Origen.CLIENTE)
+                        .destino(Destino.BANCO)
+                        .estadoPago(EstadoPago.PENDIENTE)
+                        .tipoTransaccion(TipoTransaccion.PAGO_CLIENTE)
+                        .build());
+        transaccionRepository.save(tx);
+        reservaPagosIntegracionClient.vincularTransaccionReserva(idReserva, tx.getIdTransaccion());
+
         Optional<MercadoPagoPreferenceResponseDto> pref =
                 mercadoPagoApiClient.crearPreferenciaCheckout(body, idempotencyKey);
         if (pref.isEmpty()) {
             return Optional.empty();
         }
         MercadoPagoPreferenceResponseDto dto = pref.get();
+        try {
+            pagoExternoService.upsertMercadoPagoPreferencia(
+                    tx,
+                    dto.id(),
+                    String.valueOf(body.get("external_reference")),
+                    "Checkout Pro preference created",
+                    null
+            );
+        } catch (RuntimeException ex) {
+            log.warn("Checkout MP: preferencia creada pero no se pudo registrar pago_externo (reserva={})", idReserva, ex);
+        }
         return Optional.of(new PreferenciaCheckoutCreada(
                 dto.id(),
                 dto.initPoint(),

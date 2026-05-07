@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import {
   crearReservaTutor,
+  iniciarCheckoutMercadoPagoReserva,
   nowLocalDateTimeISO,
   fetchAgendaOfertaPaseador,
   fetchEstadoSolicitadaId,
@@ -325,7 +326,19 @@ export default function SolicitudPaseo() {
       } catch (e) { console.error("Fallo notificación", e); }
       
       const bloqueResumen = `${selectedBloque?.fecha ?? ""} ${selectedBloque?.horaInicio ?? ""}-${selectedBloque?.horaFinal ?? ""}`;
-      navigate(`/tutor/pago-reserva?idReserva=${reservaCreada.idReserva}&total=${total}&paseador=${getPaseadorName(paseadorNombre)}&mascota=${selectedMascota?.nombre}&bloque=${bloqueResumen}`);
+      const pref = await iniciarCheckoutMercadoPagoReserva(reservaCreada.idReserva);
+      const query = new URLSearchParams({
+        idReserva: String(reservaCreada.idReserva),
+        total: String(total),
+        paseador: getPaseadorName(paseadorNombre),
+        mascota: selectedMascota?.nombre ?? "",
+        bloque: bloqueResumen,
+        preferenceId: pref.preferenceId ?? "",
+        urlCheckout: pref.urlCheckout ?? "",
+        sandboxInitPoint: pref.sandboxInitPoint ?? "",
+        initPoint: pref.initPoint ?? ""
+      });
+      navigate(`/tutor/pago-reserva?${query.toString()}`);
 
     } catch (error) {
       setErrors({ general: error instanceof Error ? error.message : "Error al crear reserva." });

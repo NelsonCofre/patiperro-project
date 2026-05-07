@@ -80,6 +80,59 @@ public class PagoExternoService {
         return pagoExternoRepository.save(e);
     }
 
+    /**
+     * Registra o actualiza el intento de checkout (preferencia creada), incluso antes de tener payment_id.
+     */
+    @Transactional
+    public PagoExterno upsertMercadoPagoPreferencia(
+            Transaccion transaccion,
+            String preferenceId,
+            String externalReference,
+            String statusDetail,
+            String rawJson
+    ) {
+        if (transaccion == null) {
+            throw new IllegalArgumentException("transaccion es obligatoria");
+        }
+        if (!StringUtils.hasText(preferenceId) && !StringUtils.hasText(externalReference)) {
+            throw new IllegalArgumentException("preferenceId o externalReference son obligatorios");
+        }
+
+        String pref = safe(preferenceId);
+        String ext = safe(externalReference);
+
+        PagoExterno existente = null;
+        if (StringUtils.hasText(pref)) {
+            existente = pagoExternoRepository.findByProviderAndPreferenceId(PROVIDER_MERCADOPAGO, pref).orElse(null);
+        }
+        if (existente == null && StringUtils.hasText(ext)) {
+            existente = pagoExternoRepository.findByProviderAndExternalReference(PROVIDER_MERCADOPAGO, ext).orElse(null);
+        }
+        if (existente == null && transaccion.getIdTransaccion() != null) {
+            existente = pagoExternoRepository.findByTransaccion_IdTransaccion(transaccion.getIdTransaccion()).orElse(null);
+        }
+
+        PagoExterno e = existente != null ? existente : new PagoExterno();
+        e.setTransaccion(transaccion);
+        e.setProvider(PROVIDER_MERCADOPAGO);
+        if (StringUtils.hasText(pref)) {
+            e.setPreferenceId(pref);
+        }
+        if (StringUtils.hasText(ext)) {
+            e.setExternalReference(ext);
+        }
+        if (!StringUtils.hasText(e.getStatus())) {
+            e.setStatus("preference_created");
+        }
+        if (StringUtils.hasText(statusDetail)) {
+            e.setStatusDetail(statusDetail.trim());
+        }
+        if (rawJson != null && !rawJson.isBlank()) {
+            e.setResponseJson(rawJson);
+        }
+        return pagoExternoRepository.save(e);
+    }
+
     private static String safe(String s) {
         if (s == null) {
             return null;

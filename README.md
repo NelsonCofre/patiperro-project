@@ -21,8 +21,11 @@ Tabla: `estado_reserva`
 - 4: `EN CURSO`
 - 5: `FINALIZADA`
 - 6: `CANCELADA`
+- 7: `PENDIENTE_PAGO`
+- 8: `PAGADA`
+- 9: `EXPIRADA`
 
-> Importante: el backend asume `ID_CANCELADA = 6`. No usar `EXPIRADA` en ese id.
+> Importante: el backend asume el catálogo completo con ids fijos (`CANCELADA = 6`, `PENDIENTE_PAGO = 7`, `PAGADA = 8`, `EXPIRADA = 9`).
 
 Query sugerida:
 
@@ -33,7 +36,10 @@ INSERT INTO estado_reserva (id_estado_reserva, nombre_estado) VALUES
 (3, 'RECHAZADA'),
 (4, 'EN CURSO'),
 (5, 'FINALIZADA'),
-(6, 'CANCELADA')
+(6, 'CANCELADA'),
+(7, 'PENDIENTE_PAGO'),
+(8, 'PAGADA'),
+(9, 'EXPIRADA')
 ON CONFLICT (id_estado_reserva) DO UPDATE
 SET nombre_estado = EXCLUDED.nombre_estado;
 ```

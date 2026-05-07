@@ -29,9 +29,7 @@ export default function PagoReservaTutor() {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingPreferencia, setLoadingPreferencia] = useState(false);
-  const [preferenceId, setPreferenceId] = useState("");
-  const [urlCheckout, setUrlCheckout] = useState("");
-  const [sandboxInitPoint, setSandboxInitPoint] = useState("");
+  const [preferenceId, setPreferenceId] = useState((searchParams.get("preferenceId") ?? "").trim());
   const [successMessage, setSuccessMessage] = useState("");
 
   const puedeMostrarBrick = useMemo(
@@ -63,9 +61,7 @@ export default function PagoReservaTutor() {
         throw new Error("Mercado Pago no devolvió preferenceId.");
       }
       setPreferenceId(dto.preferenceId);
-      setUrlCheckout(dto.urlCheckout || dto.initPoint || dto.sandboxInitPoint);
-      setSandboxInitPoint(dto.sandboxInitPoint || "");
-      setSuccessMessage("Preferencia creada. Puedes pagar embebido (Wallet) o abrir el checkout.");
+      setSuccessMessage("Preferencia creada. Completa el pago usando el botón de Mercado Pago.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo crear la preferencia.";
       setErrorMessage(message);
@@ -73,6 +69,13 @@ export default function PagoReservaTutor() {
       setLoadingPreferencia(false);
     }
   }
+
+  useEffect(() => {
+    if (preferenceId || loadingPreferencia) return;
+    if (!idReserva || total <= 0) return;
+    void handleCrearPreferencia();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idReserva, total, preferenceId]);
 
   return (
     <main className={styles.page}>
@@ -112,39 +115,17 @@ export default function PagoReservaTutor() {
             <strong>{total > 0 ? formatCurrency(total) : "--"}</strong>
           </div>
 
-          <p className={styles.note}>
-            Este flujo crea una preferencia Checkout Pro en pagos-service. Puedes pagar desde el Wallet embebido o abrir
-            el checkout de Mercado Pago.
-          </p>
-
           <div className={styles.actions}>
-            <button className={styles.primary} type="button" onClick={handleCrearPreferencia} disabled={loadingPreferencia}>
-              {loadingPreferencia ? "Creando preferencia..." : "Crear preferencia"}
-            </button>
             <Link className={styles.secondary} to="/tutor/dashboard">
               Cancelar
             </Link>
           </div>
 
+          {loadingPreferencia ? <p className={styles.note}>Preparando checkout de Mercado Pago...</p> : null}
+
           {puedeMostrarBrick && preferenceId ? (
             <div className={styles.brickSection}>
-              <p className={styles.note}>Paga usando Wallet (SDK Checkout Pro):</p>
               <Wallet initialization={{ preferenceId }} />
-              {urlCheckout ? (
-                <div className={styles.actions}>
-                  <a className={styles.primary} href={urlCheckout} target="_blank" rel="noreferrer">
-                    Abrir checkout en nueva pestaña
-                  </a>
-                </div>
-              ) : null}
-              {sandboxInitPoint ? (
-                <p className={styles.note}>
-                  Sandbox directo:{" "}
-                  <a href={sandboxInitPoint} target="_blank" rel="noreferrer">
-                    {sandboxInitPoint}
-                  </a>
-                </p>
-              ) : null}
             </div>
           ) : !preferenceId ? (
             <p className={styles.note}>

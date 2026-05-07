@@ -94,6 +94,13 @@ export type ReservaCreatedDTO = {
   nombreEstado: string;
 };
 
+export type CheckoutPreferenciaDTO = {
+  preferenceId: string;
+  initPoint: string;
+  sandboxInitPoint: string;
+  urlCheckout: string;
+};
+
 type ReservaBasicaDTO = {
   idReserva: number;
   idTutorUsuario: number;
@@ -250,6 +257,28 @@ export async function crearReservaTutor(payload: ReservaCreatePayload): Promise<
     throw new Error(readApiErrorMessage(data, "No se pudo crear la reserva."));
   }
   return data as ReservaCreatedDTO;
+}
+
+export async function iniciarCheckoutMercadoPagoReserva(idReserva: number): Promise<CheckoutPreferenciaDTO> {
+  const response = await fetch(API_ENDPOINTS.bookings.iniciarCheckoutMercadoPago(idReserva), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo iniciar checkout Mercado Pago."));
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("Respuesta inválida al iniciar checkout.");
+  }
+  const o = data as CheckoutPreferenciaDTO;
+  return {
+    preferenceId: o.preferenceId ?? "",
+    initPoint: o.initPoint ?? "",
+    sandboxInitPoint: o.sandboxInitPoint ?? "",
+    urlCheckout: o.urlCheckout ?? ""
+  };
 }
 
 export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {

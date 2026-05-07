@@ -90,7 +90,8 @@ export const API_ENDPOINTS = {
     bookings: `${API_BASE_URL}/api/tutor/bookings`
   },
   bookings: {
-    timeline: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/timeline`
+    timeline: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/timeline`,
+    iniciarCheckoutMercadoPago: (idBooking: number) => `${API_BASE_URL}/api/bookings/${idBooking}/mercadopago/checkout`
   },
   reservas: {
     validarCodigo: `${API_BASE_URL}/api/reservas/codigo/validar`,

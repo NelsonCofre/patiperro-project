@@ -2,13 +2,6 @@
   "configurations": [
     {
       "type": "java",
-      "name": "PagoServiceApplication",
-      "request": "launch",
-      "mainClass": "com.patiperro.pago.PagoServiceApplication",
-      "projectName": ""
-    },
-    {
-      "type": "java",
       "name": "ResenaServiceApplication",
       "request": "launch",
       "mainClass": "com.patiperro.resena.ResenaServiceApplication",
@@ -49,7 +42,7 @@
       "projectName": "tutores-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env",
-      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=56219 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=tutores-service"
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=tutores-service"
     },
     {
       "type": "java",
@@ -113,16 +106,6 @@
       "cwd": "${workspaceFolder}",
       "mainClass": "com.patiperro.resena.ResenaServiceApplication",
       "projectName": "resena-service",
-      "args": "",
-      "envFile": "${workspaceFolder}/.env"
-    },
-    {
-      "type": "java",
-      "name": "Spring Boot-PagoServiceApplication<pago-service>",
-      "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "mainClass": "com.patiperro.pago.PagoServiceApplication",
-      "projectName": "pago-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }
