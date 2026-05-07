@@ -23,6 +23,7 @@ import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO.TutorDecision;
 import com.patiperro.reserva.dto.integracion.TutorReservaClientDTO;
+import com.patiperro.reserva.dto.interno.ReservaComprobanteInternoDto;
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
@@ -759,6 +760,95 @@ public class ReservaService {
         return new ReservaParaPagoDto(
                 r.getIdReserva().longValue(),
                 r.getIdTutorUsuario().longValue(),
+                r.getMontoTotal(),
+                r.getIdPago());
+    }
+
+    /**
+     * Datos internos para que pagos-service pueda generar el resumen de transacción.
+     * No requiere JWT del tutor (es servidor-a-servidor): usa integraciones internas cuando existen.
+     */
+    @Transactional(readOnly = true)
+    public ReservaComprobanteInternoDto obtenerComprobanteInterno(Integer idReserva) {
+        Reserva r = reservaRepository.findById(idReserva)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+
+        Integer idAgendaBloque = r.getIdAgendaBloque();
+        Integer idTutorUsuario = r.getIdTutorUsuario();
+        Integer idMascota = r.getIdMascota();
+
+        // Agenda (interno): preferir para fecha/hora e id paseador.
+        Integer idPaseadorUsuario = null;
+        LocalDate fecha = null;
+        LocalDateTime horaInicio = null;
+        LocalDateTime horaFinal = null;
+        if (agendaIntegracionClient.isEnabled() && idAgendaBloque != null) {
+            try {
+                AgendaBloqueReservaClientDTO bloque = agendaIntegracionClient.obtenerBloquePorIdInterno(idAgendaBloque);
+                if (bloque != null) {
+                    idPaseadorUsuario = bloque.getIdUsuario();
+                    fecha = bloque.getFecha();
+                    horaInicio = bloque.getHoraInicio();
+                    horaFinal = bloque.getHoraFinal();
+                }
+            } catch (RuntimeException e) {
+                // Si agenda no responde, dejamos nulls; el comprobante puede degradar en UI.
+            }
+        }
+
+        // Mascota (interno): nombre.
+        String mascotaNombre = "Mascota #" + (idMascota != null ? idMascota : "?");
+        if (idMascota != null) {
+            try {
+                MascotaInternoDetalleResponseDTO detalle = mascotaIntegracionClient.obtenerDetalleInterno(idMascota);
+                if (detalle != null && StringUtils.hasText(detalle.getNombre())) {
+                    mascotaNombre = detalle.getNombre().trim();
+                } else {
+                    MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(idMascota);
+                    if (portada != null && StringUtils.hasText(portada.getNombre())) {
+                        mascotaNombre = portada.getNombre().trim();
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // fallback
+            }
+        }
+
+        // Paseador: usar servicio público (sin JWT).
+        String paseadorNombre = "Paseador";
+        if (idPaseadorUsuario != null) {
+            try {
+                PaseadorResumenDTO paseador = paseadorIntegracionClient.obtenerResumen(idPaseadorUsuario);
+                if (paseador != null && StringUtils.hasText(paseador.getNombreCompleto())) {
+                    paseadorNombre = paseador.getNombreCompleto().trim();
+                }
+            } catch (RuntimeException ignored) {
+                // fallback
+            }
+        }
+
+        // Tutor: correo interno.
+        String tutorCorreo = null;
+        if (idTutorUsuario != null) {
+            try {
+                tutorCorreo = tutorIntegracionClient.obtenerCorreoInterno(idTutorUsuario.longValue());
+            } catch (RuntimeException ignored) {
+                tutorCorreo = null;
+            }
+        }
+
+        return new ReservaComprobanteInternoDto(
+                r.getIdReserva(),
+                idTutorUsuario,
+                tutorCorreo,
+                idMascota,
+                mascotaNombre,
+                idPaseadorUsuario,
+                paseadorNombre,
+                idAgendaBloque,
+                fecha,
+                horaInicio,
+                horaFinal,
                 r.getMontoTotal(),
                 r.getIdPago());
     }

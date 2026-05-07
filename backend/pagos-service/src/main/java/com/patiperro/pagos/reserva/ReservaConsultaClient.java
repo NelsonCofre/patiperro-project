@@ -3,6 +3,7 @@ package com.patiperro.pagos.reserva;
 import com.patiperro.pagos.reserva.dto.ReservaBilleteraDetalleDto;
 import com.patiperro.pagos.reserva.dto.ReservaConsultaDto;
 import com.patiperro.pagos.reserva.dto.ReservaInternoBilleteraDetallesRequest;
+import com.patiperro.pagos.reserva.dto.ReservaComprobanteDto;
 import com.patiperro.pagos.support.ReservaPagosIntegracionClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,6 +104,32 @@ public class ReservaConsultaClient {
             }
             if (e.getStatusCode().value() == 409) {
                 throw new IllegalStateException("Estado de reserva no permite iniciar pago");
+            }
+            throw new IllegalStateException("reserva-service respondió " + e.getStatusCode(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("No se pudo consultar reserva-service", e);
+        }
+    }
+
+    public ReservaComprobanteDto obtenerComprobanteInterno(Long idReserva) {
+        if (idReserva == null) {
+            throw new IllegalArgumentException("idReserva es obligatorio");
+        }
+        if (restClient == null || !StringUtils.hasText(internoSecret)) {
+            throw new IllegalStateException("Integración reserva no configurada (base-url o secreto interno)");
+        }
+        try {
+            return restClient.get()
+                    .uri("/api/reserva/interno/{id}/comprobante", idReserva)
+                    .header(ReservaPagosIntegracionClient.HEADER_INTERNO, internoSecret)
+                    .retrieve()
+                    .body(ReservaComprobanteDto.class);
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                throw new IllegalArgumentException("Reserva no encontrada");
+            }
+            if (e.getStatusCode().value() == 409) {
+                throw new IllegalStateException("Conflicto al obtener comprobante interno");
             }
             throw new IllegalStateException("reserva-service respondió " + e.getStatusCode(), e);
         } catch (RestClientException e) {

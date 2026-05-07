@@ -8,6 +8,7 @@ import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
 import com.patiperro.reserva.dto.interno.InternoBilleteraDetallesRequest;
 import com.patiperro.reserva.dto.interno.InternoBilleteraReservaDetalleDto;
+import com.patiperro.reserva.dto.interno.ReservaComprobanteInternoDto;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -70,6 +71,21 @@ public class ReservaController {
     public List<InternoBilleteraReservaDetalleDto> detallesBilleteraInterno(
             @Valid @RequestBody InternoBilleteraDetallesRequest body) {
         return service.listarDetallesBilleteraInterno(body.idUsuarioPaseador(), body.idsReserva());
+    }
+
+    /**
+     * Datos internos para comprobante/resumen de transacción (pagos-service).
+     * Ruta interna: requiere cabecera secreta validada por el filtro de reserva-service.
+     */
+    @GetMapping("/interno/{idReserva}/comprobante")
+    public ResponseEntity<ReservaComprobanteInternoDto> obtenerComprobanteInterno(@PathVariable Integer idReserva) {
+        try {
+            return ResponseEntity.ok(service.obtenerComprobanteInterno(idReserva));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 
     // =========================================================================
