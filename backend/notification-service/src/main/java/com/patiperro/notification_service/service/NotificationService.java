@@ -40,6 +40,9 @@ public class NotificationService {
     @Value("${patiperro.notification.brevo.template.REEMBOLSO_RESERVA:5}")
     private Long brevoTemplateReembolsoReserva;
 
+    @Value("${patiperro.notification.brevo.template.RESUMEN_PAGO_TUTOR:6}")
+    private Long brevoTemplateResumenPagoTutor;
+
     // =========================================================================
     // GESTIÓN DE PLANTILLAS (Configuración del Sistema)
     // =========================================================================
@@ -251,6 +254,7 @@ public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
             case "SOLICITUD_PASEO" -> 3L;    // Conecta con tu plantilla "#3 Nueva plantilla"
             case "PAGO_CONFIRMADO" -> brevoTemplatePagoConfirmado != null ? brevoTemplatePagoConfirmado : 4L;
             case "REEMBOLSO_RESERVA" -> brevoTemplateReembolsoReserva != null ? brevoTemplateReembolsoReserva : 5L;
+            case "RESUMEN_PAGO_TUTOR" -> brevoTemplateResumenPagoTutor != null ? brevoTemplateResumenPagoTutor : 6L;
             default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
         };
     }

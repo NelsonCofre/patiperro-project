@@ -93,6 +93,39 @@ public class InternalPagosController {
     }
 
     /**
+     * Resumen de transacción post-pago al tutor. HTML legible (no PDF).
+     * Body: {@code idReserva} obligatorio; {@code emailDestino} y {@code htmlResumen} obligatorios para envío.
+     */
+    @PostMapping("/resumen-pago-tutor")
+    public ResponseEntity<Void> resumenPagoTutor(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestBody(required = false) ResumenPagoTutorRequest body) {
+        if (!StringUtils.hasText(internoSecret)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!internoSecret.equals(secretoHeader)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (body == null || body.idReserva() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        // Validación defensiva: no aceptar payloads vacíos o absurdamente grandes.
+        if (!StringUtils.hasText(body.emailDestino()) || !StringUtils.hasText(body.htmlResumen())) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (body.htmlResumen().length() > 100_000) {
+            // Evitar abuso / DoS por bodies gigantes (el service truncará más abajo para proveedor).
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).build();
+        }
+        pagoNotificacionService.procesarResumenPagoTutor(
+                body.idReserva(),
+                body.idTutorUsuario(),
+                body.emailDestino(),
+                body.htmlResumen());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * {@code emailDestino}: correo del paseador (opcional); sin él no se envía Brevo pero el endpoint sigue siendo 204.
      */
     public record PagoConfirmadoRequest(Integer idReserva, Integer idPaseador, String emailDestino) {}
@@ -101,4 +134,6 @@ public class InternalPagosController {
 
     /** {@code idTutor} opcional (solo variables plantilla; el correo sigue siendo {@code emailDestino}). */
     public record ReembolsoProcesadoRequest(Integer idReserva, String emailDestino, Integer idTutor) {}
+
+    public record ResumenPagoTutorRequest(Long idReserva, Long idTutorUsuario, String emailDestino, String htmlResumen) {}
 }

@@ -37,6 +37,7 @@ class ReservaServicePostgresIntegrationTest {
         r.add("patiperro.reserva.reembolso.reconciliacion.scheduler.enabled", () -> "false");
         r.add("patiperro.reserva.notificacion-reembolso.scheduler.enabled", () -> "false");
         r.add("patiperro.reserva.integracion.pagos-reembolso.enabled", () -> "false");
+        r.add("patiperro.reserva.integracion.pagos-comprobante.enabled", () -> "false");
         r.add("patiperro.reserva.integracion.notificacion-reembolso.enabled", () -> "false");
     }
 

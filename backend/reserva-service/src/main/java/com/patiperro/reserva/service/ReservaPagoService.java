@@ -9,6 +9,7 @@ import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.NotificacionPagoIntegracionClient;
 import com.patiperro.reserva.support.PagosBilleteraIntegracionClient;
+import com.patiperro.reserva.support.PagosComprobanteIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -41,6 +42,7 @@ public class ReservaPagoService {
     private final NotificacionPagoIntegracionClient notificacionPagoIntegracionClient;
     private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final PagosBilleteraIntegracionClient pagosBilleteraIntegracionClient;
+    private final PagosComprobanteIntegracionClient pagosComprobanteIntegracionClient;
 
     /**
      * Persiste el enlace a la transacción en pagos-service (checkout iniciado desde pagos-service).
@@ -102,6 +104,7 @@ public class ReservaPagoService {
                     reservaRepository.save(r);
                 }
                 programarSincroniaExternaTrasCommitPago(r.getIdAgendaBloque(), false, null, null, null);
+                programarComprobantePostCommit(idReserva);
                 return;
             }
         }
@@ -173,6 +176,7 @@ public class ReservaPagoService {
 
         programarSincroniaExternaTrasCommitPago(
                 saved.getIdAgendaBloque(), true, saved.getIdReserva(), saved.getIdPago(), idPaseador);
+        programarComprobantePostCommit(saved.getIdReserva());
 
         log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
                 saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
@@ -185,6 +189,36 @@ public class ReservaPagoService {
     /**
      * Tras COMMIT de la reserva: acreditación billetera (solo primera vez PAGADA) y sincronía agenda (siempre best-effort).
      */
+    /**
+     * Best-effort tras COMMIT: generar/persistir comprobante en pagos-service y disparar correo al tutor si está configurado.
+     * Idempotente del lado de pagos ({@code UNIQUE(id_reserva)}); reintentos por webhook tardío son seguros.
+     */
+    private void programarComprobantePostCommit(Integer idReserva) {
+        if (idReserva == null || !pagosComprobanteIntegracionClient.isEnabled()) {
+            return;
+        }
+        Runnable task =
+                () -> {
+                    if (!pagosComprobanteIntegracionClient.generarYEnviarResumen(idReserva, false)) {
+                        log.warn(
+                                "Post-commit comprobante: pagos-service no confirmó éxito (idReserva={}); "
+                                        + "el tutor puede consultar luego GET /api/pagos/comprobante/<idReserva>",
+                                idReserva);
+                    }
+                };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            task.run();
+                        }
+                    });
+        } else {
+            task.run();
+        }
+    }
+
     private void programarSincroniaExternaTrasCommitPago(
             Integer idAgendaBloque,
             boolean acreditarBilletera,

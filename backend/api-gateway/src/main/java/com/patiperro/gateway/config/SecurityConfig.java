@@ -83,6 +83,8 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/webhooks/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/paseador/**"))
                                 .hasRole("PASEADOR")
+                        .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/comprobante/**"))
+                                .hasRole("TUTOR")
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/pagos/checkout/**"))
                                 .hasRole("TUTOR")
                         .requestMatchers(PathPatternRequestMatcher.pathPattern("/api/**")).authenticated()
