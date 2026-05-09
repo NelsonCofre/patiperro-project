@@ -39,15 +39,15 @@ spring:
               predicates:
                 - Path=/api/paseadores/**
             - id: reserva-service
-              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8090}
               predicates:
                 - Path=/api/reserva/**
             - id: reserva-bookings-query
-              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8090}
               predicates:
                 - Path=/api/tutor/**,/api/bookings/**
             - id: reserva-plural-routes
-              uri: ${RESERVA_SERVICE_URI:http://localhost:8085}
+              uri: ${RESERVA_SERVICE_URI:http://localhost:8090}
               predicates:
                 - Path=/api/reservas/**
             # Login/registro/logout tutor: /api/auth/tutores (subida de foto usa /api/tutores/auth/...).

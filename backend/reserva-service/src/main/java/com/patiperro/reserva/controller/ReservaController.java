@@ -42,7 +42,7 @@ public class ReservaController {
      * Verifica si una lista de bloques de agenda tiene compromisos activos.
      * Es utilizado por el microservicio de Agenda antes de permitir ediciones.
      * Requiere cabecera {@code X-Patiperro-Interno-Secret} ({@code patiperro.reserva.interno.secret}).
-     * URL: POST http://localhost:8085/api/reserva/interno/conflicto-bloqueo
+     * URL: POST http://localhost:8090/api/reserva/interno/conflicto-bloqueo
      */
     @PostMapping("/interno/conflicto-bloqueo")
     public boolean conflictoPorBloques(@RequestBody List<Integer> idsAgendaBloque) {

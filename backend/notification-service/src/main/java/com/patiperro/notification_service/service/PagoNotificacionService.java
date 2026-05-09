@@ -22,13 +22,8 @@ public class PagoNotificacionService {
 
     public static final String TIPO_EVENTO_REEMBOLSO_RESERVA = "REEMBOLSO_RESERVA";
 
-    public static final String TIPO_EVENTO_RESUMEN_PAGO_TUTOR = "RESUMEN_PAGO_TUTOR";
-
-    /**
-     * Límite defensivo para HTML enviado a proveedor de correo (evita payloads enormes / abuso).
-     * Debe ser suficiente para un comprobante simple.
-     */
-    private static final int HTML_RESUMEN_MAX_CHARS = 20_000;
+    /** Resumen de transacción / comprobante informativo al tutor tras pago aprobado. */
+    public static final String TIPO_EVENTO_RESUMEN_COMPROBANTE_TUTOR = "RESUMEN_COMPROBANTE_TUTOR";
 
     private final NotificationService notificationService;
 
@@ -74,6 +69,39 @@ public class PagoNotificacionService {
     }
 
     /**
+     * Correo al tutor con el HTML del resumen de transacción (plantilla Brevo: variable {@code cuerpoHtml} en {@code params}, típicamente HTML sin escapar).
+     *
+     * @return {@code false} si hay datos inválidos esenciales o falla el envío a Brevo; {@code true} si no había nada que enviar (sin correo) o el disparo terminó bien
+     */
+    public boolean procesarResumenComprobanteTutor(Integer idReserva, String emailDestino, String cuerpoHtml) {
+        if (idReserva == null) {
+            log.warn("Resumen comprobante tutor: idReserva nulo; se ignora");
+            return false;
+        }
+        if (!StringUtils.hasText(emailDestino)) {
+            log.info("Resumen comprobante tutor: sin email destino; omitido (idReserva={})", idReserva);
+            return true;
+        }
+
+        NotificacionEventoRequest req = new NotificacionEventoRequest();
+        req.setEmailDestino(emailDestino.trim());
+        req.setTipoEvento(TIPO_EVENTO_RESUMEN_COMPROBANTE_TUTOR);
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("idReserva", idReserva);
+        vars.put("cuerpoHtml", cuerpoHtml != null ? cuerpoHtml : "");
+        req.setVariables(vars);
+
+        try {
+            notificationService.procesarEventoUniversal(req);
+            return true;
+        } catch (RuntimeException e) {
+            log.warn("Resumen comprobante tutor: fallo Brevo (idReserva={}, destinatario parcial={})",
+                    idReserva, enmascararEmail(emailDestino), e);
+            return false;
+        }
+    }
+
+    /**
      * @param emailDestino correo del tutor; vacío → solo log, sin Brevo
      */
     public void procesarReembolsoTutor(Integer idReserva, String emailDestino) {
@@ -92,57 +120,6 @@ public class PagoNotificacionService {
             return;
         }
         dispararEventoReembolsoReserva(idReserva, emailDestino, idTutor, "reembolso-procesado");
-    }
-
-    /**
-     * Envía al tutor un resumen de transacción post-pago (HTML legible).
-     * Si {@code emailDestino} viene vacío, se omite envío.
-     */
-    public void procesarResumenPagoTutor(Long idReserva, Long idTutorUsuario, String emailDestino, String htmlResumen) {
-        if (idReserva == null) {
-            log.warn("Resumen pago tutor: idReserva nulo; se ignora");
-            return;
-        }
-        if (!StringUtils.hasText(emailDestino)) {
-            log.info("Resumen pago tutor: sin email destino; omitido envío (idReserva={}, idTutor={})",
-                    idReserva, idTutorUsuario);
-            return;
-        }
-        if (!StringUtils.hasText(htmlResumen)) {
-            log.info("Resumen pago tutor: sin htmlResumen; omitido envío (idReserva={}, idTutor={})",
-                    idReserva, idTutorUsuario);
-            return;
-        }
-
-        String htmlSafe = truncateForProvider(htmlResumen);
-
-        NotificacionEventoRequest req = new NotificacionEventoRequest();
-        req.setEmailDestino(emailDestino.trim());
-        req.setTipoEvento(TIPO_EVENTO_RESUMEN_PAGO_TUTOR);
-        Map<String, Object> vars = new HashMap<>();
-        vars.put("idReserva", idReserva);
-        vars.put("idTutorUsuario", idTutorUsuario != null ? idTutorUsuario : "");
-        vars.put("htmlResumen", htmlSafe);
-        req.setVariables(vars);
-
-        try {
-            notificationService.procesarEventoUniversal(req);
-        } catch (RuntimeException e) {
-            log.warn("Resumen pago tutor: fallo al disparar notificación (idReserva={}, destinatario parcial={})",
-                    idReserva, enmascararEmail(emailDestino), e);
-        }
-    }
-
-    private static String truncateForProvider(String html) {
-        if (html == null) {
-            return "";
-        }
-        String t = html.trim();
-        if (t.length() <= HTML_RESUMEN_MAX_CHARS) {
-            return t;
-        }
-        // Cortar sin intentar “arreglar” HTML: el template puede tratarlo como bloque.
-        return t.substring(0, HTML_RESUMEN_MAX_CHARS) + "\n<!-- truncado -->";
     }
 
     private void dispararEventoReembolsoReserva(Integer idReserva, String emailDestino, Integer idTutor, String origenLog) {

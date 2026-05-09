@@ -15,28 +15,24 @@ import org.springframework.web.client.RestClientResponseException;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Tras marcar reserva PAGADA: invoca pagos-service para generar/persistir comprobante y (opcional) correo al tutor.
- * Best-effort; ejecutar después de COMMIT desde {@code ReservaPagoService}.
+ * Invoca {@code POST /api/pagos/interno/comprobante/generar} en pagos-service tras reserva PAGADA.
  */
 @Component
 public class PagosComprobanteIntegracionClient {
 
     private static final Logger log = LoggerFactory.getLogger(PagosComprobanteIntegracionClient.class);
 
-    private static final String HEADER_INTERNO = PagosReembolsoIntegracionClient.HEADER_INTERNO;
+    public static final String HEADER_INTERNO = PagosReembolsoIntegracionClient.HEADER_INTERNO;
 
-    /** Correlación servidor-a-servidor (solo idReserva; sin secretos ni cuerpo). */
-    static final String HEADER_CORRELATION = "X-Patiperro-Comprobante-Correlation";
+    /** Misma convención que notification-service / pagos-service para encadenar logs. */
+    public static final String HEADER_CORRELATION = "X-Patiperro-Comprobante-Correlation";
 
-    private static final String URI_GENERAR_ENVIAR = "/api/pagos/interno/comprobante/generar-y-enviar";
+    private static final String URI_GENERAR = "/api/pagos/interno/comprobante/generar";
 
-    /**
-     * Si no defines {@code patiperro.reserva.integracion.pagos-comprobante.read-timeout-ms}
-     * y heredas el timeout largo de reembolso, acotamos lectura para no bloquear hilos post-{@code COMMIT} demasiado tiempo.
-     */
-    private static final long READ_TIMEOUT_MS_FALLBACK_CAP = 45_000L;
+    private static final int BODY_DEBUG_MAX_CHARS = 512;
 
     private final RestClient restClient;
     private final boolean enabled;
@@ -46,78 +42,112 @@ public class PagosComprobanteIntegracionClient {
             RestClient.Builder restClientBuilder,
             PagosComprobanteIntegracionProperties comprobanteProps,
             PagosReembolsoIntegracionProperties reembolsoProps) {
-        String base = normalizeBaseUrl(resolveNonBlank(comprobanteProps.getBaseUrl(), reembolsoProps.getBaseUrl()));
-        long connectTimeoutMs = resolveLong(comprobanteProps.getConnectTimeoutMs(), reembolsoProps.getConnectTimeoutMs());
-        long readTimeoutMs = resolveReadTimeoutMs(comprobanteProps, reembolsoProps);
-        String secret = resolveNonBlank(comprobanteProps.getInterno().getSecret(), reembolsoProps.getInterno().getSecret());
-        this.internoSecret = secret != null ? secret.trim() : "";
-        this.enabled = comprobanteProps.isEnabled() && StringUtils.hasText(base) && StringUtils.hasText(this.internoSecret);
+        this.enabled = comprobanteProps.isEnabled();
+        String base = normalizeBaseUrl(
+                resolveNonBlank(comprobanteProps.getBaseUrl(), reembolsoProps.getBaseUrl()));
+        long connectMs =
+                comprobanteProps.getConnectTimeoutMs() > 0
+                        ? comprobanteProps.getConnectTimeoutMs()
+                        : Math.max(0L, reembolsoProps.getConnectTimeoutMs());
+        long readMs = resolveReadTimeoutMs(comprobanteProps, reembolsoProps);
         this.restClient = base.isEmpty()
                 ? null
                 : restClientBuilder
-                        .requestFactory(requestFactory(connectTimeoutMs, readTimeoutMs))
+                        .requestFactory(requestFactory(connectMs, readMs))
                         .baseUrl(base)
                         .build();
-        logEstadoArranque(comprobanteProps.isEnabled(), base, this.internoSecret);
+        String secret =
+                resolveNonBlank(comprobanteProps.getInterno().getSecret(), reembolsoProps.getInterno().getSecret());
+        this.internoSecret = secret != null ? secret.trim() : "";
     }
 
-    private void logEstadoArranque(boolean solicitadoPorPropiedad, String baseUrlEfectiva, String secretoEfectivo) {
-        if (!solicitadoPorPropiedad) {
-            return;
+    private static long resolveReadTimeoutMs(
+            PagosComprobanteIntegracionProperties comprobanteProps,
+            PagosReembolsoIntegracionProperties reembolsoProps) {
+        if (comprobanteProps.getReadTimeoutMs() > 0) {
+            return Math.min(Math.max(comprobanteProps.getReadTimeoutMs(), 1_000L), 600_000L);
         }
-        if (!isEnabled()) {
-            if (!StringUtils.hasText(baseUrlEfectiva)) {
-                log.warn(
-                        "pagos-comprobante: RESERVA_INTEGRACION_PAGOS_COMPROBANTE_ENABLED=true pero no hay base-url efectiva; "
-                                + "definir RESERVA_INTEGRACION_PAGOS_COMPROBANTE_BASE_URL o patiperro.reserva.integracion.pagos-reembolso.base-url "
-                                + "(p. ej. PAGOS_SERVICE_URL)");
-            } else if (!StringUtils.hasText(secretoEfectivo)) {
-                log.warn(
-                        "pagos-comprobante: enabled=true pero falta secreto interno efectivo; "
-                                + "debe coincidir con patiperro.pagos.interno.secret (p. ej. PAGOS_INTERNO_SECRET o "
-                                + "RESERVA_INTEGRACION_PAGOS_COMPROBANTE_INTERNO_SECRET)");
-            }
-            return;
+        long inherited = Math.max(0L, reembolsoProps.getReadTimeoutMs());
+        if (inherited <= 0) {
+            inherited = 30_000L;
         }
-        log.info(
-                "pagos-comprobante: integración activa (tras COMMIT → POST interno en pagos-service). "
-                        + "Correo al tutor depende de pagos-service (PAGOS_INTEGRACION_NOTIFICATION_ENABLED) y notification-service.");
+        return Math.min(Math.max(inherited, 1_000L), 45_000L);
     }
 
     public boolean isEnabled() {
-        return enabled && restClient != null;
+        return enabled && restClient != null && StringUtils.hasText(internoSecret);
     }
 
     /**
-     * @return {@code true} si pagos-service respondió 2xx
+     * @return {@code true} solo si pagos respondió 204 No Content.
      */
-    public boolean generarYEnviarResumen(Integer idReserva, boolean forceEnviarCorreo) {
-        if (!isEnabled() || idReserva == null) {
+    public boolean generarYEnviarResumen(Integer idReserva, boolean reenviarCorreo) {
+        if (idReserva == null) {
+            return false;
+        }
+        if (!isEnabled()) {
+            if (enabled && restClient == null) {
+                log.debug("Comprobante pagos: habilitado pero sin base-url; omitido (reserva={})", idReserva);
+            } else if (enabled && restClient != null && !StringUtils.hasText(internoSecret)) {
+                log.debug("Comprobante pagos: falta secreto interno; omitido");
+            }
             return false;
         }
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("idReserva", idReserva.longValue());
-        body.put("forceEnviarCorreo", forceEnviarCorreo);
+        body.put("idReserva", idReserva);
+        body.put("reenviarCorreo", reenviarCorreo);
         try {
-            var entity = restClient.post()
-                    .uri(URI_GENERAR_ENVIAR)
+            var entity = restClient
+                    .post()
+                    .uri(URI_GENERAR)
                     .header(HEADER_INTERNO, internoSecret)
-                    .header(HEADER_CORRELATION, correlationValue(idReserva))
+                    .header(HEADER_CORRELATION, UUID.randomUUID().toString())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
-            return entity.getStatusCode().is2xxSuccessful();
+            boolean ok = entity.getStatusCode().value() == 204;
+            if (!ok) {
+                log.warn(
+                        "Comprobante pagos: respuesta inesperada {} (reserva={})",
+                        entity.getStatusCode().value(),
+                        idReserva);
+            }
+            return ok;
         } catch (RestClientResponseException e) {
-            log.warn("Comprobante post-pago: pagos-service HTTP {} (idReserva={})", e.getStatusCode().value(), idReserva);
+            log.warn(
+                    "Comprobante pagos: HTTP {} (reserva={})",
+                    e.getStatusCode().value(),
+                    idReserva);
+            logResponseBodyDebug(e);
             return false;
         } catch (RestClientException e) {
-            log.warn("Comprobante post-pago: error de red (idReserva={})", idReserva, e);
-            return false;
-        } catch (RuntimeException e) {
-            log.warn("Comprobante post-pago: error inesperado (idReserva={})", idReserva, e);
+            log.warn("Comprobante pagos: llamada no completada (reserva={})", idReserva, e);
             return false;
         }
+    }
+
+    private void logResponseBodyDebug(RestClientResponseException e) {
+        if (!log.isDebugEnabled()) {
+            return;
+        }
+        try {
+            String raw = e.getResponseBodyAsString();
+            log.debug("Comprobante pagos: cuerpo (truncado): {}", truncateForLog(raw));
+        } catch (RuntimeException ignored) {
+            log.debug("Comprobante pagos: cuerpo no disponible");
+        }
+    }
+
+    private static String truncateForLog(String body) {
+        if (body == null) {
+            return "";
+        }
+        String t = body.trim().replaceAll("\\s+", " ");
+        if (t.length() <= BODY_DEBUG_MAX_CHARS) {
+            return t;
+        }
+        return t.substring(0, BODY_DEBUG_MAX_CHARS) + "…";
     }
 
     private static String normalizeBaseUrl(String raw) {
@@ -136,39 +166,6 @@ public class PagosComprobanteIntegracionClient {
             return preferred;
         }
         return fallback != null ? fallback : "";
-    }
-
-    private static long resolveLong(String raw, long fallback) {
-        if (!StringUtils.hasText(raw)) {
-            return fallback;
-        }
-        try {
-            return Long.parseLong(raw.trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
-
-    /**
-     * Timeout de lectura: si está definido explícitamente en comprobante.* se respeta (clamp en factory).
-     * Si se hereda de reembolso y éste es muy alto, se acota a {@link #READ_TIMEOUT_MS_FALLBACK_CAP}.
-     */
-    private static long resolveReadTimeoutMs(
-            PagosComprobanteIntegracionProperties comprobanteProps,
-            PagosReembolsoIntegracionProperties reembolsoProps) {
-        long inherited = reembolsoProps.getReadTimeoutMs();
-        if (StringUtils.hasText(comprobanteProps.getReadTimeoutMs())) {
-            return resolveLong(comprobanteProps.getReadTimeoutMs(), inherited);
-        }
-        long effective = inherited;
-        if (effective > READ_TIMEOUT_MS_FALLBACK_CAP) {
-            effective = READ_TIMEOUT_MS_FALLBACK_CAP;
-        }
-        return Math.max(1_000L, effective);
-    }
-
-    private static String correlationValue(Integer idReserva) {
-        return "reserva-" + idReserva;
     }
 
     private static SimpleClientHttpRequestFactory requestFactory(long connectTimeoutMs, long readTimeoutMs) {

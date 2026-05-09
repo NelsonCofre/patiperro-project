@@ -6,18 +6,18 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 @ConfigurationProperties(prefix = "patiperro.reserva.integracion.pagos-comprobante")
 public class PagosComprobanteIntegracionProperties {
 
-    /** Desactivado por defecto: evita llamadas a pagos-service en CI / si no está configurado notification en pagos. */
     private boolean enabled = false;
 
+    /** Vacío = heredar base-url de {@code pagos-reembolso}. */
     private String baseUrl = "";
+
+    private long connectTimeoutMs = 5000;
+
+    /** 0 = derivar de pagos-reembolso con tope 45s para hilos post-commit. */
+    private long readTimeoutMs = 0;
 
     @NestedConfigurationProperty
     private final Interno interno = new Interno();
-
-    /** Vacío = hereda timeouts de pagos-reembolso. */
-    private String connectTimeoutMs = "";
-
-    private String readTimeoutMs = "";
 
     public boolean isEnabled() {
         return enabled;
@@ -35,28 +35,29 @@ public class PagosComprobanteIntegracionProperties {
         this.baseUrl = baseUrl;
     }
 
+    public long getConnectTimeoutMs() {
+        return connectTimeoutMs;
+    }
+
+    public void setConnectTimeoutMs(long connectTimeoutMs) {
+        this.connectTimeoutMs = connectTimeoutMs;
+    }
+
+    public long getReadTimeoutMs() {
+        return readTimeoutMs;
+    }
+
+    public void setReadTimeoutMs(long readTimeoutMs) {
+        this.readTimeoutMs = readTimeoutMs;
+    }
+
     public Interno getInterno() {
         return interno;
     }
 
-    public String getConnectTimeoutMs() {
-        return connectTimeoutMs;
-    }
-
-    public void setConnectTimeoutMs(String connectTimeoutMs) {
-        this.connectTimeoutMs = connectTimeoutMs;
-    }
-
-    public String getReadTimeoutMs() {
-        return readTimeoutMs;
-    }
-
-    public void setReadTimeoutMs(String readTimeoutMs) {
-        this.readTimeoutMs = readTimeoutMs;
-    }
-
     public static class Interno {
 
+        /** Vacío = heredar secreto de pagos-reembolso. */
         private String secret = "";
 
         public String getSecret() {

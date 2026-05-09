@@ -9,7 +9,6 @@ import com.patiperro.reserva.repository.ReservaRepository;
 import com.patiperro.reserva.support.AgendaIntegracionClient;
 import com.patiperro.reserva.support.NotificacionPagoIntegracionClient;
 import com.patiperro.reserva.support.PagosBilleteraIntegracionClient;
-import com.patiperro.reserva.support.PagosComprobanteIntegracionClient;
 import com.patiperro.reserva.support.PaseadorIntegracionClient;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -42,7 +41,7 @@ public class ReservaPagoService {
     private final NotificacionPagoIntegracionClient notificacionPagoIntegracionClient;
     private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final PagosBilleteraIntegracionClient pagosBilleteraIntegracionClient;
-    private final PagosComprobanteIntegracionClient pagosComprobanteIntegracionClient;
+    private final ReservaComprobantePostCommitRunner reservaComprobantePostCommitRunner;
 
     /**
      * Persiste el enlace a la transacción en pagos-service (checkout iniciado desde pagos-service).
@@ -194,18 +193,10 @@ public class ReservaPagoService {
      * Idempotente del lado de pagos ({@code UNIQUE(id_reserva)}); reintentos por webhook tardío son seguros.
      */
     private void programarComprobantePostCommit(Integer idReserva) {
-        if (idReserva == null || !pagosComprobanteIntegracionClient.isEnabled()) {
+        if (idReserva == null || !reservaComprobantePostCommitRunner.isSchedulingEnabled()) {
             return;
         }
-        Runnable task =
-                () -> {
-                    if (!pagosComprobanteIntegracionClient.generarYEnviarResumen(idReserva, false)) {
-                        log.warn(
-                                "Post-commit comprobante: pagos-service no confirmó éxito (idReserva={}); "
-                                        + "el tutor puede consultar luego GET /api/pagos/comprobante/<idReserva>",
-                                idReserva);
-                    }
-                };
+        Runnable task = () -> reservaComprobantePostCommitRunner.generarBestEffort(idReserva);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
