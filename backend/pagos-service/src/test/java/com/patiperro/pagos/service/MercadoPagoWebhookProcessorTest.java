@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -45,6 +46,9 @@ class MercadoPagoWebhookProcessorTest {
     @Mock
     private PagoExternoService pagoExternoService;
 
+    @Mock
+    private RecaudacionPlataformaService recaudacionPlataformaService;
+
     private MercadoPagoWebhookProcessor processor;
 
     @BeforeEach
@@ -66,6 +70,7 @@ class MercadoPagoWebhookProcessorTest {
                 transaccionRepository,
                 pagoExternoService,
                 netoTransaccionService,
+                recaudacionPlataformaService,
                 webhookProperties);
     }
 
@@ -96,6 +101,7 @@ class MercadoPagoWebhookProcessorTest {
         assertThat(txCaptor.getValue().getComisionApp()).isEqualByComparingTo("500.00");
         assertThat(txCaptor.getValue().getMontoNeto()).isEqualByComparingTo("9500.00");
 
+        verify(recaudacionPlataformaService).registrarCobroAprobado(txCaptor.getValue());
         verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq(555L), eq("999"));
         verify(reservaPagosIntegracionClient, never()).notificarPagoNoAprobado(
                 anyInt(), anyString(), anyString(), anyString());
@@ -120,6 +126,26 @@ class MercadoPagoWebhookProcessorTest {
     }
 
     @Test
+    void procesar_aprobado_siFallaLogRecaudacion_igualNotificaReserva() {
+        Transaccion tx = transaccionPendiente(555L, 42L);
+        when(transaccionRepository.findFirstByIdReservaAndEstadoPagoOrderByIdTransaccionDesc(
+                eq(42L), eq(EstadoPago.PENDIENTE)))
+                .thenReturn(Optional.of(tx));
+        MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
+                999L, "approved", null, "42", null, null, null, null, java.util.List.of());
+        when(mercadoPagoApiClient.obtenerPago("999")).thenReturn(Optional.of(pago));
+        doThrow(new IllegalStateException("tabla recaudacion no disponible"))
+                .when(recaudacionPlataformaService)
+                .registrarCobroAprobado(tx);
+
+        processor.procesar("payment", "999");
+
+        verify(reservaPagosIntegracionClient).notificarPagoAprobado(eq(42), eq(555L), eq("999"));
+        verify(reservaPagosIntegracionClient, never()).notificarPagoNoAprobado(
+                anyInt(), anyString(), anyString(), anyString());
+    }
+
+    @Test
     void procesar_rechazado_notificaNoAprobado() {
         MercadoPagoPaymentDto pago = new MercadoPagoPaymentDto(
                 1L, "rejected", "cc_rejected", "7", null, null, null, null, java.util.List.of());
@@ -129,6 +155,7 @@ class MercadoPagoWebhookProcessorTest {
 
         verify(reservaPagosIntegracionClient).notificarPagoNoAprobado(eq(7), eq("1"), eq("rejected"), eq("cc_rejected"));
         verify(reservaPagosIntegracionClient, never()).notificarPagoAprobado(anyInt(), anyLong(), anyString());
+        verify(recaudacionPlataformaService, never()).registrarCobroAprobado(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

@@ -31,6 +31,7 @@ public class MercadoPagoReembolsoService {
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final PagoExternoRepository pagoExternoRepository;
     private final TransaccionRepository transaccionRepository;
+    private final RecaudacionPlataformaService recaudacionPlataformaService;
 
     /**
      * @param idReserva opcional, solo para logs y clave de idempotencia hacia MP
@@ -53,6 +54,7 @@ public class MercadoPagoReembolsoService {
         Optional<PagoExterno> optExt = pagoExternoRepository.findByProviderAndProviderPaymentId(
                 PagoExternoService.PROVIDER_MERCADOPAGO, mpPaymentId);
         if (optExt.isPresent() && StringUtils.hasText(optExt.get().getRefundProviderId())) {
+            registrarReembolsoSiHayTransaccion(optExt);
             log.info("Reembolso idempotente: ya registrado en pago_externo (mpPaymentId={}, idReserva={}, refundId={})",
                     mpPaymentId, idReserva, optExt.get().getRefundProviderId());
             return 204;
@@ -69,6 +71,7 @@ public class MercadoPagoReembolsoService {
 
         if (yaConstituyeReembolsoEnMp(pago)) {
             sincronizarRefundEnPagoExterno(optExt, pago);
+            registrarReembolsoSiHayTransaccion(optExt);
             log.info("Reembolso idempotente: MP ya marca devolución (mpPaymentId={}, idReserva={}, status={})",
                     mpPaymentId, idReserva, status);
             return 204;
@@ -90,6 +93,7 @@ public class MercadoPagoReembolsoService {
         if (refundResp.isPresent()) {
             MercadoPagoRefundResponseDto r = refundResp.get();
             optExt.ifPresent(e -> aplicarRefundDesdeRespuesta(e, r));
+            registrarReembolsoSiHayTransaccion(optExt);
             log.info("Reembolso MP creado (mpPaymentId={}, idReserva={}, refundId={}, status={})",
                     mpPaymentId, idReserva, r.idAsString(), r.status());
             return 204;
@@ -98,6 +102,7 @@ public class MercadoPagoReembolsoService {
         Optional<MercadoPagoPaymentDto> pagoRefresh = mercadoPagoApiClient.obtenerPago(mpPaymentId);
         if (pagoRefresh.isPresent() && yaConstituyeReembolsoEnMp(pagoRefresh.get())) {
             sincronizarRefundEnPagoExterno(optExt, pagoRefresh.get());
+            registrarReembolsoSiHayTransaccion(optExt);
             log.info("Reembolso idempotente tras POST fallido: MP muestra devolución (mpPaymentId={}, idReserva={})",
                     mpPaymentId, idReserva);
             return 204;
@@ -114,6 +119,31 @@ public class MercadoPagoReembolsoService {
             return true;
         }
         return pago.tieneReembolsosRegistrados();
+    }
+
+    private void registrarReembolsoSiHayTransaccion(Optional<PagoExterno> optExt) {
+        if (optExt.isEmpty()) {
+            log.warn("Reembolso: no se registra recaudacion porque no existe pago_externo local");
+            return;
+        }
+        PagoExterno pagoExterno = optExt.get();
+        Transaccion tx = pagoExterno.getTransaccion();
+        if (tx == null) {
+            log.warn(
+                    "Reembolso: no se registra recaudacion porque pago_externo no tiene transaccion (idPagoExterno={}, providerPaymentId={})",
+                    pagoExterno.getIdPagoExterno(),
+                    pagoExterno.getProviderPaymentId());
+            return;
+        }
+        try {
+            recaudacionPlataformaService.registrarReembolsoTotal(tx);
+        } catch (RuntimeException ex) {
+            log.warn(
+                    "Reembolso: no se pudo registrar log de recaudacion; se mantiene resultado del reembolso (idTransaccion={}, providerPaymentId={})",
+                    tx.getIdTransaccion(),
+                    pagoExterno.getProviderPaymentId(),
+                    ex);
+        }
     }
 
     private void aplicarRefundDesdeRespuesta(PagoExterno e, MercadoPagoRefundResponseDto r) {
