@@ -64,9 +64,14 @@ export default function AvailableBalance({
       </div>
 
       <div className={styles.footer}>
-        <p className={styles.helper}>
-          El valor mostrado ya corresponde al monto neto que recibirias en tu cuenta bancaria.
-        </p>
+        <div>
+          <p className={styles.helper}>
+            El valor mostrado ya corresponde al monto neto que recibirias en tu cuenta bancaria.
+          </p>
+          <p className={styles.availabilityHint}>
+            Estos fondos ya completaron su ciclo de retencion y pueden retirarse.
+          </p>
+        </div>
 
         <div className={styles.actionBlock} title={canWithdraw ? "" : disabledMessage}>
           <button

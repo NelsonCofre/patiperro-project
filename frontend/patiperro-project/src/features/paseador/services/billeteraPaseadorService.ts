@@ -13,6 +13,7 @@ export type BilleteraReservaItem = {
   comision: number;
   montoNeto: number;
   estado: string;
+  fechaLiberacionEstimada?: string | null;
 };
 
 export type BilleteraBucket = {
@@ -64,6 +65,18 @@ function getSortTime(fecha: string, horaInicio: string): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+function calcularFechaLiberacion(fechaBase: string): string | null {
+  if (!fechaBase) return null;
+
+  const fecha = new Date(`${fechaBase}T00:00:01`);
+  if (Number.isNaN(fecha.getTime())) return null;
+
+  fecha.setDate(fecha.getDate() + 2);
+  fecha.setHours(0, 0, 1, 0);
+
+  return fecha.toISOString();
+}
+
 function mapReservaItem(solicitud: SolicitudPendientePaseador): BilleteraReservaItem {
   const montoBruto = solicitud.montoTotal;
   const comision = Math.round(montoBruto * PLATFORM_COMMISSION_RATE);
@@ -78,7 +91,8 @@ function mapReservaItem(solicitud: SolicitudPendientePaseador): BilleteraReserva
     montoBruto,
     comision,
     montoNeto,
-    estado: solicitud.estado
+    estado: solicitud.estado,
+    fechaLiberacionEstimada: calcularFechaLiberacion(solicitud.fecha)
   };
 }
 
