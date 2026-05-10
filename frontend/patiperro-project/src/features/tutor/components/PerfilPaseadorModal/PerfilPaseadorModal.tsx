@@ -42,8 +42,8 @@ export default function PerfilPaseadorModal({
 
   // --- ESTADOS ---
   const [bloques, setBloques] = useState<AgendaBloqueOfertaDTO[]>([]);
-  const [loadingBloques, setLoadingBloques] = useState(false);
-  const [bloquesError, setBloquesError] = useState<string | null>(null);
+  const [, setLoadingBloques] = useState(false);
+  const [, setBloquesError] = useState<string | null>(null);
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
 
   // Inicialización con fecha local YYYY-MM-DD

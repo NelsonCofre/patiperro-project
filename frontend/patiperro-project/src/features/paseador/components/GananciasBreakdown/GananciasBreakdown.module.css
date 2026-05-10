@@ -1,0 +1,117 @@
+.panel {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  padding: 26px;
+  border: 1px solid #dce7dd;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(77, 167, 86, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 32px;
+  margin: 0 0 12px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #2f7d35;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dce7dd;
+}
+
+.header h2 {
+  margin: 0;
+  color: #183120;
+  font-size: 1.45rem;
+}
+
+.description {
+  margin: 12px 0 0;
+  max-width: 760px;
+  color: #5d6b79;
+  line-height: 1.7;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.card {
+  padding: 18px 20px;
+  border: 1px solid #dce7dd;
+  border-radius: 20px;
+  background: rgba(248, 252, 248, 0.94);
+}
+
+.card span {
+  display: block;
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.card strong {
+  color: #183120;
+  font-size: 1.45rem;
+}
+
+.resultCard {
+  border-color: #bbf7d0;
+  background: rgba(240, 253, 244, 0.96);
+}
+
+.resultCard strong {
+  color: #166534;
+}
+
+.equation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid #dce7dd;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #476252;
+}
+
+.equation span,
+.equation strong,
+.equation em {
+  font-size: 1.08rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.equation strong {
+  color: #166534;
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

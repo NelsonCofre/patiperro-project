@@ -83,7 +83,7 @@ export default function SolicitudPaseo() {
   const [mascotaId, setMascotaId] = useState("");
   const [bloqueId, setBloqueId] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [loadingData, setLoadingData] = useState(true);
+  const [, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [correoPaseador, setCorreoPaseador] = useState<string>("");
 
@@ -232,15 +232,7 @@ export default function SolicitudPaseo() {
     return null;
   }, [selectedMascota, tarifasPaseador]);
 
-  const desajusteTamanoTarifa = useMemo(
-    () => Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length > 0),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length]
-  );
 
-  const paseadorSinTarifasPublicas = useMemo(
-    () => Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length === 0 && !loadingData),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length, loadingData]
-  );
 
   const duracionMinutos = useMemo(() => {
     if (!selectedBloque) return 0;

@@ -6,6 +6,7 @@ type BalanceCardProps = {
   isActive?: boolean;
   isPrimary?: boolean;
   onClick?: () => void;
+  extraLabel?: string;
 };
 
 function formatMoney(value: number): string {
@@ -20,7 +21,8 @@ export default function BalanceCard({
   bucket,
   isActive = false,
   isPrimary = false,
-  onClick
+  onClick,
+  extraLabel
 }: BalanceCardProps) {
   const variantClass =
     bucket.key === "retenido"
@@ -46,6 +48,7 @@ export default function BalanceCard({
       </div>
       <strong className={styles.amount}>{formatMoney(bucket.amount)}</strong>
       <p className={styles.helper}>{bucket.helper}</p>
+      {extraLabel ? <p className={styles.extraLabel}>{extraLabel}</p> : null}
     </>
   );
 
