@@ -51,7 +51,7 @@ public class PaseadorCorreoInternoClient {
         return enabled && restClient != null && StringUtils.hasText(internoSecret);
     }
 
-    /** @return correo o cadena vacía si no hay datos o falla la llamada */
+    /** @ return correo o cadena vacía si no hay datos o falla la llamada */
     public String obtenerCorreo(Long idUsuarioPaseador) {
         if (idUsuarioPaseador == null || !isConfigured()) {
             return "";

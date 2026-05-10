@@ -1,5 +1,6 @@
 package com.patiperro.pagos.dto.billetera;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -29,4 +30,42 @@ public record BilleteraReservaItemResponse(
          */
         Instant disponibleParaRetiroEn
 ) {
+    public BilleteraReservaItemResponse(
+            Integer idReserva,
+            BigDecimal montoBruto,
+            BigDecimal comision,
+            BigDecimal montoNeto,
+            String estadoEtiqueta,
+            String mascotaNombre,
+            String tutorNombre,
+            String fechaAgenda,
+            String horaInicio,
+            String nombreEstadoReserva,
+            Long idTransaccionPagos,
+            Instant disponibleParaRetiroEn
+    ) {
+        this(
+                idReserva,
+                new DesgloseComisionResponse(montoBruto, comision, montoNeto),
+                estadoEtiqueta,
+                mascotaNombre,
+                tutorNombre,
+                fechaAgenda,
+                horaInicio,
+                nombreEstadoReserva,
+                idTransaccionPagos,
+                disponibleParaRetiroEn);
+    }
+
+    public BigDecimal montoBruto() {
+        return desgloseComision != null ? desgloseComision.montoBruto() : null;
+    }
+
+    public BigDecimal comision() {
+        return desgloseComision != null ? desgloseComision.comision() : null;
+    }
+
+    public BigDecimal montoNeto() {
+        return desgloseComision != null ? desgloseComision.montoNeto() : null;
+    }
 }
