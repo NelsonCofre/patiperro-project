@@ -104,6 +104,17 @@ public class MercadoPagoWebhookProcessor {
                         Transaccion tx = pendiente.get();
                         BigDecimal brutoCheckoutPrevio = tx.getMontoBruto();
                         aplicarMontosNetoDesdePago(tx, pago);
+                        // Observabilidad: bruto = neto + comisión (NetoTransaccionService). No lanzar ni omitir save si falla.
+                        netoTransaccionService.advertirSiMontosNoIntegran(
+                                tx.getMontoBruto(),
+                                tx.getComisionApp(),
+                                tx.getMontoNeto(),
+                                "webhook_mp approved idReserva="
+                                        + idReserva
+                                        + " mpPaymentId="
+                                        + mpId
+                                        + " idTransaccion="
+                                        + tx.getIdTransaccion());
                         advertirSiMontoCheckoutDifiereDeMp(brutoCheckoutPrevio, pago, idReserva, mpId);
                         pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
                         tx.setEstadoPago(EstadoPago.APROBADO);

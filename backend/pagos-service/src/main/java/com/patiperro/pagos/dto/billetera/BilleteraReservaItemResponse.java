@@ -1,13 +1,14 @@
 package com.patiperro.pagos.dto.billetera;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
+/**
+ * Ítem de billetera por reserva. El desglose bruto / comisión plataforma / neto paseador se agrupa en
+ * {@link #desgloseComision()} para consumo claro del frontend.
+ */
 public record BilleteraReservaItemResponse(
         Integer idReserva,
-        BigDecimal montoBruto,
-        BigDecimal comision,
-        BigDecimal montoNeto,
+        DesgloseComisionResponse desgloseComision,
         String estadoEtiqueta,
         /** Enriquecido vía reserva-service cuando la integración está activa; puede ser null. */
         String mascotaNombre,

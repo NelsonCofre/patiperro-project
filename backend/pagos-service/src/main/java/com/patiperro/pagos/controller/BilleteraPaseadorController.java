@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * API de billetera para el paseador autenticado. La política de comisión vigente y el desglose completo van en
+ * {@link #obtenerMiBilletera}; los GET por bucket solo devuelven un {@link com.patiperro.pagos.dto.billetera.BilleteraBucketResponse}
+ * (sin repetir {@link com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse#tasaComisionPlataforma()}).
+ */
 @RestController
 @RequestMapping("/api/pagos/paseador/billetera")
 @PreAuthorize("hasRole('PASEADOR')")
@@ -32,6 +37,10 @@ public class BilleteraPaseadorController {
         this.retiroPaseadorService = retiroPaseadorService;
     }
 
+    /**
+     * Resumen completo: buckets, historial de liberaciones, metadatos de comisión ({@code tasaComisionPlataforma},
+     * {@code porcentajeComisionPlataforma}) y {@code updatedAt}.
+     */
     @GetMapping
     public ResponseEntity<BilleteraResumenPaseadorResponse> obtenerMiBilletera(Authentication authentication) {
         Long idUsuario = resolvePaseadorIdOrNull(authentication);
@@ -44,8 +53,9 @@ public class BilleteraPaseadorController {
     }
 
     /**
-     * Endpoints de conveniencia para UI: no recalculan, solo filtran el resumen.
-     * No aceptan id de paseador por URL para evitar exposición de terceros.
+     * Conveniencia para UI: mismo cálculo que {@link #obtenerMiBilletera}, pero solo un bucket.
+     * No incluye campos del resumen padre (p. ej. tasa de comisión); para eso usar GET sin sufijo.
+     * No acepta id de paseador por URL.
      */
     @GetMapping("/{bucketKey}")
     public ResponseEntity<BilleteraBucketResponse> obtenerMiBilleteraBucket(

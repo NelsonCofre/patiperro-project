@@ -60,6 +60,7 @@ public class BilleteraService {
     private final TransaccionRepository transaccionRepository;
     private final ReservaConsultaClient reservaConsultaClient;
     private final BilleteraLiberacionTransaccionalService billeteraLiberacionTransaccionalService;
+    private final NetoTransaccionService netoTransaccionService;
 
     @Value("${patiperro.pagos.billetera.zona:America/Santiago}")
     private String zonaId;
@@ -282,6 +283,9 @@ public class BilleteraService {
         return new LiberacionBatchOutcome(liberados, List.copyOf(lineas));
     }
 
+    /**
+     * Solo lectura: saldos, ítems por tracking y metadatos de comisión ({@link NetoTransaccionService#tasaPlataformaFraccionParaExposicion()}).
+     */
     @Transactional(readOnly = true)
     public BilleteraResumenPaseadorResponse resumenParaPaseador(Long idUsuarioPaseador) {
         ZoneId zone = ZoneId.of(zonaId);
@@ -362,6 +366,8 @@ public class BilleteraService {
                 .toList();
 
         LocalDateTime updatedAt = LocalDateTime.now(zone);
+        BigDecimal tasaFraccion = netoTransaccionService.tasaPlataformaFraccionParaExposicion();
+        BigDecimal tasaPorcentaje = porcentajeDesdeTasaFraccion(tasaFraccion);
 
         return new BilleteraResumenPaseadorResponse(
                 new BilleteraBucketResponse(
@@ -390,7 +396,14 @@ public class BilleteraService {
                         BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP),
                         List.of()),
                 itemsLibHistorial,
+                tasaFraccion,
+                tasaPorcentaje,
                 updatedAt);
+    }
+
+    private static BigDecimal porcentajeDesdeTasaFraccion(BigDecimal fraccion0a1) {
+        BigDecimal f = fraccion0a1 != null ? fraccion0a1 : BigDecimal.ZERO;
+        return f.multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static List<BilleteraReservaItemResponse> aplicarYOrdenarDetalles(

@@ -13,6 +13,10 @@ import java.math.RoundingMode;
 
 /**
  * Deducción de la comisión de la plataforma sobre el monto bruto y cálculo del neto para el paseador / dominio interno.
+ * <p>
+ * La comprobación {@link #montosCierranIntegridad} / {@link #advertirSiMontosNoIntegran} solo registra incoherencias;
+ * no interrumpe el flujo de pago (evita dejar approved sin persistir por un guardarraíl demasiado estricto).
+ * </p>
  */
 @Service
 @RequiredArgsConstructor
@@ -22,7 +26,24 @@ public class NetoTransaccionService {
 
     private static final int SCALE_MONEDA = 2;
 
+    private static final int SCALE_TASA_EXPOSICION = 6;
+
     private final ComisionPlataformaProperties comisionPlataformaProperties;
+
+    /**
+     * Fracción de comisión vigente [0, 1] para respuestas API (misma acotación que {@link #calcular(BigDecimal)}).
+     */
+    public BigDecimal tasaPlataformaFraccionParaExposicion() {
+        return tasaInternaAcotada().setScale(SCALE_TASA_EXPOSICION, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal tasaInternaAcotada() {
+        BigDecimal tasa = comisionPlataformaProperties.getPlataformaTasa();
+        if (tasa == null) {
+            tasa = BigDecimal.ZERO;
+        }
+        return tasa.max(BigDecimal.ZERO).min(BigDecimal.ONE);
+    }
 
     /**
      * Monto bruto autoritativo: preferir {@code transaction_amount} del pago MP; si falta o es inválido, usar el bruto ya persistido en la transacción (checkout).
@@ -50,11 +71,7 @@ public class NetoTransaccionService {
             return new ResultadoNeto(z, z);
         }
 
-        BigDecimal tasa = comisionPlataformaProperties.getPlataformaTasa();
-        if (tasa == null) {
-            tasa = BigDecimal.ZERO;
-        }
-        tasa = tasa.max(BigDecimal.ZERO).min(BigDecimal.ONE);
+        BigDecimal tasa = tasaInternaAcotada();
 
         BigDecimal comision = bruto.multiply(tasa).setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
         BigDecimal neto = bruto.subtract(comision).setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
@@ -77,6 +94,48 @@ public class NetoTransaccionService {
             BigDecimal z = BigDecimal.ZERO.setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
             return new ResultadoNeto(z, bruto);
         }
+    }
+
+    /**
+     * {@code montoBruto = montoNeto + comisionApp} en escala monetaria (2 decimales). Sin tolerancia: incoherencias
+     * solo pueden venir de datos corruptos o campos pisados fuera de este servicio.
+     */
+    public boolean montosCierranIntegridad(BigDecimal montoBruto, BigDecimal comisionApp, BigDecimal montoNeto) {
+        BigDecimal bruto = nzScale(montoBruto);
+        BigDecimal com = nzScale(comisionApp);
+        BigDecimal net = nzScale(montoNeto);
+        BigDecimal suma = net.add(com).setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
+        return bruto.compareTo(suma) == 0;
+    }
+
+    /**
+     * Observabilidad ante inconsistencia; no lanza.
+     */
+    public void advertirSiMontosNoIntegran(
+            BigDecimal montoBruto, BigDecimal comisionApp, BigDecimal montoNeto, String contexto) {
+        if (montosCierranIntegridad(montoBruto, comisionApp, montoNeto)) {
+            return;
+        }
+        BigDecimal bruto = nzScale(montoBruto);
+        BigDecimal com = nzScale(comisionApp);
+        BigDecimal net = nzScale(montoNeto);
+        BigDecimal suma = net.add(com).setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
+        BigDecimal diff = bruto.subtract(suma).abs().setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
+        log.warn(
+                "NetoTransaccionService: montos no cierran (bruto={} comision={} neto={} sumaNetoMasComision={} diff={}) contexto={}",
+                bruto,
+                com,
+                net,
+                suma,
+                diff,
+                contexto != null ? contexto : "");
+    }
+
+    private static BigDecimal nzScale(BigDecimal v) {
+        if (v == null) {
+            return BigDecimal.ZERO.setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
+        }
+        return v.setScale(SCALE_MONEDA, RoundingMode.HALF_UP);
     }
 
     public record ResultadoNeto(BigDecimal comisionApp, BigDecimal montoNeto) {
