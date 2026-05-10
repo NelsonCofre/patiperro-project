@@ -3,6 +3,8 @@ package com.patiperro.pagos.service;
 import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraReservaItemResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.LiberacionBatchOutcome;
+import com.patiperro.pagos.dto.billetera.LiberacionBatchOutcome.LiberacionLineaPaseador;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
 import com.patiperro.pagos.reserva.dto.ReservaBilleteraDetalleDto;
 import com.patiperro.pagos.model.Billetera;
@@ -10,6 +12,7 @@ import com.patiperro.pagos.model.BilleteraReservaFase;
 import com.patiperro.pagos.model.BilleteraReservaTracking;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.Transaccion;
+import com.patiperro.pagos.support.BilleteraLiberacionCalendario;
 import com.patiperro.pagos.repository.BilleteraRepository;
 import com.patiperro.pagos.repository.BilleteraReservaTrackingRepository;
 import com.patiperro.pagos.repository.TransaccionRepository;
@@ -24,10 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +45,15 @@ public class BilleteraService {
     private static final Logger log = LoggerFactory.getLogger(BilleteraService.class);
 
     private static final int SCALE = 2;
+
+    /**
+     * Texto de ayuda para el bucket de verificación: alinea con regla N / N+1 / N+2 y el campo por ítem en la respuesta JSON.
+     */
+    private static final String BUCKET_VERIFICACION_DESCRIPCION =
+            "Montos de paseos ya finalizados en periodo de retención (días N y N+1). "
+                    + "Desde el inicio del día calendario N+2 (según la zona de la billetera), si no hay disputa activa, "
+                    + "el sistema puede pasarlos a saldo disponible en la corrida programada. "
+                    + "Cada reserva incluye la fecha y hora estimadas en que podrían quedar disponibles para retiro.";
 
     private final BilleteraRepository billeteraRepository;
     private final BilleteraReservaTrackingRepository trackingRepository;
@@ -235,27 +249,37 @@ public class BilleteraService {
      * Programación masiva: una transacción independiente por candidato vía
      * {@link BilleteraLiberacionTransaccionalService} (idempotente si {@code liberado_en} ya existe).
      */
-    public int ejecutarLiberacionesPendientes() {
+    public LiberacionBatchOutcome ejecutarLiberacionesPendientes() {
         ZoneId zone = ZoneId.of(zonaId);
         LocalDate hoy = LocalDate.now(zone);
         List<BilleteraReservaTracking> candidatos =
                 trackingRepository.findByFaseAndLiberadoEnIsNull(BilleteraReservaFase.EN_VERIFICACION);
+        LinkedHashMap<Long, BigDecimal> sumas = new LinkedHashMap<>();
+        LinkedHashMap<Long, Integer> conteos = new LinkedHashMap<>();
         int liberados = 0;
         for (BilleteraReservaTracking t : candidatos) {
-            if (t.getFechaFinServicio() == null) {
-                continue;
-            }
-            LocalDate diaFin = t.getFechaFinServicio().atZone(zone).toLocalDate();
-            LocalDate disponibleDesde = diaFin.plusDays(2);
-            if (hoy.isBefore(disponibleDesde)) {
+            if (!BilleteraLiberacionCalendario.diaActualPermiteLiberacion(hoy, t.getFechaFinServicio(), zone)) {
                 continue;
             }
             if (t.getIdTracking() != null
                     && billeteraLiberacionTransaccionalService.liberarSiPendiente(t.getIdTracking(), zone)) {
                 liberados++;
+                Long uid = t.getIdUsuarioPaseador();
+                BigDecimal neto = nz(t.getMontoNeto());
+                sumas.merge(uid, neto, (a, b) -> a.add(b).setScale(SCALE, RoundingMode.HALF_UP));
+                conteos.merge(uid, 1, Integer::sum);
             }
         }
-        return liberados;
+        if (liberados == 0) {
+            return LiberacionBatchOutcome.vacio();
+        }
+        List<LiberacionLineaPaseador> lineas = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal> e : sumas.entrySet()) {
+            Long uid = e.getKey();
+            lineas.add(new LiberacionLineaPaseador(
+                    uid, e.getValue(), conteos.getOrDefault(uid, 0)));
+        }
+        return new LiberacionBatchOutcome(liberados, List.copyOf(lineas));
     }
 
     @Transactional(readOnly = true)
@@ -276,6 +300,9 @@ public class BilleteraService {
             if (t.getLiberadoEn() != null) {
                 continue;
             }
+            Instant disponibleEn = t.getFase() == BilleteraReservaFase.EN_VERIFICACION
+                    ? BilleteraLiberacionCalendario.inicioDiaDisponibleParaRetiro(t.getFechaFinServicio(), zone)
+                    : null;
             BilleteraReservaItemResponse item = new BilleteraReservaItemResponse(
                     t.getIdReserva(),
                     t.getMontoBruto(),
@@ -287,7 +314,8 @@ public class BilleteraService {
                     null,
                     null,
                     null,
-                    t.getIdTransaccionPagos());
+                    t.getIdTransaccionPagos(),
+                    disponibleEn);
             if (t.getFase() == BilleteraReservaFase.EN_RETENIDO) {
                 itemsRet.add(item);
             } else {
@@ -322,7 +350,8 @@ public class BilleteraService {
                             null,
                             null,
                             null,
-                            t.getIdTransaccionPagos()));
+                            t.getIdTransaccionPagos(),
+                            null));
         }
         List<Integer> idsHistorial =
                 itemsLibHistorial.stream().map(BilleteraReservaItemResponse::idReserva).filter(Objects::nonNull).distinct().toList();
@@ -346,7 +375,7 @@ public class BilleteraService {
                 new BilleteraBucketResponse(
                         "verificacion",
                         "Saldo en Verificación",
-                        "Paseos finalizados en periodo de liberación (días N y N+1).",
+                        BUCKET_VERIFICACION_DESCRIPCION,
                         verAgg,
                         sumaBruto(itemsVer),
                         sumaComision(itemsVer),
@@ -394,7 +423,8 @@ public class BilleteraService {
                 d.fechaAgenda(),
                 d.horaInicio(),
                 d.nombreEstadoReserva(),
-                i.idTransaccionPagos());
+                i.idTransaccionPagos(),
+                i.disponibleParaRetiroEn());
     }
 
     /**

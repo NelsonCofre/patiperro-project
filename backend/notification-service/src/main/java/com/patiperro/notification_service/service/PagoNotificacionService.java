@@ -1,5 +1,6 @@
 package com.patiperro.notification_service.service;
 
+import com.patiperro.notification_service.dto.LiberacionFondosNotificacionResult;
 import com.patiperro.notification_service.dto.NotificacionEventoRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,9 @@ import java.util.Map;
 
 /**
  * Notificación al paseador cuando el tutor completó el pago de una reserva (correo vía Brevo / {@link NotificationService}).
+ *
+ * <p>Los métodos {@code void} que disparan Brevo ante fallo solo registran log; {@link #procesarLiberacionFondosConsolidadaPaseador}
+ * devuelve {@link LiberacionFondosNotificacionResult} para que el controlador interno de pagos pueda mapear a HTTP 204/502.</p>
  */
 @Service
 public class PagoNotificacionService {
@@ -25,6 +29,9 @@ public class PagoNotificacionService {
     /** Resumen de transacción / comprobante informativo al tutor tras pago aprobado. */
     public static final String TIPO_EVENTO_RESUMEN_COMPROBANTE_TUTOR = "RESUMEN_COMPROBANTE_TUTOR";
 
+    /** Monto neto consolidado pasó a disponible tras periodo de verificación (batch nocturno). */
+    public static final String TIPO_EVENTO_LIBERACION_FONDOS_CONSOLIDADA_PASEADOR = "LIBERACION_FONDOS_CONSOLIDADA_PASEADOR";
+
     private final NotificationService notificationService;
 
     private final boolean reembolsoProcesadoEnabled;
@@ -34,6 +41,59 @@ public class PagoNotificacionService {
             @Value("${patiperro.notification.reembolso-procesado.enabled:true}") boolean reembolsoProcesadoEnabled) {
         this.notificationService = notificationService;
         this.reembolsoProcesadoEnabled = reembolsoProcesadoEnabled;
+    }
+
+    /**
+     * Aviso al paseador: total neto que pasó a saldo disponible en la última corrida (una o más reservas).
+     *
+     * <p>{@link LiberacionFondosNotificacionResult#cuandoSinCorreo()} no implica correo enviado; {@link LiberacionFondosNotificacionResult#cuandoBrevoAcepta()} sí.</p>
+     */
+    public LiberacionFondosNotificacionResult procesarLiberacionFondosConsolidadaPaseador(
+            Long idUsuarioPaseador, String emailDestino, String montoTotalNeto, int cantidadReservasLiberadas) {
+        if (idUsuarioPaseador == null) {
+            log.warn("Liberación consolidada: idUsuarioPaseador nulo; se ignora");
+            return LiberacionFondosNotificacionResult.cuandoArgumentosInvalidos();
+        }
+        if (!StringUtils.hasText(emailDestino)) {
+            log.info("Liberación consolidada: sin email; omitido (usuario={})", idUsuarioPaseador);
+            return LiberacionFondosNotificacionResult.cuandoSinCorreo();
+        }
+        if (cantidadReservasLiberadas <= 0) {
+            log.warn("Liberación consolidada: cantidad inválida; se ignora (usuario={})", idUsuarioPaseador);
+            return LiberacionFondosNotificacionResult.cuandoArgumentosInvalidos();
+        }
+
+        NotificacionEventoRequest req = new NotificacionEventoRequest();
+        req.setEmailDestino(emailDestino.trim());
+        req.setTipoEvento(TIPO_EVENTO_LIBERACION_FONDOS_CONSOLIDADA_PASEADOR);
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("idUsuarioPaseador", idUsuarioPaseador);
+        vars.put("montoTotalNeto", montoTotalNeto != null ? montoTotalNeto : "");
+        vars.put("cantidadReservasLiberadas", cantidadReservasLiberadas);
+        vars.put(
+                "mensaje",
+                construirMensajeLiberacionConsolidada(cantidadReservasLiberadas, montoTotalNeto));
+        req.setVariables(vars);
+
+        try {
+            notificationService.procesarEventoUniversal(req);
+            return LiberacionFondosNotificacionResult.cuandoBrevoAcepta();
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Liberación consolidada: fallo Brevo (usuario={}, destinatario parcial={})",
+                    idUsuarioPaseador,
+                    enmascararEmail(emailDestino),
+                    e);
+            return LiberacionFondosNotificacionResult.cuandoBrevoFalla();
+        }
+    }
+
+    private static String construirMensajeLiberacionConsolidada(int cantidadReservasLiberadas, String montoTotalNeto) {
+        return "En Patiperro, un total de "
+                + cantidadReservasLiberadas
+                + " reserva(s) completó el periodo de verificación. Monto neto que quedó disponible para retiro: "
+                + (montoTotalNeto != null ? montoTotalNeto : "")
+                + " CLP (sujeto a retiros y movimientos posteriores).";
     }
 
     /**

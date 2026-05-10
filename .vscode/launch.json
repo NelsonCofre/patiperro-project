@@ -53,7 +53,7 @@
       "projectName": "api-gateway",
       "args": "",
       "envFile": "${workspaceFolder}/.env",
-      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=54388 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=localhost -Dspring.boot.project.name=api-gateway"
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=api-gateway"
     },
     {
       "type": "java",

@@ -44,6 +44,11 @@ public class InternalPagosController {
 
     private static final String REASON_DOWNSTREAM_FAILURE = "downstream-failure";
 
+    private static final String REASON_LIBERACION_CONSOLIDADA_DISABLED = "liberacion-consolidada-disabled";
+
+    /** Validación de payload (correo largo, monto textual enorme). */
+    private static final String REASON_VALIDATION = "validation-failed";
+
     private final PagoNotificacionService pagoNotificacionService;
 
     @Value("${patiperro.notification.interno.secret:}")
@@ -55,8 +60,52 @@ public class InternalPagosController {
     @Value("${patiperro.notification.resumen-comprobante-tutor.max-html-chars:200000}")
     private int resumenComprobanteTutorMaxHtmlChars;
 
+    @Value("${patiperro.notification.liberacion-fondos-consolidada-paseador.enabled:true}")
+    private boolean liberacionFondosConsolidadaPaseadorEnabled;
+
     public InternalPagosController(PagoNotificacionService pagoNotificacionService) {
         this.pagoNotificacionService = pagoNotificacionService;
+    }
+
+    /**
+     * Aviso consolidado al paseador tras liberación nocturna (pagos-service).
+     * <p>Sin {@code emailDestino} no hay envío Brevo (204). Fallo Brevo → 502 con {@link #HEADER_INTERNAL_REASON}.
+     * {@code patiperro.notification.liberacion-fondos-consolidada-paseador.enabled=false} → 503.</p>
+     */
+    @PostMapping("/liberacion-fondos-consolidada-paseador")
+    public ResponseEntity<Void> liberacionFondosConsolidadaPaseador(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestBody(required = false) LiberacionFondosConsolidadaPaseadorRequest body) {
+        Optional<ResponseEntity<Void>> secret = rechazarSiSecretoInvalido(secretoHeader);
+        if (secret.isPresent()) {
+            return secret.get();
+        }
+        if (body == null
+                || body.idUsuarioPaseador() == null
+                || body.cantidadReservasLiberadas() == null
+                || body.cantidadReservasLiberadas() <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        Optional<ResponseEntity<Void>> invalid = rechazarLiberacionPayloadInvalido(body);
+        if (invalid.isPresent()) {
+            return invalid.get();
+        }
+        if (!liberacionFondosConsolidadaPaseadorEnabled) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header(HEADER_INTERNAL_REASON, REASON_LIBERACION_CONSOLIDADA_DISABLED)
+                    .build();
+        }
+        var resultado = pagoNotificacionService.procesarLiberacionFondosConsolidadaPaseador(
+                body.idUsuarioPaseador(),
+                body.emailDestino(),
+                body.montoTotalNeto(),
+                body.cantidadReservasLiberadas());
+        if (!resultado.respuestaHttpExitosa()) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .header(HEADER_INTERNAL_REASON, REASON_DOWNSTREAM_FAILURE)
+                    .build();
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -173,6 +222,27 @@ public class InternalPagosController {
     }
 
     /**
+     * Límites defensivos para evitar abuso por payload enorme (correo/monto).
+     */
+    private Optional<ResponseEntity<Void>> rechazarLiberacionPayloadInvalido(LiberacionFondosConsolidadaPaseadorRequest body) {
+        String email = body.emailDestino();
+        if (email != null && email.length() > 254) {
+            return Optional.of(
+                    ResponseEntity.status(HttpStatus.BAD_REQUEST).header(HEADER_INTERNAL_REASON, REASON_VALIDATION).build());
+        }
+        String monto = body.montoTotalNeto();
+        if (monto != null && monto.length() > 48) {
+            return Optional.of(
+                    ResponseEntity.status(HttpStatus.BAD_REQUEST).header(HEADER_INTERNAL_REASON, REASON_VALIDATION).build());
+        }
+        if (body.cantidadReservasLiberadas() > 50_000) {
+            return Optional.of(
+                    ResponseEntity.status(HttpStatus.BAD_REQUEST).header(HEADER_INTERNAL_REASON, REASON_VALIDATION).build());
+        }
+        return Optional.empty();
+    }
+
+    /**
      * {@code emailDestino}: correo del paseador (opcional); sin él no se envía Brevo pero el endpoint sigue siendo 204.
      */
     public record PagoConfirmadoRequest(Integer idReserva, Integer idPaseador, String emailDestino) {}
@@ -184,4 +254,8 @@ public class InternalPagosController {
 
     /** {@code cuerpoHtml}: HTML completo del resumen (plantilla Brevo con variable sin escapar). */
     public record ResumenComprobanteTutorRequest(Integer idReserva, String emailDestino, String cuerpoHtml) {}
+
+    /** {@code montoTotalNeto}: cadena decimal CLP (ej. desde {@link java.math.BigDecimal#toPlainString()}). */
+    public record LiberacionFondosConsolidadaPaseadorRequest(
+            Long idUsuarioPaseador, String emailDestino, String montoTotalNeto, Integer cantidadReservasLiberadas) {}
 }

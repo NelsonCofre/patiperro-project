@@ -44,6 +44,10 @@ public class NotificationService {
     @Value("${patiperro.notification.brevo.template.RESUMEN_COMPROBANTE_TUTOR:6}")
     private Long brevoTemplateResumenComprobanteTutor;
 
+    /** Consolidado al paseador tras liberación nocturna; default mismo template que PAGO_CONFIRMADO hasta crear uno en Brevo. */
+    @Value("${patiperro.notification.brevo.template.LIBERACION_FONDOS_CONSOLIDADA_PASEADOR:4}")
+    private Long brevoTemplateLiberacionFondosConsolidadaPaseador;
+
     @Value("${patiperro.notification.brevo.transactional.base-url:https://api.brevo.com/v3/smtp/email}")
     private String brevoTransactionalBaseUrl;
 
@@ -283,6 +287,10 @@ public class NotificationService {
             case "REEMBOLSO_RESERVA" -> brevoTemplateReembolsoReserva != null ? brevoTemplateReembolsoReserva : 5L;
             case "RESUMEN_COMPROBANTE_TUTOR" ->
                     brevoTemplateResumenComprobanteTutor != null ? brevoTemplateResumenComprobanteTutor : 6L;
+            case "LIBERACION_FONDOS_CONSOLIDADA_PASEADOR" ->
+                    brevoTemplateLiberacionFondosConsolidadaPaseador != null
+                            ? brevoTemplateLiberacionFondosConsolidadaPaseador
+                            : 4L;
             default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
         };
     }
