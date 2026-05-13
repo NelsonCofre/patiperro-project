@@ -9,6 +9,17 @@
     },
     {
       "type": "java",
+      "name": "Spring Boot-ChatServiceApplication<chat-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend/chat-service",
+      "mainClass": "com.patiperro.chat.ChatServiceApplication",
+      "projectName": "chat-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=chat-service"
+    },
+    {
+      "type": "java",
       "name": "ReservaServiceApplication",
       "request": "launch",
       "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
