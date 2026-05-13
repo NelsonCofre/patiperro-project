@@ -125,6 +125,19 @@ public class ReservaController {
         return service.listarSolicitudesPendientesPaseador(idPaseador, jwt);
     }
 
+    /**
+     * Reservas en estado ACEPTADA con bloque de agenda en la fecha actual del servidor.
+     * Orden cronológico por inicio programado. El {@code idPaseador} debe coincidir con el claim
+     * {@code paseadorId} del JWT (misma regla que solicitudes-pendientes).
+     */
+    @GetMapping("/paseador/{idPaseador}/agenda-hoy")
+    public List<ReservaPaseadorSolicitudResponseDTO> listarAgendaDiariaPaseadorAceptadasHoy(
+            @PathVariable Integer idPaseador,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarAgendaDiariaPaseadorAceptadasHoy(idPaseador, jwt);
+    }
+
     @GetMapping("/mascota/{idMascota}")
     public List<ReservaResponseDTO> listarPorMascota(@PathVariable Integer idMascota) {
         return service.listarPorMascota(idMascota);

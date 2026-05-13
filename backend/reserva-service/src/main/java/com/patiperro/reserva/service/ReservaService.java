@@ -968,6 +968,74 @@ public class ReservaService {
     }
 
     /**
+     * Agenda diaria del paseador: reservas {@link EstadoReservaCatalogo#NOMBRE_ACEPTADA} cuyo
+     * bloque de agenda tiene {@code fecha} igual a {@link LocalDate#now} del {@link Clock} del
+     * servicio. Requiere JWT de paseador; {@code idPaseador} debe coincidir con {@code paseadorId}.
+     * Descarta filas incoherentes (bloque desconocido o {@code idUsuario} distinto del paseador).
+     */
+    public List<ReservaPaseadorSolicitudResponseDTO> listarAgendaDiariaPaseadorAceptadasHoy(
+            Integer idPaseador, String rawJwt) {
+        validarPaseadorJwt(idPaseador, rawJwt);
+        if (!agendaIntegracionClient.isEnabled()) {
+            return List.of();
+        }
+        List<AgendaBloqueReservaClientDTO> bloques = agendaIntegracionClient.listarBloquesPorUsuario(idPaseador,
+                rawJwt);
+        if (bloques.isEmpty()) {
+            return List.of();
+        }
+        LocalDate hoy = LocalDate.now(clock);
+        Map<Integer, AgendaBloqueReservaClientDTO> bloquePorId = bloques.stream()
+                .filter(b -> b.getIdAgenda() != null)
+                .collect(Collectors.toMap(AgendaBloqueReservaClientDTO::getIdAgenda, b -> b, (a, b) -> a));
+
+        List<Integer> idsBloqueHoy = bloques.stream()
+                .filter(b -> b.getIdAgenda() != null && hoy.equals(b.getFecha()))
+                .map(AgendaBloqueReservaClientDTO::getIdAgenda)
+                .distinct()
+                .toList();
+        if (idsBloqueHoy.isEmpty()) {
+            return List.of();
+        }
+
+        List<Reserva> candidatas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
+                idsBloqueHoy, EstadoReservaCatalogo.ID_ACEPTADA);
+        List<Reserva> reservas = new ArrayList<>();
+        for (Reserva r : candidatas) {
+            AgendaBloqueReservaClientDTO b = bloquePorId.get(r.getIdAgendaBloque());
+            if (b == null) {
+                log.warn(
+                        "agenda-hoy: reserva {} con bloque {} ausente del mapa del paseador {}",
+                        r.getIdReserva(),
+                        r.getIdAgendaBloque(),
+                        idPaseador);
+                continue;
+            }
+            if (b.getIdUsuario() != null && !b.getIdUsuario().equals(idPaseador)) {
+                log.warn(
+                        "agenda-hoy: reserva {} en bloque {} con idUsuario distinto del paseador {}",
+                        r.getIdReserva(),
+                        r.getIdAgendaBloque(),
+                        idPaseador);
+                continue;
+            }
+            reservas.add(r);
+        }
+        reservas.sort(Comparator.comparing(
+                (Reserva r) -> resolverInicioPaseo(r, bloquePorId.get(r.getIdAgendaBloque())),
+                Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
+        for (Reserva r : reservas) {
+            AgendaBloqueReservaClientDTO bloque = bloquePorId.get(r.getIdAgendaBloque());
+            TutorReservaClientDTO tutor = tutorIntegracionClient.obtenerTutor(r.getIdTutorUsuario().longValue(),
+                    rawJwt);
+            salida.add(mapearSolicitudPaseador(r, bloque, tutor));
+        }
+        return salida;
+    }
+
+    /**
      * Vista interna para enriquecer ítems de billetera en pagos-service.
      * Omite reservas inexistentes, bloques de otros paseadores o fallos puntuales de agenda (por ítem).
      */
