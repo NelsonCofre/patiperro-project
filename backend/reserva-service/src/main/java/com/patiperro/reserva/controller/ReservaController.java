@@ -1,6 +1,7 @@
 package com.patiperro.reserva.controller;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.PaseoDiarioDTO;
 import com.patiperro.reserva.dto.ReservaParaPagoDto;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
@@ -123,6 +124,18 @@ public class ReservaController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return service.listarSolicitudesPendientesPaseador(idPaseador, jwt);
+    }
+
+    /**
+     * Misma regla de negocio que {@code GET .../agenda-hoy}, con cuerpo compacto {@link PaseoDiarioDTO}
+     * para el panel "Mis paseos de hoy". Mismo JWT y claim {@code paseadorId}.
+     */
+    @GetMapping("/paseador/{idPaseador}/agenda-hoy/panel")
+    public List<PaseoDiarioDTO> listarAgendaDiariaPaseadorAceptadasHoyPanel(
+            @PathVariable Integer idPaseador,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarAgendaDiariaPaseadorAceptadasHoyPanel(idPaseador, jwt);
     }
 
     /**
