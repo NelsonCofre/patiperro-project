@@ -20,6 +20,7 @@ public class SecurityConfig {
 				.csrf(csrf -> csrf.disable())
 				.cors(Customizer.withDefaults())
 				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/ws/chat/**").permitAll()
 						.requestMatchers("/api/chat/**").permitAll()
 						.anyRequest().authenticated());
 		return http.build();

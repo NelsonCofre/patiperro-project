@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import { TUTOR_ID_SESSION_KEY } from "../../../../config/api";
+import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { subscribeChatMessages } from "../../../chat/services/chatWs";
+import type { ChatToastPayload } from "../../../chat/types/chat.types";
+import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
 import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
@@ -69,6 +74,8 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 export default function TutorReservas() {
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
+  const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
+  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
   const [paymentSummaryReserva, setPaymentSummaryReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
   
@@ -89,8 +96,16 @@ export default function TutorReservas() {
     selectedReservaId == null
       ? null
       : reservas.find((r) => r.idReserva === selectedReservaId) ?? null;
+  const activeChatReserva =
+    activeChatReservaId == null
+      ? null
+      : reservas.find((r) => r.idReserva === activeChatReservaId) ?? null;
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
   const selectedPaymentMeta = selectedReserva ? getPaymentStatusMeta(selectedReserva) : null;
+  const tutorIdRaw = sessionStorage.getItem(TUTOR_ID_SESSION_KEY);
+  const currentTutorId = tutorIdRaw ? Number(tutorIdRaw) : 0;
+  const currentTutorName =
+    sessionStorage.getItem("patiperro_nombre_usuario")?.trim() || "Tutor";
 
   useEffect(() => {
     if (!selectedReserva) return;
@@ -106,6 +121,31 @@ export default function TutorReservas() {
     });
   }, [reload, selectedReserva, setNotice]);
 
+  useEffect(() => {
+    const reservaIds = new Set(reservas.map((reserva) => reserva.idReserva));
+    return subscribeChatMessages((message) => {
+      if (
+        !reservaIds.has(message.idReserva) ||
+        message.senderUserId === currentTutorId ||
+        activeChatReservaId === message.idReserva
+      ) {
+        return;
+      }
+
+      setChatToast({
+        reservaId: message.idReserva,
+        senderName: message.senderName,
+        snippet: buildMessageSnippet(message.content)
+      });
+    });
+  }, [activeChatReservaId, currentTutorId, reservas]);
+
+  useEffect(() => {
+    if (!chatToast) return;
+    const timer = window.setTimeout(() => setChatToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [chatToast]);
+
   return (
     <main className={styles.page}>
       <TutorNavbar />
@@ -117,6 +157,21 @@ export default function TutorReservas() {
             Cerrar
           </button>
         </div>
+      ) : null}
+
+      {chatToast ? (
+        <button
+          type="button"
+          className={styles.chatToast}
+          onClick={() => {
+            setSelectedReservaId(chatToast.reservaId);
+            setActiveChatReservaId(chatToast.reservaId);
+            setChatToast(null);
+          }}
+        >
+          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
+          <span>{chatToast.snippet}</span>
+        </button>
       ) : null}
 
       {/* MODAL DE DETALLE (Existente) */}
@@ -206,15 +261,13 @@ export default function TutorReservas() {
 
             {selectedEstado?.key === "en_curso" ? (
               <PaseoEnCursoCard
-                statusMessage="¡El paseo ha comenzado! Tu mascota esta en buenas manos"
+                statusMessage="El paseo ha comenzado. Tu mascota esta en buenas manos"
                 actorLabel="Paseador"
                 actorNombre={selectedReserva.paseadorNombre}
                 mascotaNombre={selectedReserva.mascotaNombre}
                 horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
                 chatLabel="Abrir chat del paseo"
-                onOpenChat={() =>
-                  setNotice("El chat durante el paseo quedara disponible en una siguiente etapa del MVP.")
-                }
+                onOpenChat={() => setActiveChatReservaId(selectedReserva.idReserva)}
               />
             ) : null}
 
@@ -332,6 +385,23 @@ export default function TutorReservas() {
         <PaymentSummaryModal
           reserva={paymentSummaryReserva}
           onClose={() => setPaymentSummaryReserva(null)}
+        />
+      ) : null}
+
+      {activeChatReserva ? (
+        <ChatWindow
+          isOpen
+          reservaId={activeChatReserva.idReserva}
+          currentUserId={
+            Number.isFinite(currentTutorId) && currentTutorId > 0
+              ? currentTutorId
+              : activeChatReserva.idTutorUsuario
+          }
+          currentUserRole="tutor"
+          currentUserName={currentTutorName}
+          counterpartName={activeChatReserva.paseadorNombre}
+          mascotaNombre={activeChatReserva.mascotaNombre}
+          onClose={() => setActiveChatReservaId(null)}
         />
       ) : null}
 

@@ -239,6 +239,35 @@
   box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16);
 }
 
+.chatToast {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 2300;
+  display: grid;
+  gap: 4px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  color: #134e4a;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+  box-shadow: 0 18px 38px rgba(15, 118, 110, 0.16);
+}
+
+.chatToast strong {
+  font-size: 0.92rem;
+}
+
+.chatToast span {
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
 .notice span {
   flex: 1;
 }
@@ -464,5 +493,12 @@
   .notice {
     right: 16px;
     left: 16px;
+  }
+
+  .chatToast {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    width: auto;
   }
 }

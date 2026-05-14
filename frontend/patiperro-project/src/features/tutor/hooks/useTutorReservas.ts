@@ -4,6 +4,8 @@ import { subscribeEncuentroTopic } from "../../shared/services/encuentroWs";
 import {
   cancelarReservaTutor,
   fetchReservasDetalleTutor,
+  handleTutorAuthFailure,
+  isTutorAuthError,
   readTutorIdFromSession
 } from "../services/reservaTutorApi";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
@@ -40,6 +42,12 @@ export function useTutorReservas() {
       setLastUpdated(new Date());
       setError(null);
     } catch (e) {
+      if (isTutorAuthError(e)) {
+        handleTutorAuthFailure();
+        setError("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+        window.location.replace("/login/tutor");
+        return;
+      }
       setError(e instanceof Error ? e.message : "No se pudieron cargar tus reservas.");
     } finally {
       setIsLoading(false);
@@ -99,6 +107,12 @@ export function useTutorReservas() {
         setNotice("Solicitud cancelada correctamente.");
         await loadReservas("refresh");
       } catch (e) {
+        if (isTutorAuthError(e)) {
+          handleTutorAuthFailure();
+          setNotice("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+          window.location.replace("/login/tutor");
+          return;
+        }
         setNotice(e instanceof Error ? e.message : "No se pudo cancelar la solicitud.");
       }
     },

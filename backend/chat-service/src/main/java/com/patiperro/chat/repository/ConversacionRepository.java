@@ -18,4 +18,11 @@ public interface ConversacionRepository extends JpaRepository<Conversacion, Inte
 
 	@Query("SELECT c FROM Conversacion c JOIN FETCH c.estadoChat WHERE c.idReserva = :idReserva")
 	List<Conversacion> findByIdReservaWithEstadoChat(@Param("idReserva") Integer idReserva);
+
+	@Query("SELECT c FROM Conversacion c JOIN FETCH c.estadoChat WHERE c.idReserva = :idReserva ORDER BY c.fechaCreacion ASC")
+	List<Conversacion> findAllByIdReservaOrderByFechaCreacionAsc(@Param("idReserva") Integer idReserva);
+
+	default Optional<Conversacion> findFirstByIdReservaOrderByFechaCreacionAsc(Integer idReserva) {
+		return findAllByIdReservaOrderByFechaCreacionAsc(idReserva).stream().findFirst();
+	}
 }

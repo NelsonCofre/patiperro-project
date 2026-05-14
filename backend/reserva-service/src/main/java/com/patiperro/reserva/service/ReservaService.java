@@ -902,10 +902,12 @@ public class ReservaService {
     private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {
     }
 
+    @Transactional(readOnly = true)
     public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(Integer idTutorUsuario, String rawJwt) {
         validarTutorJwt(idTutorUsuario, rawJwt);
         return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
-                .map(r -> toTutorDetalle(rellenarCodigoEncuentroExpiraSiAplica(r.getIdReserva(), rawJwt), rawJwt))
+                .map(r -> construirTutorDetalleSeguro(r, rawJwt, idTutorUsuario))
+                .flatMap(Optional::stream)
                 .sorted((a, b) -> {
                     LocalDateTime fechaA = a.getHoraInicio() != null ? a.getHoraInicio() : a.getFechaSolicitud();
                     LocalDateTime fechaB = b.getHoraInicio() != null ? b.getHoraInicio() : b.getFechaSolicitud();
@@ -921,6 +923,21 @@ public class ReservaService {
                     return fechaA.compareTo(fechaB);
                 })
                 .toList();
+    }
+
+    private Optional<ReservaTutorDetalleResponseDTO> construirTutorDetalleSeguro(
+            Reserva reserva, String rawJwt, Integer idTutorUsuario) {
+        try {
+            return Optional.of(toTutorDetalleParaListado(reserva, rawJwt));
+        } catch (Exception e) {
+            log.warn(
+                    "No se pudo construir el detalle de la reserva {} para el tutor {}: {}",
+                    reserva != null ? reserva.getIdReserva() : null,
+                    idTutorUsuario,
+                    e.getMessage(),
+                    e);
+            return Optional.empty();
+        }
     }
 
     /**
@@ -1560,9 +1577,18 @@ public class ReservaService {
         try {
             return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
         } catch (Exception e) {
-            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage());
+            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage(), e);
             return null;
         }
+    }
+
+    private ReservaTutorDetalleResponseDTO toTutorDetalleParaListado(Reserva r, String rawJwt) {
+        LocalDateTime codigoEncuentroExpiraEn = resolverCodigoEncuentroExpiraEnParaDetalle(r, rawJwt);
+        ReservaTutorDetalleResponseDTO dto = toTutorDetalle(r, rawJwt);
+        if (codigoEncuentroExpiraEn != null) {
+            dto.setCodigoEncuentroExpiraEn(codigoEncuentroExpiraEn);
+        }
+        return dto;
     }
 
     private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
@@ -1583,6 +1609,8 @@ public class ReservaService {
         try {
             return agendaIntegracionClient.obtenerBloque(idAgendaBloque, rawJwt);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener el bloque {} para el detalle del tutor: {}", idAgendaBloque, e.getMessage(),
+                    e);
             return null;
         }
     }
@@ -1591,6 +1619,7 @@ public class ReservaService {
         try {
             return mascotaIntegracionClient.obtenerResumen(idMascota, rawJwt);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener la mascota {} para el detalle del tutor: {}", idMascota, e.getMessage(), e);
             return null;
         }
     }
@@ -1599,6 +1628,8 @@ public class ReservaService {
         try {
             return paseadorIntegracionClient.obtenerResumen(idPaseador);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener el paseador {} para el detalle del tutor: {}", idPaseador, e.getMessage(),
+                    e);
             return null;
         }
     }
@@ -1772,6 +1803,33 @@ public class ReservaService {
             return reservaRepository.save(r);
         }
         return r;
+    }
+
+    private LocalDateTime resolverCodigoEncuentroExpiraEnParaDetalle(Reserva r, String rawJwt) {
+        if (r == null || !esAceptada(r.getEstadoReserva())) {
+            return r != null ? r.getCodigoEncuentroExpiraEn() : null;
+        }
+        if (r.getCodigoEncuentro() == null || r.getCodigoEncuentroExpiraEn() != null) {
+            return r.getCodigoEncuentroExpiraEn();
+        }
+
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        AgendaBloqueReservaClientDTO bloque = null;
+        if (agendaIntegracionClient.isEnabled() && rawJwt != null && !rawJwt.isBlank()) {
+            try {
+                bloque = agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            } catch (RuntimeException e) {
+                log.debug(
+                        "No se pudo obtener bloque {} para calcular expiracion del codigo de la reserva {}: {}",
+                        r.getIdAgendaBloque(),
+                        r.getIdReserva(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+
+        LocalDateTime inicio = resolverInicioProgramadoPaseo(bloque, r, ahora);
+        return calcularExpiracionCodigoDesdeInicio(inicio, ahora);
     }
 
     private static boolean coincideIdONombre(EstadoReserva e, int idEsperado, String nombreEsperado) {
