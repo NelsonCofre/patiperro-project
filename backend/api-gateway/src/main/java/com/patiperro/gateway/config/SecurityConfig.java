@@ -164,6 +164,10 @@ public class SecurityConfig {
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/pagos/paseador/**"))
                                                 .permitAll()
+                                                // Rol TUTOR lo valida pagos-service; aqui solo JWT (como checkout).
+                                                .requestMatchers(PathPatternRequestMatcher
+                                                                .pathPattern("/api/pagos/comprobante/**"))
+                                                .hasRole("TUTOR")
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/pagos/checkout/**"))
                                                 .hasRole("TUTOR")

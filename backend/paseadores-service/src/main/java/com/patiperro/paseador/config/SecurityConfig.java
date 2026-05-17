@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/paseadores/auth/logout").permitAll()
                         .requestMatchers("/api/paseadores/auth/upload-foto-perfil").permitAll()
                         .requestMatchers("/api/paseadores/public/**").permitAll()
+                        .requestMatchers("/api/paseadores/interno/**").permitAll()
                         // 👇 AGREGA ESTA LÍNEA 👇
                         .requestMatchers(HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .anyRequest().authenticated())

@@ -8,6 +8,7 @@ import com.patiperro.pagos.repository.BilleteraDisputaReservaRepository;
 import com.patiperro.pagos.repository.BilleteraRepository;
 import com.patiperro.pagos.repository.BilleteraReservaTrackingRepository;
 import com.patiperro.pagos.repository.BilleteraSaldoAuditoriaRepository;
+import com.patiperro.pagos.support.BilleteraLiberacionCalendario;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,9 +78,7 @@ public class BilleteraLiberacionTransaccionalService {
             return false;
         }
         LocalDate hoy = LocalDate.now(zone);
-        LocalDate diaFin = t.getFechaFinServicio().atZone(zone).toLocalDate();
-        LocalDate disponibleDesde = diaFin.plusDays(2);
-        if (hoy.isBefore(disponibleDesde)) {
+        if (!BilleteraLiberacionCalendario.diaActualPermiteLiberacion(hoy, t.getFechaFinServicio(), zone)) {
             return false;
         }
 

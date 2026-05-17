@@ -39,7 +39,7 @@ public class ReservaPagosIntegracionClient {
     public ReservaPagosIntegracionClient(
             RestClient.Builder restClientBuilder,
             @Value("${patiperro.pagos.integracion.reserva.enabled:true}") boolean enabled,
-            @Value("${patiperro.pagos.integracion.reserva.base-url:http://localhost:8085}") String baseUrl,
+            @Value("${patiperro.pagos.integracion.reserva.base-url:http://localhost:8090}") String baseUrl,
             @Value("${patiperro.pagos.integracion.reserva.interno.secret:}") String internoSecret) {
         this.enabled = enabled;
         String base = baseUrl == null ? "" : baseUrl.trim();

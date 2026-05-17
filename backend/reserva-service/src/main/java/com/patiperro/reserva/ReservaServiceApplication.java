@@ -1,6 +1,7 @@
 package com.patiperro.reserva;
 
 import com.patiperro.reserva.config.properties.PagosBilleteraIntegracionProperties;
+import com.patiperro.reserva.config.properties.PagosComprobanteIntegracionProperties;
 import com.patiperro.reserva.config.properties.PagosCheckoutIntegracionProperties;
 import com.patiperro.reserva.config.properties.PagosReembolsoIntegracionProperties;
 import org.springframework.boot.SpringApplication;
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableConfigurationProperties({
         PagosReembolsoIntegracionProperties.class,
         PagosBilleteraIntegracionProperties.class,
+        PagosComprobanteIntegracionProperties.class,
         PagosCheckoutIntegracionProperties.class
 })
 public class ReservaServiceApplication {

@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**").permitAll()
                         .requestMatchers("/api/pagos/webhooks/**").permitAll()
                         .requestMatchers("/api/pagos/interno/**").permitAll()
+                        .requestMatchers("/api/pagos/comprobante/**").hasRole("TUTOR")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

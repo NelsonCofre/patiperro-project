@@ -260,11 +260,57 @@ No es una estrategia clasica por clase, pero si una estrategia de transicion cen
 
 ## 3) Notas operativas importantes
 
+### 3.1 Puertos HTTP del backend
+
+Mantener esta tabla alineada entre `application.properties`, `api-gateway` y los launchers del IDE:
+
+- `api-gateway`: `8080`
+- `tutores-service`: `8081`
+- `paseadores-service`: `8082`
+- `mascotas-service`: `8083`
+- `agenda-service`: `8084`
+- `notification-service`: `8086`
+- `pagos-service`: `8087`
+- `resena-service`: `8088`
+- `reserva-service`: `8090`
+
+Si cambias un puerto HTTP, actualiza al mismo tiempo:
+
+- el `application.properties` del servicio
+- las rutas del gateway
+- cualquier `base-url` o `*_SERVICE_URI` que lo referencie
+- los launchers del IDE si llevan flags o entorno asociado
+
+### 3.2 Puertos de tooling y arranque local
+
+No mezclar puertos HTTP del servicio con puertos de tooling como JMX, RMI o debug.
+
+- El error `java.rmi.server.ExportException: Port already in use: 64188` corresponde a un puerto JMX/RMI del launcher de VS Code, no al `server.port` HTTP de `notification-service`.
+- Para desarrollo local, los launchers de `.vscode/launch.json` arrancan los microservicios con `spring.jmx.enabled=false` y `spring.application.admin.enabled=false` para evitar colisiones intermitentes al lanzar varias sesiones desde el IDE.
+- Esta politica aplica tambien a `paseadores-service`: si aparece un error sobre `50184` u otro puerto alto similar, el conflicto es de tooling del IDE/JMX y no del `server.port=8082`.
+- Si el equipo decide volver a habilitar JMX en local, cada servicio debe usar un puerto JMX unico y documentado, distinto de su `server.port`.
+
+### 3.3 Diagnostico rapido cuando falle un microservicio por puertos
+
+Si vuelve a aparecer un error de tipo `ExportException` o `Address already in use`:
+
+1. Verifica si el puerto mencionado pertenece al `server.port` HTTP o a un flag JVM del launcher.
+2. Revisa si ya existe otra instancia Java del mismo servicio corriendo en segundo plano.
+3. Si el error menciona un puerto alto como `50184`, `55951`, `62027`, `54603`, `56225` o `64188`, sospecha primero de JMX/RMI y revisa `.vscode/launch.json`.
+4. Si el error menciona el puerto funcional del servicio, por ejemplo `8082` para `paseadores-service` o `8086` para `notification-service`, entonces si corresponde al puerto HTTP del microservicio.
+5. Si arrancas por Maven o `java -jar` y el error desaparece, el problema esta en el launcher del IDE y no en el codigo del servicio.
+6. Si el error aparece solo al depurar, revisa tambien el puerto de debug del IDE; ese choque es distinto del de JMX/RMI y no se corrige cambiando `server.port`.
+
+### 3.4 Notas operativas
+
+- En frontend, cuando hay cambios de UI (mockups, formato, etc.), normalmente basta reiniciar/refrescar Vite.
+- Cuando hay cambios de contratos DTO o servicios Java, reiniciar el microservicio afectado.
+
+### 3.5 Geocodificacion
+
 - La geocodificacion (latitud/longitud) en registro de tutor/paseador es **best-effort**:
   - si Nominatim falla, la direccion puede guardarse sin coordenadas.
 - Para mapa de tutor, el paseador debe tener `direccion.latitud` y `direccion.longitud` no nulas.
-- En frontend, cuando hay cambios de UI (mockups, formato, etc.), normalmente basta reiniciar/refrescar Vite.
-- Cuando hay cambios de contratos DTO o servicios Java, reiniciar el microservicio afectado.
 
 ---
 

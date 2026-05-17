@@ -1,14 +1,31 @@
 import { API_ENDPOINTS, TUTOR_ID_SESSION_KEY } from "../../../config/api";
+import { clearAuthSession } from "../../auth/services/authServices";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 
-type ApiErrorBody = { message?: string; mensaje?: string };
+type ApiErrorBody = { message?: string; mensaje?: string; error?: string; status?: number };
+
+class ApiRequestError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
 
 function readApiErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object") {
     const o = data as ApiErrorBody;
     if (typeof o.message === "string" && o.message.trim()) return o.message;
     if (typeof o.mensaje === "string" && o.mensaje.trim()) return o.mensaje;
+    if (typeof o.error === "string" && o.error.trim()) {
+      if (typeof o.status === "number" && Number.isFinite(o.status)) {
+        return `${o.error} (${o.status})`;
+      }
+      return o.error;
+    }
   }
   return fallback;
 }
@@ -19,6 +36,11 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+function buildApiRequestError(response: Response, data: unknown, fallback: string): ApiRequestError {
+  const message = readApiErrorMessage(data, fallback);
+  return new ApiRequestError(message, response.status);
 }
 
 export type MascotaTutorDTO = {
@@ -303,10 +325,10 @@ export async function fetchReservasDetalleTutor(idTutor: number): Promise<Reserv
     if (legacyDetalle.status === 404) {
       return fetchReservasBasicasTutor(idTutor);
     }
-    throw new Error(readApiErrorMessage(legacyData, "No se pudieron cargar tus reservas."));
+    throw buildApiRequestError(legacyDetalle, legacyData, "No se pudieron cargar tus reservas.");
   }
 
-  throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+  throw buildApiRequestError(response, data, "No se pudieron cargar tus reservas.");
 }
 
 async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
@@ -317,7 +339,7 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
-    throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+    throw buildApiRequestError(response, data, "No se pudieron cargar tus reservas.");
   }
   if (!Array.isArray(data)) return [];
 
@@ -354,5 +376,16 @@ export async function cancelarReservaTutor(idReserva: number): Promise<void> {
   });
   const data = await parseJsonSafe(response);
   if (response.ok) return;
-  throw new Error(readApiErrorMessage(data, "No se pudo cancelar la solicitud."));
+  throw buildApiRequestError(response, data, "No se pudo cancelar la solicitud.");
+}
+
+export function isTutorAuthError(error: unknown): error is ApiRequestError {
+  if (!(error instanceof ApiRequestError)) {
+    return false;
+  }
+  return error.status === 401 || error.status === 403;
+}
+
+export function handleTutorAuthFailure() {
+  clearAuthSession();
 }

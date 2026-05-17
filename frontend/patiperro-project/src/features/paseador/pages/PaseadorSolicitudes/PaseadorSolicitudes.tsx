@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { subscribeChatMessages } from "../../../chat/services/chatWs";
+import type { ChatToastPayload } from "../../../chat/types/chat.types";
+import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -155,6 +159,13 @@ export default function PaseadorSolicitudes() {
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [selectedTutorSolicitud, setSelectedTutorSolicitud] = useState<SolicitudPendientePaseador | null>(null);
   const [finalizingId, setFinalizingId] = useState<number | null>(null);
+  const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
+  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
+
+  const paseadorIdRaw = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY);
+  const currentPaseadorId = paseadorIdRaw ? Number(paseadorIdRaw) : 0;
+  const currentPaseadorName =
+    sessionStorage.getItem("patiperro_nombre_usuario")?.trim() || "Paseador";
 
   async function loadSolicitudes(silent = false) {
     if (!silent) {
@@ -222,6 +233,31 @@ export default function PaseadorSolicitudes() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    const reservaIds = new Set(solicitudes.map((solicitud) => solicitud.idReserva));
+    return subscribeChatMessages((message) => {
+      if (
+        !reservaIds.has(message.idReserva) ||
+        message.senderUserId === currentPaseadorId ||
+        activeChatReservaId === message.idReserva
+      ) {
+        return;
+      }
+
+      setChatToast({
+        reservaId: message.idReserva,
+        senderName: message.senderName,
+        snippet: buildMessageSnippet(message.content)
+      });
+    });
+  }, [activeChatReservaId, currentPaseadorId, solicitudes]);
+
+  useEffect(() => {
+    if (!chatToast) return;
+    const timer = window.setTimeout(() => setChatToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [chatToast]);
 
   const pendingCount = solicitudes.filter((solicitud) => esSolicitudPorResponder(solicitud.estado)).length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
@@ -349,10 +385,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
 
   function handleOpenChat(solicitud: SolicitudPendientePaseador) {
     if (solicitud.chatActivo) {
-      setFeedback({
-        type: "success",
-        message: `Chat habilitado para ${solicitud.mascotaNombre}. Integraremos la sala en la siguiente historia.`
-      });
+      setActiveChatReservaId(solicitud.idReserva);
       return;
     }
     setFeedback({
@@ -427,6 +460,20 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
   return (
     <main className={styles.page}>
       <PaseadorNavbar />
+
+      {chatToast ? (
+        <button
+          type="button"
+          className={styles.chatToast}
+          onClick={() => {
+            setActiveChatReservaId(chatToast.reservaId);
+            setChatToast(null);
+          }}
+        >
+          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
+          <span>{chatToast.snippet}</span>
+        </button>
+      ) : null}
 
       <section className={styles.hero}>
         <div>
@@ -567,6 +614,25 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
         <TutorDetalleModal
           solicitud={selectedTutorSolicitud}
           onClose={() => setSelectedTutorSolicitud(null)}
+        />
+      ) : null}
+
+      {activeChatReservaId != null ? (
+        <ChatWindow
+          isOpen
+          reservaId={activeChatReservaId}
+          currentUserId={Number.isFinite(currentPaseadorId) ? currentPaseadorId : 0}
+          currentUserRole="paseador"
+          currentUserName={currentPaseadorName}
+          counterpartName={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.tutorNombre ||
+            "Tutor"
+          }
+          mascotaNombre={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.mascotaNombre ||
+            "Mascota"
+          }
+          onClose={() => setActiveChatReservaId(null)}
         />
       ) : null}
     </main>

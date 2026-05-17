@@ -1,6 +1,8 @@
 package com.patiperro.pagos.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
+import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
 import com.patiperro.pagos.security.JwtService;
@@ -18,12 +20,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -45,6 +50,35 @@ class BilleteraPaseadorControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @Test
+    void obtenerMiBilletera_serializaBucketsEHistorial() throws Exception {
+        BigDecimal z = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BilleteraResumenPaseadorResponse resumen = new BilleteraResumenPaseadorResponse(
+                bucket(z, "retenido"),
+                bucket(z, "verificacion"),
+                bucket(z, "disponible"),
+                List.of(),
+                List.of(),
+                LocalDateTime.of(2026, 5, 10, 12, 0));
+
+        when(billeteraService.resumenParaPaseador(eq(1L))).thenReturn(resumen);
+
+        TestingAuthenticationToken auth = new TestingAuthenticationToken(
+                1L,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+        auth.setAuthenticated(true);
+
+        mockMvc.perform(
+                        get("/api/pagos/paseador/billetera")
+                                .with(SecurityMockMvcRequestPostProcessors.authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.retenido.key").value("retenido"))
+                .andExpect(jsonPath("$.disponible.key").value("disponible"))
+                .andExpect(jsonPath("$.historialLiberacionesDisponible").isArray())
+                .andExpect(jsonPath("$.proyeccionLiberacionesPorDia").isArray());
+    }
 
     @Test
     void solicitarRetiro_incluyeMensajeEnRespuesta() throws Exception {
@@ -98,5 +132,8 @@ class BilleteraPaseadorControllerTest {
 
     private record MontoBody(String monto) {
     }
-}
 
+    private static BilleteraBucketResponse bucket(BigDecimal ceroEscala, String key) {
+        return new BilleteraBucketResponse(key, "", "", ceroEscala, ceroEscala, ceroEscala, List.of());
+    }
+}

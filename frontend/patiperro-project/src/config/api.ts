@@ -82,7 +82,7 @@ export const TUTOR_ID_SESSION_KEY = "patiperro_tutor_id";
  */
 export const ACCESS_TOKEN_SESSION_KEY = "patiperro_access_token";
 /** Endpoint WS STOMP expuesto por reserva-service para eventos de encuentro. */
-export const RESERVA_WS_URL = "ws://localhost:8085/ws/reservas";
+export const RESERVA_WS_URL = "ws://localhost:8090/ws/reservas";
 
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {

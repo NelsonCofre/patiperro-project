@@ -1,6 +1,7 @@
 package com.patiperro.reserva.controller;
 
 import com.patiperro.reserva.dto.BookingStatusPatchRequestDTO;
+import com.patiperro.reserva.dto.PaseoDiarioDTO;
 import com.patiperro.reserva.dto.ReservaParaPagoDto;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaRequestDTO;
@@ -42,7 +43,7 @@ public class ReservaController {
      * Verifica si una lista de bloques de agenda tiene compromisos activos.
      * Es utilizado por el microservicio de Agenda antes de permitir ediciones.
      * Requiere cabecera {@code X-Patiperro-Interno-Secret} ({@code patiperro.reserva.interno.secret}).
-     * URL: POST http://localhost:8085/api/reserva/interno/conflicto-bloqueo
+     * URL: POST http://localhost:8090/api/reserva/interno/conflicto-bloqueo
      */
     @PostMapping("/interno/conflicto-bloqueo")
     public boolean conflictoPorBloques(@RequestBody List<Integer> idsAgendaBloque) {
@@ -123,6 +124,31 @@ public class ReservaController {
             HttpServletRequest request) {
         String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
         return service.listarSolicitudesPendientesPaseador(idPaseador, jwt);
+    }
+
+    /**
+     * Misma regla de negocio que {@code GET .../agenda-hoy}, con cuerpo compacto {@link PaseoDiarioDTO}
+     * para el panel "Mis paseos de hoy". Mismo JWT y claim {@code paseadorId}.
+     */
+    @GetMapping("/paseador/{idPaseador}/agenda-hoy/panel")
+    public List<PaseoDiarioDTO> listarAgendaDiariaPaseadorAceptadasHoyPanel(
+            @PathVariable Integer idPaseador,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarAgendaDiariaPaseadorAceptadasHoyPanel(idPaseador, jwt);
+    }
+
+    /**
+     * Reservas en estado ACEPTADA con bloque de agenda en la fecha actual del servidor.
+     * Orden cronológico por inicio programado. El {@code idPaseador} debe coincidir con el claim
+     * {@code paseadorId} del JWT (misma regla que solicitudes-pendientes).
+     */
+    @GetMapping("/paseador/{idPaseador}/agenda-hoy")
+    public List<ReservaPaseadorSolicitudResponseDTO> listarAgendaDiariaPaseadorAceptadasHoy(
+            @PathVariable Integer idPaseador,
+            HttpServletRequest request) {
+        String jwt = BookingTokenExtractor.extractRawJwt(request).orElse(null);
+        return service.listarAgendaDiariaPaseadorAceptadasHoy(idPaseador, jwt);
     }
 
     @GetMapping("/mascota/{idMascota}")

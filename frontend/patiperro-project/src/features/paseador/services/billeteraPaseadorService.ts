@@ -13,6 +13,7 @@ export type BilleteraReservaItem = {
   comision: number;
   montoNeto: number;
   estado: string;
+  fechaLiberacionEstimada?: string | null;
 };
 
 export type BilleteraBucket = {

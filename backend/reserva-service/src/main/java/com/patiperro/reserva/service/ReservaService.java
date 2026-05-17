@@ -16,6 +16,7 @@ import com.patiperro.reserva.dto.ReservaRequestDTO;
 import com.patiperro.reserva.dto.ReservaResponseDTO;
 import com.patiperro.reserva.dto.MascotaPortadaUrlResponse;
 import com.patiperro.reserva.dto.MascotaInternoDetalleResponseDTO;
+import com.patiperro.reserva.dto.PaseoDiarioDTO;
 import com.patiperro.reserva.dto.ReservaPaseadorSolicitudResponseDTO;
 import com.patiperro.reserva.dto.ReservaParaPagoDto;
 import com.patiperro.reserva.dto.interno.InternoBilleteraReservaDetalleDto;
@@ -931,10 +932,12 @@ public class ReservaService {
     private record ReservaConInicio(Reserva reserva, LocalDateTime inicio, AgendaBloqueReservaClientDTO bloque) {
     }
 
+    @Transactional(readOnly = true)
     public List<ReservaTutorDetalleResponseDTO> listarDetallePorTutor(Integer idTutorUsuario, String rawJwt) {
         validarTutorJwt(idTutorUsuario, rawJwt);
         return reservaRepository.findByIdTutorUsuario(idTutorUsuario).stream()
-                .map(r -> toTutorDetalle(rellenarCodigoEncuentroExpiraSiAplica(r.getIdReserva(), rawJwt), rawJwt))
+                .map(r -> construirTutorDetalleSeguro(r, rawJwt, idTutorUsuario))
+                .flatMap(Optional::stream)
                 .sorted((a, b) -> {
                     LocalDateTime fechaA = a.getHoraInicio() != null ? a.getHoraInicio() : a.getFechaSolicitud();
                     LocalDateTime fechaB = b.getHoraInicio() != null ? b.getHoraInicio() : b.getFechaSolicitud();
@@ -950,6 +953,21 @@ public class ReservaService {
                     return fechaA.compareTo(fechaB);
                 })
                 .toList();
+    }
+
+    private Optional<ReservaTutorDetalleResponseDTO> construirTutorDetalleSeguro(
+            Reserva reserva, String rawJwt, Integer idTutorUsuario) {
+        try {
+            return Optional.of(toTutorDetalleParaListado(reserva, rawJwt));
+        } catch (Exception e) {
+            log.warn(
+                    "No se pudo construir el detalle de la reserva {} para el tutor {}: {}",
+                    reserva != null ? reserva.getIdReserva() : null,
+                    idTutorUsuario,
+                    e.getMessage(),
+                    e);
+            return Optional.empty();
+        }
     }
 
     /**
@@ -994,6 +1012,104 @@ public class ReservaService {
         salida.sort(Comparator.comparing(
                 ReservaPaseadorSolicitudResponseDTO::getFechaSolicitud,
                 Comparator.nullsLast(Comparator.naturalOrder())));
+        return salida;
+    }
+
+    private record AgendaHoyContext(
+            Map<Integer, AgendaBloqueReservaClientDTO> bloquePorId,
+            List<Reserva> reservasOrdenadas) {}
+
+    /**
+     * Reservas aceptadas con bloque hoy: mapa de bloques y lista ordenada por inicio programado.
+     * Sin validar JWT (llamar {@link #validarPaseadorJwt} antes en API pública).
+     */
+    private AgendaHoyContext cargarAgendaHoyAceptadasInterno(Integer idPaseador, String rawJwt) {
+        if (!agendaIntegracionClient.isEnabled()) {
+            return new AgendaHoyContext(Map.of(), List.of());
+        }
+        List<AgendaBloqueReservaClientDTO> bloques = agendaIntegracionClient.listarBloquesPorUsuario(idPaseador,
+                rawJwt);
+        if (bloques.isEmpty()) {
+            return new AgendaHoyContext(Map.of(), List.of());
+        }
+        LocalDate hoy = LocalDate.now(clock);
+        Map<Integer, AgendaBloqueReservaClientDTO> bloquePorId = bloques.stream()
+                .filter(b -> b.getIdAgenda() != null)
+                .collect(Collectors.toMap(AgendaBloqueReservaClientDTO::getIdAgenda, b -> b, (a, b) -> a));
+
+        List<Integer> idsBloqueHoy = bloques.stream()
+                .filter(b -> b.getIdAgenda() != null && hoy.equals(b.getFecha()))
+                .map(AgendaBloqueReservaClientDTO::getIdAgenda)
+                .distinct()
+                .toList();
+        if (idsBloqueHoy.isEmpty()) {
+            return new AgendaHoyContext(bloquePorId, List.of());
+        }
+
+        List<Reserva> candidatas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReserva(
+                idsBloqueHoy, EstadoReservaCatalogo.ID_ACEPTADA);
+        List<Reserva> reservas = new ArrayList<>();
+        for (Reserva r : candidatas) {
+            AgendaBloqueReservaClientDTO b = bloquePorId.get(r.getIdAgendaBloque());
+            if (b == null) {
+                log.warn(
+                        "agenda-hoy: reserva {} con bloque {} ausente del mapa del paseador {}",
+                        r.getIdReserva(),
+                        r.getIdAgendaBloque(),
+                        idPaseador);
+                continue;
+            }
+            if (b.getIdUsuario() != null && !b.getIdUsuario().equals(idPaseador)) {
+                log.warn(
+                        "agenda-hoy: reserva {} en bloque {} con idUsuario distinto del paseador {}",
+                        r.getIdReserva(),
+                        r.getIdAgendaBloque(),
+                        idPaseador);
+                continue;
+            }
+            reservas.add(r);
+        }
+        reservas.sort(Comparator.comparing(
+                (Reserva r) -> resolverInicioPaseo(r, bloquePorId.get(r.getIdAgendaBloque())),
+                Comparator.nullsLast(Comparator.naturalOrder())));
+        return new AgendaHoyContext(bloquePorId, reservas);
+    }
+
+    /**
+     * Agenda diaria del paseador: reservas {@link EstadoReservaCatalogo#NOMBRE_ACEPTADA} cuyo
+     * bloque de agenda tiene {@code fecha} igual a {@link LocalDate#now} del {@link Clock} del
+     * servicio. Requiere JWT de paseador; {@code idPaseador} debe coincidir con {@code paseadorId}.
+     * Descarta filas incoherentes (bloque desconocido o {@code idUsuario} distinto del paseador).
+     * Payload completo: {@link ReservaPaseadorSolicitudResponseDTO} (compatibilidad con clientes existentes).
+     */
+    public List<ReservaPaseadorSolicitudResponseDTO> listarAgendaDiariaPaseadorAceptadasHoy(
+            Integer idPaseador, String rawJwt) {
+        validarPaseadorJwt(idPaseador, rawJwt);
+        AgendaHoyContext ctx = cargarAgendaHoyAceptadasInterno(idPaseador, rawJwt);
+        List<ReservaPaseadorSolicitudResponseDTO> salida = new ArrayList<>();
+        for (Reserva r : ctx.reservasOrdenadas()) {
+            AgendaBloqueReservaClientDTO bloque = ctx.bloquePorId().get(r.getIdAgendaBloque());
+            TutorReservaClientDTO tutor = tutorIntegracionClient.obtenerTutor(r.getIdTutorUsuario().longValue(),
+                    rawJwt);
+            salida.add(mapearSolicitudPaseador(r, bloque, tutor));
+        }
+        return salida;
+    }
+
+    /**
+     * Igual criterio que {@link #listarAgendaDiariaPaseadorAceptadasHoy} pero con
+     * {@link PaseoDiarioDTO}. Si tutores-service falla para un ítem, se degrada comuna/dirección vía
+     * {@link #obtenerTutorSeguro}.
+     */
+    public List<PaseoDiarioDTO> listarAgendaDiariaPaseadorAceptadasHoyPanel(Integer idPaseador, String rawJwt) {
+        validarPaseadorJwt(idPaseador, rawJwt);
+        AgendaHoyContext ctx = cargarAgendaHoyAceptadasInterno(idPaseador, rawJwt);
+        List<PaseoDiarioDTO> salida = new ArrayList<>();
+        for (Reserva r : ctx.reservasOrdenadas()) {
+            AgendaBloqueReservaClientDTO bloque = ctx.bloquePorId().get(r.getIdAgendaBloque());
+            TutorReservaClientDTO tutor = obtenerTutorSeguro(r.getIdTutorUsuario(), rawJwt);
+            salida.add(mapearPaseoDiario(r, bloque, tutor));
+        }
         return salida;
     }
 
@@ -1173,30 +1289,164 @@ public class ReservaService {
         return local.isEmpty() ? "Tutor #" + idTutorUsuario : local;
     }
 
+    private record MascotaEnriquecimientoPaseador(
+            String nombre,
+            String fotoUrl,
+            String raza,
+            String tamano,
+            String edad,
+            String peso,
+            String sexo,
+            String caracter,
+            String cuidados) {}
+
+    /**
+     * Datos de mascota para paneles del paseador: una sola ronda de llamadas a mascotas-service.
+     */
+    private MascotaEnriquecimientoPaseador cargarMascotaEnriquecimientoPaseador(Integer idMascota) {
+        String fallbackNombre = idMascota != null ? "Mascota #" + idMascota : "Mascota";
+        String mascotaNombre = fallbackNombre;
+        String mascotaFotoUrl = null;
+        String mascotaRaza = "";
+        String mascotaTamano = "";
+        String mascotaEdad = "";
+        String mascotaPeso = "";
+        String mascotaSexo = "";
+        String mascotaCaracter = "";
+        String mascotaCuidados = "";
+        if (idMascota == null) {
+            return new MascotaEnriquecimientoPaseador(
+                    mascotaNombre,
+                    mascotaFotoUrl,
+                    mascotaRaza,
+                    mascotaTamano,
+                    mascotaEdad,
+                    mascotaPeso,
+                    mascotaSexo,
+                    mascotaCaracter,
+                    mascotaCuidados);
+        }
+        try {
+            MascotaInternoDetalleResponseDTO detalleMascota = mascotaIntegracionClient.obtenerDetalleInterno(idMascota);
+            if (detalleMascota != null) {
+                mascotaFotoUrl = detalleMascota.getFotoPerfil();
+                if (detalleMascota.getNombre() != null && !detalleMascota.getNombre().isBlank()) {
+                    mascotaNombre = detalleMascota.getNombre();
+                }
+                mascotaRaza = detalleMascota.getRaza() != null ? detalleMascota.getRaza() : "";
+                mascotaTamano = detalleMascota.getTamano() != null ? detalleMascota.getTamano() : "";
+                mascotaEdad = detalleMascota.getEdad() != null ? detalleMascota.getEdad() : "";
+                mascotaPeso = detalleMascota.getPeso() != null ? detalleMascota.getPeso() : "";
+                mascotaSexo = detalleMascota.getSexo() != null ? detalleMascota.getSexo() : "";
+                mascotaCaracter = detalleMascota.getCaracter() != null ? detalleMascota.getCaracter() : "";
+                mascotaCuidados = detalleMascota.getCuidados() != null ? detalleMascota.getCuidados() : "";
+            } else {
+                MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(idMascota);
+                if (portada != null) {
+                    mascotaFotoUrl = portada.getUrl();
+                    if (portada.getNombre() != null && !portada.getNombre().isBlank()) {
+                        mascotaNombre = portada.getNombre();
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Si mascotas no está o falla el interno, el panel del paseador sigue mostrando nombre genérico.
+        }
+        return new MascotaEnriquecimientoPaseador(
+                mascotaNombre,
+                mascotaFotoUrl,
+                mascotaRaza,
+                mascotaTamano,
+                mascotaEdad,
+                mascotaPeso,
+                mascotaSexo,
+                mascotaCaracter,
+                mascotaCuidados);
+    }
+
+    private record PresentacionAgendaBloque(
+            String fechaAgenda,
+            String horaInicio,
+            String horaFin,
+            LocalDateTime inicioProgramado,
+            LocalDateTime finProgramado) {
+
+        private static PresentacionAgendaBloque desde(AgendaBloqueReservaClientDTO bloque) {
+            if (bloque == null) {
+                return new PresentacionAgendaBloque("", "", "", null, null);
+            }
+            String fechaAgenda = bloque.getFecha() != null ? bloque.getFecha().toString() : "";
+            return new PresentacionAgendaBloque(
+                    fechaAgenda,
+                    formatearHoraMinuto(bloque.getHoraInicio()),
+                    formatearHoraMinuto(bloque.getHoraFinal()),
+                    bloque.getHoraInicio(),
+                    bloque.getHoraFinal());
+        }
+    }
+
+    private record ComunaDireccionPanel(String comuna, String direccionReferencia) {
+
+        private static ComunaDireccionPanel desde(
+                TutorReservaClientDTO tutor, Reserva r, AgendaBloqueReservaClientDTO bloque) {
+            String comuna = "";
+            String direccionRef = "";
+            if (tutor != null) {
+                TutorReservaClientDTO.DireccionTutorClientDTO d = tutor.getDireccion();
+                if (d != null) {
+                    if (d.getComuna() != null) {
+                        comuna = d.getComuna();
+                    }
+                    direccionRef = lineaDireccionTutor(d);
+                }
+            }
+            if (direccionRef.isBlank() && bloque != null) {
+                direccionRef = "Bloque agenda #" + r.getIdAgendaBloque();
+            }
+            if (comuna.isBlank()) {
+                comuna = "—";
+            }
+            return new ComunaDireccionPanel(comuna, direccionRef);
+        }
+    }
+
+    private PaseoDiarioDTO mapearPaseoDiario(Reserva r, AgendaBloqueReservaClientDTO bloque, TutorReservaClientDTO tutor) {
+        EstadoReserva estado = r.getEstadoReserva();
+        Integer idEstado = estado != null ? estado.getIdEstadoReserva() : null;
+        String nombreEstado = estado != null ? estado.getNombreEstado() : null;
+
+        PresentacionAgendaBloque pa = PresentacionAgendaBloque.desde(bloque);
+        ComunaDireccionPanel cd = ComunaDireccionPanel.desde(tutor, r, bloque);
+        MascotaEnriquecimientoPaseador m = cargarMascotaEnriquecimientoPaseador(r.getIdMascota());
+
+        return new PaseoDiarioDTO(
+                r.getIdReserva(),
+                r.getIdAgendaBloque(),
+                m.nombre(),
+                pa.fechaAgenda(),
+                pa.horaInicio(),
+                pa.horaFin(),
+                pa.inicioProgramado(),
+                pa.finProgramado(),
+                cd.comuna(),
+                cd.direccionReferencia(),
+                idEstado,
+                nombreEstado);
+    }
+
     private ReservaPaseadorSolicitudResponseDTO mapearSolicitudPaseador(
             Reserva r, AgendaBloqueReservaClientDTO bloque, TutorReservaClientDTO tutor) {
         EstadoReserva estado = r.getEstadoReserva();
         String nombreEstado = estado != null ? estado.getNombreEstado() : null;
 
-        String fechaAgenda = "";
-        String horaIni = "";
-        String horaFin = "";
-        if (bloque != null) {
-            LocalDate f = bloque.getFecha();
-            if (f != null) {
-                fechaAgenda = f.toString();
-            }
-            horaIni = formatearHoraMinuto(bloque.getHoraInicio());
-            horaFin = formatearHoraMinuto(bloque.getHoraFinal());
-        }
+        PresentacionAgendaBloque pa = PresentacionAgendaBloque.desde(bloque);
+        ComunaDireccionPanel cd = ComunaDireccionPanel.desde(tutor, r, bloque);
 
         String tutorNombre;
         String tutorTel = "";
         String tutorCorreo = "";
         String tutorFoto = "";
         String tutorNotas = "";
-        String comuna = "";
-        String direccionRef = "";
 
         if (tutor != null) {
             tutorNombre = nombreCompletoTutor(tutor);
@@ -1212,61 +1462,11 @@ public class ReservaService {
             if (tutor.getBiografia() != null) {
                 tutorNotas = tutor.getBiografia();
             }
-            TutorReservaClientDTO.DireccionTutorClientDTO d = tutor.getDireccion();
-            if (d != null) {
-                if (d.getComuna() != null) {
-                    comuna = d.getComuna();
-                }
-                direccionRef = lineaDireccionTutor(d);
-            }
         } else {
             tutorNombre = "Tutor #" + r.getIdTutorUsuario();
         }
 
-        if (direccionRef.isBlank() && bloque != null) {
-            direccionRef = "Bloque agenda #" + r.getIdAgendaBloque();
-        }
-        if (comuna.isBlank()) {
-            comuna = "—";
-        }
-
-        String mascotaNombre = "Mascota #" + r.getIdMascota();
-        String mascotaFotoUrl = null;
-        String mascotaRaza = "";
-        String mascotaTamano = "";
-        String mascotaEdad = "";
-        String mascotaPeso = "";
-        String mascotaSexo = "";
-        String mascotaCaracter = "";
-        String mascotaCuidados = "";
-        try {
-            MascotaInternoDetalleResponseDTO detalleMascota = mascotaIntegracionClient
-                    .obtenerDetalleInterno(r.getIdMascota());
-            if (detalleMascota != null) {
-                mascotaFotoUrl = detalleMascota.getFotoPerfil();
-                if (detalleMascota.getNombre() != null && !detalleMascota.getNombre().isBlank()) {
-                    mascotaNombre = detalleMascota.getNombre();
-                }
-                mascotaRaza = detalleMascota.getRaza() != null ? detalleMascota.getRaza() : "";
-                mascotaTamano = detalleMascota.getTamano() != null ? detalleMascota.getTamano() : "";
-                mascotaEdad = detalleMascota.getEdad() != null ? detalleMascota.getEdad() : "";
-                mascotaPeso = detalleMascota.getPeso() != null ? detalleMascota.getPeso() : "";
-                mascotaSexo = detalleMascota.getSexo() != null ? detalleMascota.getSexo() : "";
-                mascotaCaracter = detalleMascota.getCaracter() != null ? detalleMascota.getCaracter() : "";
-                mascotaCuidados = detalleMascota.getCuidados() != null ? detalleMascota.getCuidados() : "";
-            } else {
-                MascotaPortadaUrlResponse portada = mascotaIntegracionClient.obtenerPortadaInterno(r.getIdMascota());
-                if (portada != null) {
-                    mascotaFotoUrl = portada.getUrl();
-                    if (portada.getNombre() != null && !portada.getNombre().isBlank()) {
-                        mascotaNombre = portada.getNombre();
-                    }
-                }
-            }
-        } catch (RuntimeException ignored) {
-            // Si mascotas no está o falla el interno, el panel del paseador sigue mostrando
-            // nombre genérico.
-        }
+        MascotaEnriquecimientoPaseador m = cargarMascotaEnriquecimientoPaseador(r.getIdMascota());
 
         return new ReservaPaseadorSolicitudResponseDTO(
                 r.getIdReserva(),
@@ -1276,26 +1476,26 @@ public class ReservaService {
                 r.getMontoTotal(),
                 r.getFechaSolicitud(),
                 nombreEstado,
-                fechaAgenda,
-                horaIni,
-                horaFin,
-                comuna,
-                direccionRef,
+                pa.fechaAgenda(),
+                pa.horaInicio(),
+                pa.horaFin(),
+                cd.comuna(),
+                cd.direccionReferencia(),
                 tutorNombre,
                 tutorTel,
                 tutorCorreo,
                 tutorFoto,
                 tutorNotas,
-                mascotaFotoUrl,
-                mascotaNombre,
+                m.fotoUrl(),
+                m.nombre(),
                 r.getCodigoEncuentro(),
-                mascotaRaza,
-                mascotaTamano,
-                mascotaEdad,
-                mascotaPeso,
-                mascotaSexo,
-                mascotaCaracter,
-                mascotaCuidados);
+                m.raza(),
+                m.tamano(),
+                m.edad(),
+                m.peso(),
+                m.sexo(),
+                m.caracter(),
+                m.cuidados());
     }
 
     private static String formatearHoraMinuto(LocalDateTime t) {
@@ -1407,9 +1607,18 @@ public class ReservaService {
         try {
             return tutorIntegracionClient.obtenerTutor(idTutor.longValue(), rawJwt);
         } catch (Exception e) {
-            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage());
+            log.debug("No se pudo obtener datos del tutor {}: {}", idTutor, e.getMessage(), e);
             return null;
         }
+    }
+
+    private ReservaTutorDetalleResponseDTO toTutorDetalleParaListado(Reserva r, String rawJwt) {
+        LocalDateTime codigoEncuentroExpiraEn = resolverCodigoEncuentroExpiraEnParaDetalle(r, rawJwt);
+        ReservaTutorDetalleResponseDTO dto = toTutorDetalle(r, rawJwt);
+        if (codigoEncuentroExpiraEn != null) {
+            dto.setCodigoEncuentroExpiraEn(codigoEncuentroExpiraEn);
+        }
+        return dto;
     }
 
     private ReservaTutorDetalleResponseDTO toTutorDetalle(Reserva r, String rawJwt) {
@@ -1430,6 +1639,8 @@ public class ReservaService {
         try {
             return agendaIntegracionClient.obtenerBloque(idAgendaBloque, rawJwt);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener el bloque {} para el detalle del tutor: {}", idAgendaBloque, e.getMessage(),
+                    e);
             return null;
         }
     }
@@ -1438,6 +1649,7 @@ public class ReservaService {
         try {
             return mascotaIntegracionClient.obtenerResumen(idMascota, rawJwt);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener la mascota {} para el detalle del tutor: {}", idMascota, e.getMessage(), e);
             return null;
         }
     }
@@ -1446,6 +1658,8 @@ public class ReservaService {
         try {
             return paseadorIntegracionClient.obtenerResumen(idPaseador);
         } catch (RuntimeException e) {
+            log.debug("No se pudo obtener el paseador {} para el detalle del tutor: {}", idPaseador, e.getMessage(),
+                    e);
             return null;
         }
     }
@@ -1619,6 +1833,33 @@ public class ReservaService {
             return reservaRepository.save(r);
         }
         return r;
+    }
+
+    private LocalDateTime resolverCodigoEncuentroExpiraEnParaDetalle(Reserva r, String rawJwt) {
+        if (r == null || !esAceptada(r.getEstadoReserva())) {
+            return r != null ? r.getCodigoEncuentroExpiraEn() : null;
+        }
+        if (r.getCodigoEncuentro() == null || r.getCodigoEncuentroExpiraEn() != null) {
+            return r.getCodigoEncuentroExpiraEn();
+        }
+
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        AgendaBloqueReservaClientDTO bloque = null;
+        if (agendaIntegracionClient.isEnabled() && rawJwt != null && !rawJwt.isBlank()) {
+            try {
+                bloque = agendaIntegracionClient.obtenerBloquePorId(r.getIdAgendaBloque(), rawJwt);
+            } catch (RuntimeException e) {
+                log.debug(
+                        "No se pudo obtener bloque {} para calcular expiracion del codigo de la reserva {}: {}",
+                        r.getIdAgendaBloque(),
+                        r.getIdReserva(),
+                        e.getMessage(),
+                        e);
+            }
+        }
+
+        LocalDateTime inicio = resolverInicioProgramadoPaseo(bloque, r, ahora);
+        return calcularExpiracionCodigoDesdeInicio(inicio, ahora);
     }
 
     private static boolean coincideIdONombre(EstadoReserva e, int idEsperado, String nombreEsperado) {

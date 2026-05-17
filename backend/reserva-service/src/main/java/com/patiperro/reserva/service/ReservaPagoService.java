@@ -36,6 +36,7 @@ public class ReservaPagoService {
     private final NotificacionPagoIntegracionClient notificacionPagoIntegracionClient;
     private final PaseadorIntegracionClient paseadorIntegracionClient;
     private final PagosBilleteraIntegracionClient pagosBilleteraIntegracionClient;
+    private final ReservaComprobantePostCommitRunner reservaComprobantePostCommitRunner;
 
     /**
      * Persiste el enlace a la transacción en pagos-service (checkout iniciado desde pagos-service).
@@ -90,6 +91,7 @@ public class ReservaPagoService {
                     reservaRepository.save(r);
                 }
                 programarSincroniaExternaTrasCommitPago(r.getIdAgendaBloque(), false, null, null, null);
+                programarComprobantePostCommit(idReserva);
                 return;
             }
         }
@@ -160,16 +162,38 @@ public class ReservaPagoService {
         boolean acreditarRetenidoAhora = Objects.equals(EstadoReservaCatalogo.ID_ACEPTADA, idEstadoUpd);
         programarSincroniaExternaTrasCommitPago(
                 saved.getIdAgendaBloque(), acreditarRetenidoAhora, saved.getIdReserva(), saved.getIdPago(), idPaseador);
+        programarComprobantePostCommit(saved.getIdReserva());
 
         log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
                 saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
     }
 
     /**
+     * Best-effort tras COMMIT: generar/persistir comprobante en pagos-service y disparar correo al tutor si está configurado.
+     * Idempotente del lado de pagos ({@code UNIQUE(id_reserva)}); reintentos por webhook tardío son seguros.
+     */
+    private void programarComprobantePostCommit(Integer idReserva) {
+        if (idReserva == null || !reservaComprobantePostCommitRunner.isSchedulingEnabled()) {
+            return;
+        }
+        Runnable task = () -> reservaComprobantePostCommitRunner.generarBestEffort(idReserva);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            task.run();
+                        }
+                    });
+        } else {
+            task.run();
+        }
+    }
+
+    /**
      * Tras COMMIT de la reserva: acreditación billetera (retenido) si corresponde y sincronía agenda (siempre best-effort).
-     * <p>El acreditado a {@code EN_RETENIDO} ocurre al marcar PAGADA solo si el origen era {@code ACEPTADA}
-     * (tutor pagó después de aceptación); si el origen era {@code SOLICITADA}/{@code PENDIENTE_PAGO}, se difiere
-     * hasta que el paseador acepte ({@code ReservaService}).</p>
+     * El acreditado a {@code EN_RETENIDO} al marcar PAGADA solo si el origen era {@code ACEPTADA}; si era
+     * {@code SOLICITADA}/{@code PENDIENTE_PAGO}, se difiere hasta que el paseador acepte ({@code ReservaService}).
      */
     private void programarSincroniaExternaTrasCommitPago(
             Integer idAgendaBloque,

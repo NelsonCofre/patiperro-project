@@ -36,6 +36,7 @@ public class MercadoPagoWebhookProcessor {
     private final TransaccionRepository transaccionRepository;
     private final PagoExternoService pagoExternoService;
     private final NetoTransaccionService netoTransaccionService;
+    private final RecaudacionPlataformaService recaudacionPlataformaService;
     private final PagosWebhookProperties pagosWebhookProperties;
 
     public MercadoPagoWebhookProcessor(
@@ -44,12 +45,14 @@ public class MercadoPagoWebhookProcessor {
             TransaccionRepository transaccionRepository,
             PagoExternoService pagoExternoService,
             NetoTransaccionService netoTransaccionService,
+            RecaudacionPlataformaService recaudacionPlataformaService,
             PagosWebhookProperties pagosWebhookProperties) {
         this.mercadoPagoApiClient = mercadoPagoApiClient;
         this.reservaPagosIntegracionClient = reservaPagosIntegracionClient;
         this.transaccionRepository = transaccionRepository;
         this.pagoExternoService = pagoExternoService;
         this.netoTransaccionService = netoTransaccionService;
+        this.recaudacionPlataformaService = recaudacionPlataformaService;
         this.pagosWebhookProperties = pagosWebhookProperties;
     }
 
@@ -119,10 +122,22 @@ public class MercadoPagoWebhookProcessor {
                         Transaccion tx = pendiente.get();
                         BigDecimal brutoCheckoutPrevio = tx.getMontoBruto();
                         aplicarMontosNetoDesdePago(tx, pago);
+                        // Observabilidad: bruto = neto + comisión (NetoTransaccionService). No lanzar ni omitir save si falla.
+                        netoTransaccionService.advertirSiMontosNoIntegran(
+                                tx.getMontoBruto(),
+                                tx.getComisionApp(),
+                                tx.getMontoNeto(),
+                                "webhook_mp approved idReserva="
+                                        + idReserva
+                                        + " mpPaymentId="
+                                        + mpId
+                                        + " idTransaccion="
+                                        + tx.getIdTransaccion());
                         advertirSiMontoCheckoutDifiereDeMp(brutoCheckoutPrevio, pago, idReserva, mpId);
                         pagoExternoService.upsertMercadoPagoPagoExterno(tx, pago, null);
                         tx.setEstadoPago(EstadoPago.APROBADO);
                         transaccionRepository.save(tx);
+                        registrarRecaudacionCobroAprobado(tx, idReserva, mpId);
                         idTransaccionPagos = tx.getIdTransaccion();
                         transicionDesdePendiente = true;
                     }
@@ -231,6 +246,19 @@ public class MercadoPagoWebhookProcessor {
         NetoTransaccionService.ResultadoNeto netos = netoTransaccionService.calcularConFallbackSinComision(bruto);
         tx.setComisionApp(netos.comisionApp());
         tx.setMontoNeto(netos.montoNeto());
+    }
+
+    private void registrarRecaudacionCobroAprobado(Transaccion tx, Integer idReserva, String mpPaymentId) {
+        try {
+            recaudacionPlataformaService.registrarCobroAprobado(tx);
+        } catch (RuntimeException ex) {
+            log.warn(
+                    "Webhook MP: no se pudo registrar log de recaudacion; se continua con notificacion de pago aprobado (idReserva={}, idTransaccion={}, mpPaymentId={})",
+                    idReserva,
+                    tx != null ? tx.getIdTransaccion() : null,
+                    mpPaymentId,
+                    ex);
+        }
     }
 
     private void advertirSiMontoCheckoutDifiereDeMp(

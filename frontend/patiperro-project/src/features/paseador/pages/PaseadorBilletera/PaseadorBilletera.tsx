@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import AvailableBalance from "../../components/AvailableBalance/AvailableBalance";
 import BalanceCard from "../../components/BalanceCard/BalanceCard";
+import GananciasBreakdown from "../../components/GananciasBreakdown/GananciasBreakdown";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import WithdrawalRequest from "../../components/WithdrawalRequest/WithdrawalRequest";
 import { usePaseadorBilletera } from "../../hooks/usePaseadorBilletera";
@@ -35,6 +36,32 @@ function formatTime(value: string): string {
   }).format(date);
 }
 
+function formatDateTime(value?: string | null): string {
+  if (!value) return "Sin liberacion programada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin liberacion programada";
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "full",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function getProximaLiberacion(reservas: BilleteraReservaItem[]): string {
+  const fechas = reservas
+    .map((item) => item.fechaLiberacionEstimada)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+
+  if (fechas.length === 0) return "Sin liberaciones programadas";
+
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "full",
+    timeStyle: "short"
+  }).format(new Date(fechas[0]));
+}
+
 function getEmptyCopy(selectedBucket: BilleteraBucketKey): { title: string; text: string } {
   if (selectedBucket === "retenido") {
     return {
@@ -61,8 +88,13 @@ function ReservaWalletRow({ reserva }: { reserva: BilleteraReservaItem }) {
         <p className={styles.rowEyebrow}>Reserva #{reserva.idReserva}</p>
         <h3>{reserva.mascotaNombre}</h3>
         <p className={styles.rowMeta}>
-          Tutor: {reserva.tutorNombre} · {formatDate(reserva.fecha)} · {formatTime(reserva.horaInicio)}
+          Tutor: {reserva.tutorNombre} - {formatDate(reserva.fecha)} - {formatTime(reserva.horaInicio)}
         </p>
+        {reserva.fechaLiberacionEstimada ? (
+          <p className={styles.rowRelease}>
+            Disponible desde: {formatDateTime(reserva.fechaLiberacionEstimada)}
+          </p>
+        ) : null}
       </div>
       <div className={styles.rowSide}>
         <strong>{formatMoney(reserva.montoNeto)}</strong>
@@ -159,6 +191,13 @@ export default function PaseadorBilletera() {
             isPrimary={index === 0}
             isActive={selectedBucket === bucket.key}
             onClick={() => setSelectedBucket(bucket.key)}
+            extraLabel={
+              bucket.key === "verificacion"
+                ? `Proxima liberacion: ${getProximaLiberacion(bucket.reservas)}`
+                : bucket.key === "disponible"
+                  ? "Fondos ya listos para retiro"
+                  : "Servicios aun dentro del ciclo de resguardo"
+            }
           />
         ))}
       </section>
@@ -204,6 +243,8 @@ export default function PaseadorBilletera() {
           setSelectedBucket("disponible");
         }}
       />
+
+      <GananciasBreakdown bucket={currentBucket} />
 
       {withdrawalNotice ? (
         <div className={styles.feedbackBanner} role="status">

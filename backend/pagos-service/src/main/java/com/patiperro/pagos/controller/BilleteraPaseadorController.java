@@ -24,6 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * API de billetera para el paseador autenticado. El resumen completo va en {@link #obtenerMiBilletera}; los GET por
+ * bucket ({@link #obtenerMiBilleteraBucket}) devuelven solo un {@link BilleteraBucketResponse} sin historial ni
+ * proyección N+2.
+ */
 @RestController
 @RequestMapping("/api/pagos/paseador/billetera")
 @PreAuthorize("hasRole('PASEADOR')")
@@ -37,6 +42,9 @@ public class BilleteraPaseadorController {
         this.retiroPaseadorService = retiroPaseadorService;
     }
 
+    /**
+     * Resumen completo: buckets, historial de liberaciones, proyección N+2 por día y {@code updatedAt}.
+     */
     @GetMapping
     public ResponseEntity<BilleteraResumenPaseadorResponse> obtenerMiBilletera(Authentication authentication) {
         Long idUsuario = resolvePaseadorIdOrNull(authentication);
@@ -91,8 +99,9 @@ public class BilleteraPaseadorController {
     }
 
     /**
-     * Endpoints de conveniencia para UI: no recalculan, solo filtran el resumen.
-     * No aceptan id de paseador por URL para evitar exposición de terceros.
+     * Conveniencia para UI: mismo cálculo que {@link #obtenerMiBilletera}, pero solo un bucket.
+     * No incluye historial ni proyección; para el resumen completo usar GET sin sufijo.
+     * No acepta id de paseador por URL.
      */
     @GetMapping("/{bucketKey}")
     public ResponseEntity<BilleteraBucketResponse> obtenerMiBilleteraBucket(
