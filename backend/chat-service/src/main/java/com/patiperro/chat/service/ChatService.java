@@ -19,6 +19,8 @@ import com.patiperro.chat.repository.ConversacionRepository;
 import com.patiperro.chat.repository.EstadoChatRepository;
 import com.patiperro.chat.repository.EstadoMensajeRepository;
 import com.patiperro.chat.repository.MensajeRepository;
+import com.patiperro.chat.support.ReservaChatIntegracionClient;
+import com.patiperro.chat.support.ReservaParticipantesDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,7 @@ public class ChatService {
 	private final MensajeRepository mensajeRepository;
 	private final EstadoChatRepository estadoChatRepository;
 	private final EstadoMensajeRepository estadoMensajeRepository;
+	private final ReservaChatIntegracionClient reservaChatIntegracionClient;
 
 	@Transactional(readOnly = true)
 	public List<EstadoCatalogoDTO> listarEstadosChat() {
@@ -195,6 +199,36 @@ public class ChatService {
 		mensaje = mensajeRepository.save(mensaje);
 
 		return toChatMessageOutbound(mensaje, request.getSender().trim());
+	}
+
+	/**
+	 * Usuario que debe recibir la notificación push (el interlocutor, no el remitente).
+	 * Usa reserva-service interno; {@code null} si la integración falla o no hay participantes.
+	 */
+	@Transactional(readOnly = true)
+	public Integer resolverDestinatarioPush(Integer idReserva, Integer idRemitente) {
+		if (idReserva == null || idRemitente == null) {
+			return null;
+		}
+		ReservaParticipantesDto participantes = reservaChatIntegracionClient.obtenerParticipantes(idReserva);
+		if (participantes == null) {
+			return null;
+		}
+		Integer tutor = participantes.idTutorUsuario();
+		Integer paseador = participantes.idPaseadorUsuario();
+		if (tutor != null && Objects.equals(tutor, idRemitente)) {
+			return paseador;
+		}
+		if (paseador != null && Objects.equals(paseador, idRemitente)) {
+			return tutor;
+		}
+		if (tutor != null && !Objects.equals(tutor, idRemitente)) {
+			return tutor;
+		}
+		if (paseador != null && !Objects.equals(paseador, idRemitente)) {
+			return paseador;
+		}
+		return null;
 	}
 
 	@Transactional(readOnly = true)
