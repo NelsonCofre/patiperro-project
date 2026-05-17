@@ -1,17 +1,29 @@
 package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
+import com.patiperro.pagos.dto.billetera.BilleteraProyeccionLiberacionGrupoResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraReservaItemResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.BancoCatalogoResponse;
+import com.patiperro.pagos.dto.billetera.CatalogoRegistroCuentaResponse;
+import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.TipoCuentaCatalogoResponse;
+import com.patiperro.pagos.model.Banco;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
 import com.patiperro.pagos.reserva.dto.ReservaBilleteraDetalleDto;
 import com.patiperro.pagos.model.Billetera;
 import com.patiperro.pagos.model.BilleteraReservaFase;
 import com.patiperro.pagos.model.BilleteraReservaTracking;
+import com.patiperro.pagos.model.Cuenta;
+import com.patiperro.pagos.model.TipoCuenta;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.Transaccion;
+import com.patiperro.pagos.repository.BancoRepository;
+import com.patiperro.pagos.repository.BilleteraDisputaReservaRepository;
 import com.patiperro.pagos.repository.BilleteraRepository;
 import com.patiperro.pagos.repository.BilleteraReservaTrackingRepository;
+import com.patiperro.pagos.repository.CuentaRepository;
+import com.patiperro.pagos.repository.TipoCuentaRepository;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -19,8 +31,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,9 +43,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 
 @Service
@@ -46,17 +63,124 @@ public class BilleteraService {
     private final TransaccionRepository transaccionRepository;
     private final ReservaConsultaClient reservaConsultaClient;
     private final BilleteraLiberacionTransaccionalService billeteraLiberacionTransaccionalService;
+    private final BilleteraDisputaReservaRepository billeteraDisputaReservaRepository;
+    private final CuentaRepository cuentaRepository;
+    private final BancoRepository bancoRepository;
+    private final TipoCuentaRepository tipoCuentaRepository;
 
     @Value("${patiperro.pagos.billetera.zona:America/Santiago}")
     private String zonaId;
 
-    /** Tope de filas del historial de liberaciones en GET billetera (acotado por seguridad y rendimiento). */
+    /**
+     * Tope de filas del historial de liberaciones en GET billetera (acotado por
+     * seguridad y rendimiento).
+     */
     @Value("${patiperro.pagos.billetera.historial-liberaciones-max:100}")
     private int historialLiberacionesMax;
 
     private Pageable pageableHistorialLiberaciones() {
         int cap = Math.max(1, Math.min(historialLiberacionesMax, 500));
         return PageRequest.of(0, cap);
+    }
+
+    /**
+     * Catálogo para selects de registro de cuenta (tablas {@code banco} y {@code tipo_cuenta}).
+     */
+    @Transactional(readOnly = true)
+    public CatalogoRegistroCuentaResponse catalogoParaRegistroCuentaBancaria() {
+        List<BancoCatalogoResponse> bancos = bancoRepository.findAllByOrderByNombreAsc().stream()
+                .map(b -> new BancoCatalogoResponse(b.getIdBanco(), b.getNombre()))
+                .toList();
+        List<TipoCuentaCatalogoResponse> tipos = tipoCuentaRepository.findAllByOrderByNombreAsc().stream()
+                .map(t -> new TipoCuentaCatalogoResponse(t.getIdTipoCuenta(), t.getNombre()))
+                .toList();
+        return new CatalogoRegistroCuentaResponse(bancos, tipos);
+    }
+
+    /**
+     * Crea o reemplaza la única cuenta bancaria asociada a la billetera del paseador.
+     * Banco y tipo deben existir en catálogo ({@code banco_id}, {@code tipo_cuenta_id}).
+     */
+    @Transactional
+    public CuentaBancariaPaseadorResponse registrarOActualizarCuentaBancaria(
+            Long idUsuario, Long bancoId, Long tipoCuentaId, String numeroCuenta) {
+        if (idUsuario == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuario no identificado");
+        }
+        if (bancoId == null || tipoCuentaId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Banco y tipo de cuenta son obligatorios");
+        }
+        String numero = numeroCuenta != null ? numeroCuenta.replaceAll("\\s+", "").trim() : "";
+        if (numero.length() < 4 || numero.length() > 60) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Número de cuenta inválido");
+        }
+
+        Billetera bill = obtenerOCrearBilletera(idUsuario);
+
+        Banco bancoEnt = bancoRepository
+                .findById(bancoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Banco no válido"));
+
+        TipoCuenta tipoEnt = tipoCuentaRepository
+                .findById(tipoCuentaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de cuenta no válido"));
+
+        Cuenta cuenta = cuentaRepository.findByBilletera_IdBilletera(bill.getIdBilletera()).orElse(null);
+        if (cuenta == null) {
+            cuenta = Cuenta.builder()
+                    .billetera(bill)
+                    .banco(bancoEnt)
+                    .tipoCuenta(tipoEnt)
+                    .numeroCuenta(numero)
+                    .build();
+        } else {
+            cuenta.setBanco(bancoEnt);
+            cuenta.setTipoCuenta(tipoEnt);
+            cuenta.setNumeroCuenta(numero);
+        }
+        cuentaRepository.saveAndFlush(cuenta);
+
+        return cuentaRepository
+                .findWithRelationsByBilleteraId(bill.getIdBilletera())
+                .map(BilleteraService::mapCuentaPaseador)
+                .orElseThrow(() -> new IllegalStateException("No se pudo recargar la cuenta guardada"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CuentaBancariaPaseadorResponse> listarCuentasBancariasParaPaseador(Long idUsuario) {
+        if (idUsuario == null) {
+            return List.of();
+        }
+        return billeteraRepository.findByIdUsuario(idUsuario).stream()
+                .flatMap(b -> cuentaRepository.findWithRelationsByBilleteraId(b.getIdBilletera()).stream())
+                .map(BilleteraService::mapCuentaPaseador)
+                .toList();
+    }
+
+    private static CuentaBancariaPaseadorResponse mapCuentaPaseador(Cuenta c) {
+        String bank = c.getBanco() != null && StringUtils.hasText(c.getBanco().getNombre())
+                ? c.getBanco().getNombre().trim()
+                : "Banco";
+        String tipo = c.getTipoCuenta() != null && StringUtils.hasText(c.getTipoCuenta().getNombre())
+                ? c.getTipoCuenta().getNombre().trim()
+                : "Cuenta";
+        return new CuentaBancariaPaseadorResponse(
+                String.valueOf(c.getIdCuenta()),
+                bank,
+                tipo,
+                enmascararNumeroCuenta(c.getNumeroCuenta()),
+                "Titular registrado");
+    }
+
+    private static String enmascararNumeroCuenta(String numeroCuenta) {
+        if (!StringUtils.hasText(numeroCuenta)) {
+            return "****";
+        }
+        String t = numeroCuenta.trim();
+        if (t.length() <= 4) {
+            return "****" + t;
+        }
+        return "****" + t.substring(t.length() - 4);
     }
 
     /**
@@ -148,13 +272,17 @@ public class BilleteraService {
     }
 
     /**
-     * Reversa los montos de una reserva ante reembolso al tutor (rechazo/expiración/cancelación con cobro).
+     * Reversa los montos de una reserva ante reembolso al tutor
+     * (rechazo/expiración/cancelación con cobro).
      * Idempotente si ya no hay tracking.
      * <ul>
-     *   <li>{@link BilleteraReservaFase#EN_RETENIDO}: descuenta {@code saldo_retenido}.</li>
-     *   <li>{@link BilleteraReservaFase#EN_VERIFICACION} sin liberar: descuenta {@code saldo_verificacion}.</li>
-     *   <li>{@link BilleteraReservaFase#EN_VERIFICACION} ya liberado a disponible: descuenta {@code saldo_actual}
-     *       (el tutor fue reembolsado por MP).</li>
+     * <li>{@link BilleteraReservaFase#EN_RETENIDO}: descuenta
+     * {@code saldo_retenido}.</li>
+     * <li>{@link BilleteraReservaFase#EN_VERIFICACION} sin liberar: descuenta
+     * {@code saldo_verificacion}.</li>
+     * <li>{@link BilleteraReservaFase#EN_VERIFICACION} ya liberado a disponible:
+     * descuenta {@code saldo_actual}
+     * (el tutor fue reembolsado por MP).</li>
      * </ul>
      */
     @Transactional
@@ -233,13 +361,14 @@ public class BilleteraService {
 
     /**
      * Programación masiva: una transacción independiente por candidato vía
-     * {@link BilleteraLiberacionTransaccionalService} (idempotente si {@code liberado_en} ya existe).
+     * {@link BilleteraLiberacionTransaccionalService} (idempotente si
+     * {@code liberado_en} ya existe).
      */
     public int ejecutarLiberacionesPendientes() {
         ZoneId zone = ZoneId.of(zonaId);
         LocalDate hoy = LocalDate.now(zone);
-        List<BilleteraReservaTracking> candidatos =
-                trackingRepository.findByFaseAndLiberadoEnIsNull(BilleteraReservaFase.EN_VERIFICACION);
+        List<BilleteraReservaTracking> candidatos = trackingRepository
+                .findByFaseAndLiberadoEnIsNull(BilleteraReservaFase.EN_VERIFICACION);
         int liberados = 0;
         for (BilleteraReservaTracking t : candidatos) {
             if (t.getFechaFinServicio() == null) {
@@ -262,13 +391,17 @@ public class BilleteraService {
     public BilleteraResumenPaseadorResponse resumenParaPaseador(Long idUsuarioPaseador) {
         ZoneId zone = ZoneId.of(zonaId);
         Billetera b = billeteraRepository.findByIdUsuario(idUsuarioPaseador).orElse(null);
-        BigDecimal retAgg = b != null ? nz(b.getSaldoRetenido()) : BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
-        BigDecimal verAgg = b != null ? nz(b.getSaldoVerificacion()) : BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal retAgg = b != null ? nz(b.getSaldoRetenido())
+                : BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal verAgg = b != null ? nz(b.getSaldoVerificacion())
+                : BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal dispAgg = b != null ? nz(b.getSaldoActual()) : BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
 
         List<BilleteraReservaTracking> todos = new ArrayList<>();
-        todos.addAll(trackingRepository.findByIdUsuarioPaseadorAndFase(idUsuarioPaseador, BilleteraReservaFase.EN_RETENIDO));
-        todos.addAll(trackingRepository.findByIdUsuarioPaseadorAndFase(idUsuarioPaseador, BilleteraReservaFase.EN_VERIFICACION));
+        todos.addAll(
+                trackingRepository.findByIdUsuarioPaseadorAndFase(idUsuarioPaseador, BilleteraReservaFase.EN_RETENIDO));
+        todos.addAll(trackingRepository.findByIdUsuarioPaseadorAndFase(idUsuarioPaseador,
+                BilleteraReservaFase.EN_VERIFICACION));
 
         List<BilleteraReservaItemResponse> itemsRet = new ArrayList<>();
         List<BilleteraReservaItemResponse> itemsVer = new ArrayList<>();
@@ -300,13 +433,13 @@ public class BilleteraService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<Integer, ReservaBilleteraDetalleDto> detallePorReserva =
-                reservaConsultaClient.obtenerDetallesBilleteraPaseador(idUsuarioPaseador, idsDetalle);
+        Map<Integer, ReservaBilleteraDetalleDto> detallePorReserva = reservaConsultaClient
+                .obtenerDetallesBilleteraPaseador(idUsuarioPaseador, idsDetalle);
         itemsRet = aplicarYOrdenarDetalles(itemsRet, detallePorReserva);
         itemsVer = aplicarYOrdenarDetalles(itemsVer, detallePorReserva);
 
-        List<BilleteraReservaTracking> liberados =
-                trackingRepository.findByIdUsuarioPaseadorAndLiberadoEnIsNotNullOrderByLiberadoEnDesc(
+        List<BilleteraReservaTracking> liberados = trackingRepository
+                .findByIdUsuarioPaseadorAndLiberadoEnIsNotNullOrderByLiberadoEnDesc(
                         idUsuarioPaseador, pageableHistorialLiberaciones());
         List<BilleteraReservaItemResponse> itemsLibHistorial = new ArrayList<>();
         for (BilleteraReservaTracking t : liberados) {
@@ -324,15 +457,18 @@ public class BilleteraService {
                             null,
                             t.getIdTransaccionPagos()));
         }
-        List<Integer> idsHistorial =
-                itemsLibHistorial.stream().map(BilleteraReservaItemResponse::idReserva).filter(Objects::nonNull).distinct().toList();
-        Map<Integer, ReservaBilleteraDetalleDto> detalleHistorial =
-                reservaConsultaClient.obtenerDetallesBilleteraPaseador(idUsuarioPaseador, idsHistorial);
+        List<Integer> idsHistorial = itemsLibHistorial.stream().map(BilleteraReservaItemResponse::idReserva)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Integer, ReservaBilleteraDetalleDto> detalleHistorial = reservaConsultaClient
+                .obtenerDetallesBilleteraPaseador(idUsuarioPaseador, idsHistorial);
         itemsLibHistorial = itemsLibHistorial.stream()
                 .map(i -> enriquecerItem(i, detalleHistorial))
                 .toList();
 
         LocalDateTime updatedAt = LocalDateTime.now(zone);
+
+        List<BilleteraProyeccionLiberacionGrupoResponse> proyeccion = construirProyeccionLiberacionesPorDia(
+                idUsuarioPaseador, itemsVer, zone);
 
         return new BilleteraResumenPaseadorResponse(
                 new BilleteraBucketResponse(
@@ -361,14 +497,87 @@ public class BilleteraService {
                         BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP),
                         List.of()),
                 itemsLibHistorial,
+                proyeccion,
                 updatedAt);
+    }
+
+    /**
+     * Agrupa filas {@link BilleteraReservaFase#EN_VERIFICACION} por la fecha
+     * calendario en que el scheduler puede
+     * liberar a disponible (alineado a
+     * {@link BilleteraLiberacionTransaccionalService#liberarSiPendiente}).
+     */
+    private List<BilleteraProyeccionLiberacionGrupoResponse> construirProyeccionLiberacionesPorDia(
+            Long idUsuarioPaseador,
+            List<BilleteraReservaItemResponse> itemsVerificacionEnriquecidos,
+            ZoneId zone) {
+        Map<Integer, BilleteraReservaItemResponse> itemPorReserva = new HashMap<>();
+        for (BilleteraReservaItemResponse it : itemsVerificacionEnriquecidos) {
+            if (it.idReserva() != null) {
+                itemPorReserva.putIfAbsent(it.idReserva(), it);
+            }
+        }
+
+        List<BilleteraReservaTracking> verificacion = trackingRepository
+                .findByIdUsuarioPaseadorAndFase(idUsuarioPaseador, BilleteraReservaFase.EN_VERIFICACION);
+        TreeMap<LocalDate, List<BilleteraReservaItemResponse>> grupos = new TreeMap<>();
+
+        for (BilleteraReservaTracking t : verificacion) {
+            if (t.getLiberadoEn() != null || t.getFechaFinServicio() == null) {
+                continue;
+            }
+            LocalDate fechaDisponible = fechaDisponibleDesdeN2(t.getFechaFinServicio(), zone);
+            BilleteraReservaItemResponse item = itemPorReserva.get(t.getIdReserva());
+            if (item == null) {
+                item = new BilleteraReservaItemResponse(
+                        t.getIdReserva(),
+                        t.getMontoBruto(),
+                        t.getComisionApp(),
+                        t.getMontoNeto(),
+                        etiquetaFase(t.getFase()),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        t.getIdTransaccionPagos());
+            }
+            grupos.computeIfAbsent(fechaDisponible, k -> new ArrayList<>()).add(item);
+        }
+
+        List<BilleteraProyeccionLiberacionGrupoResponse> salida = new ArrayList<>();
+        for (Map.Entry<LocalDate, List<BilleteraReservaItemResponse>> e : grupos.entrySet()) {
+            LocalDate fecha = e.getKey();
+            List<BilleteraReservaItemResponse> lista = new ArrayList<>(e.getValue());
+            lista.sort(BilleteraService::compareAgendaDesc);
+            BigDecimal total = lista.stream()
+                    .map(BilleteraReservaItemResponse::montoNeto)
+                    .map(BilleteraService::nz)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(SCALE, RoundingMode.HALF_UP);
+            boolean disputa = lista.stream()
+                    .map(BilleteraReservaItemResponse::idReserva)
+                    .filter(Objects::nonNull)
+                    .anyMatch(id -> billeteraDisputaReservaRepository.existsByIdReservaAndDisputaActivaTrue(id));
+            salida.add(new BilleteraProyeccionLiberacionGrupoResponse(fecha, total, disputa, lista));
+        }
+        return salida;
+    }
+
+    /**
+     * Misma fecha que usa {@link BilleteraLiberacionTransaccionalService} (día
+     * calendario fin de servicio + 2).
+     */
+    static LocalDate fechaDisponibleDesdeN2(LocalDateTime fechaFinServicio, ZoneId zone) {
+        LocalDate diaFin = fechaFinServicio.atZone(zone).toLocalDate();
+        return diaFin.plusDays(2);
     }
 
     private static List<BilleteraReservaItemResponse> aplicarYOrdenarDetalles(
             List<BilleteraReservaItemResponse> items,
             Map<Integer, ReservaBilleteraDetalleDto> detallePorReserva) {
-        List<BilleteraReservaItemResponse> enriched =
-                items.stream().map(i -> enriquecerItem(i, detallePorReserva)).toList();
+        List<BilleteraReservaItemResponse> enriched = items.stream().map(i -> enriquecerItem(i, detallePorReserva))
+                .toList();
         List<BilleteraReservaItemResponse> sorted = new ArrayList<>(enriched);
         sorted.sort(BilleteraService::compareAgendaDesc);
         return sorted;

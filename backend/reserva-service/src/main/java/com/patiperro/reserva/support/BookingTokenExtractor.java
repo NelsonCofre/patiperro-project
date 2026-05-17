@@ -26,6 +26,34 @@ public final class BookingTokenExtractor {
                 }
             }
         }
+        String fromForwardedCookie = extractAccessTokenFromCookieHeader(
+                request.getHeader("X-Patiperro-Forwarded-Cookie"));
+        if (fromForwardedCookie != null) {
+            return Optional.of(fromForwardedCookie);
+        }
+        String xAuth = request.getHeader("X-Patiperro-Authorization");
+        if (xAuth != null && xAuth.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String t = xAuth.substring(7).trim();
+            if (!t.isEmpty()) {
+                return Optional.of(t);
+            }
+        }
         return Optional.empty();
+    }
+
+    private static String extractAccessTokenFromCookieHeader(String cookieHeader) {
+        if (cookieHeader == null || cookieHeader.isBlank()) {
+            return null;
+        }
+        for (String part : cookieHeader.split(";")) {
+            String[] kv = part.trim().split("=", 2);
+            if (kv.length == 2 && "access_token".equals(kv[0].trim())) {
+                String v = kv[1].trim();
+                if (!v.isEmpty()) {
+                    return v;
+                }
+            }
+        }
+        return null;
     }
 }

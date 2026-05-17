@@ -25,11 +25,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Reserva> findByEstadoReserva_IdEstadoReserva(Integer idEstadoReserva);
 
     /**
-     * Buscar reserva por id de pago Mercado Pago (webhooks / soporte). Puede haber más de una fila si datos legacy.
-     */
-    List<Reserva> findByMercadopagoPaymentId(String mercadopagoPaymentId);
-
-    /**
      * VIGILANCIA DE COMPROMISOS:
      * Verifica si alguno de los bloques de agenda enviados ya tiene una reserva 
      * en estados que impiden cambios (ej. Confirmada, Pagada, En Curso).
@@ -79,21 +74,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     @Query("UPDATE Reserva r SET r.codigoBloqueadoHasta = :hasta WHERE r.idReserva = :idReserva")
     int fijarBloqueoCodigoHasta(@Param("idReserva") Integer idReserva, @Param("hasta") LocalDateTime hasta);
 
-    /**
-     * Marca reembolso Mercado Pago aplicado de forma atómica (una fila, solo si aún no estaba marcado
-     * y el estado sigue siendo uno que amerita cierre con posible devolución).
-     *
-     * @return filas actualizadas ({@code 0} o {@code 1})
-     */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.mercadopagoReembolsoProcesadoEn = :ahora "
-            + "WHERE r.idReserva = :idReserva AND r.mercadopagoReembolsoProcesadoEn IS NULL "
-            + "AND r.estadoReserva.idEstadoReserva IN :idsEstadoReembolso")
-    int marcarMercadopagoReembolsoProcesadoSiPendiente(
-            @Param("idReserva") Integer idReserva,
-            @Param("ahora") LocalDateTime ahora,
-            @Param("idsEstadoReembolso") Collection<Integer> idsEstadoReembolso);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Reserva r SET r.codigoIntentosFallidos = 0, r.codigoBloqueadoHasta = null WHERE r.idReserva = :idReserva")
     int reiniciarContadoresBloqueoCodigo(@Param("idReserva") Integer idReserva);
@@ -134,34 +114,13 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
             Pageable pageable);
 
     /**
-     * Reconciliación: estados que ameritan devolución MP, con cobro conocido y marca de éxito aún no persistida.
+     * Reservas en estados que ameritan devolución y con cobro asociado ({@code id_pago}).
      */
     @Query("SELECT r.idReserva FROM Reserva r "
             + "WHERE r.estadoReserva.idEstadoReserva IN :idsEstado "
-            + "AND r.mercadopagoPaymentId IS NOT NULL AND trim(r.mercadopagoPaymentId) <> '' "
-            + "AND r.mercadopagoReembolsoProcesadoEn IS NULL "
+            + "AND r.idPago IS NOT NULL "
             + "ORDER BY r.idReserva")
-    List<Integer> findIdReservasPendientesReconciliacionReembolsoMercadoPago(
+    List<Integer> findIdReservasConCobroEnEstados(
             @Param("idsEstado") Collection<Integer> idsEstado,
             Pageable pageable);
-
-    /**
-     * Reembolso MP ya marcado en reserva pero correo tutor aún no confirmado (job de reenvío).
-     * Solo estados de cierre con posible devolución ({@code IDS_ESTADO_REEMBOLSO_MERCADOPAGO}), para no reenviar
-     * si la fila quedó en un estado incoherente respecto al flujo de reembolso.
-     */
-    @Query("SELECT r.idReserva FROM Reserva r "
-            + "WHERE r.mercadopagoReembolsoProcesadoEn IS NOT NULL AND r.notificacionReembolsoEnviadaEn IS NULL "
-            + "AND r.estadoReserva.idEstadoReserva IN :idsEstado "
-            + "ORDER BY r.idReserva")
-    List<Integer> findIdReservasPendientesNotificacionReembolso(
-            @Param("idsEstado") Collection<Integer> idsEstado,
-            Pageable pageable);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Reserva r SET r.notificacionReembolsoEnviadaEn = :ahora "
-            + "WHERE r.idReserva = :idReserva AND r.notificacionReembolsoEnviadaEn IS NULL")
-    int marcarNotificacionReembolsoEnviadaSiPendiente(
-            @Param("idReserva") Integer idReserva,
-            @Param("ahora") LocalDateTime ahora);
 }

@@ -4,7 +4,10 @@ import com.patiperro.pagos.config.MercadoPagoCheckoutProperties;
 import com.patiperro.pagos.dto.ApiErrorResponse;
 import com.patiperro.pagos.dto.checkout.CrearPreferenciaRequest;
 import com.patiperro.pagos.dto.checkout.PreferenciaCheckoutResponse;
+import com.patiperro.pagos.dto.checkout.SincronizarPagoCheckoutRequest;
 import com.patiperro.pagos.service.MercadoPagoCheckoutService;
+import com.patiperro.pagos.service.MercadoPagoCheckoutSincronizacionService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -27,12 +31,15 @@ public class MercadoPagoCheckoutPublicController {
 
     private final MercadoPagoCheckoutService mercadoPagoCheckoutService;
     private final MercadoPagoCheckoutProperties checkoutProperties;
+    private final MercadoPagoCheckoutSincronizacionService mercadoPagoCheckoutSincronizacionService;
 
     public MercadoPagoCheckoutPublicController(
             MercadoPagoCheckoutService mercadoPagoCheckoutService,
-            MercadoPagoCheckoutProperties checkoutProperties) {
+            MercadoPagoCheckoutProperties checkoutProperties,
+            MercadoPagoCheckoutSincronizacionService mercadoPagoCheckoutSincronizacionService) {
         this.mercadoPagoCheckoutService = mercadoPagoCheckoutService;
         this.checkoutProperties = checkoutProperties;
+        this.mercadoPagoCheckoutSincronizacionService = mercadoPagoCheckoutSincronizacionService;
     }
 
     @PostMapping(value = "/preferencia", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -61,6 +68,22 @@ public class MercadoPagoCheckoutPublicController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiErrorResponse.checkoutNoDisponible());
         }
         return ResponseEntity.ok(toResponse(opt.get()));
+    }
+
+    /**
+     * Tras volver de Checkout Pro (p. ej. local sin webhook), el tutor confirma el cobro consultando MP
+     * y aplicando la misma lógica que el IPN.
+     */
+    @PostMapping(value = "/sincronizar-pago", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> sincronizarPagoTutor(@Valid @RequestBody SincronizarPagoCheckoutRequest body) {
+        Long tutorId = extraerTutorId(SecurityContextHolder.getContext().getAuthentication() != null
+                ? SecurityContextHolder.getContext().getAuthentication().getPrincipal()
+                : null);
+        if (tutorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.accesoDenegado());
+        }
+        mercadoPagoCheckoutSincronizacionService.sincronizarPagoTutor(tutorId, body.paymentId());
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 
     private PreferenciaCheckoutResponse toResponse(MercadoPagoCheckoutService.PreferenciaCheckoutCreada c) {

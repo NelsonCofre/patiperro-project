@@ -50,10 +50,7 @@ public final class ReservaDtoMapper {
                 b != null ? b.getHoraInicio() : null,
                 b != null ? b.getHoraFinal() : null,
                 b != null ? b.getIdUsuario() : null,
-                puedeReintentarPago,
-                r.getMercadopagoUltimoEstado(),
-                r.getMercadopagoUltimoEstadoDetalle(),
-                r.getMercadopagoUltimoEstadoEn());
+                puedeReintentarPago);
     }
 
     /** Detalle tutor; bloque/mascota/paseador/tutor vienen de integración externa. */
@@ -92,12 +89,7 @@ public final class ReservaDtoMapper {
                 r.getCodigoEncuentroExpiraEn(),
                 r.getMotivoRechazo(),
                 r.getDetalleRechazo(),
-                r.getMercadopagoUltimoEstado(),
-                r.getMercadopagoUltimoEstadoDetalle(),
-                r.getMercadopagoUltimoEstadoEn(),
-                puedeReintentarPago,
-                r.getMercadopagoReembolsoProcesadoEn(),
-                r.getNotificacionReembolsoEnviadaEn());
+                puedeReintentarPago);
     }
 
     private static String nombreTutorParaDetalle(TutorReservaClientDTO tutor, Integer idTutorUsuario) {

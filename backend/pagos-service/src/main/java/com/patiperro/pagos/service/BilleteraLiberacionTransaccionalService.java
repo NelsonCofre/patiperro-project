@@ -23,13 +23,20 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * Una transacción por liberación ({@link Propagation#REQUIRES_NEW}): evita una TX gigante y permite
- * que un fallo puntual no revierta liberaciones ya válidas. Idempotente si {@code liberado_en} ya está fijado.
+ * Una transacción por liberación ({@link Propagation#REQUIRES_NEW}): evita una
+ * TX gigante y permite
+ * que un fallo puntual no revierta liberaciones ya válidas. Idempotente si
+ * {@code liberado_en} ya está fijado.
  *
- * <p>Bloqueo pesimístico en tracking y billetera para evitar doble liberación concurrente; auditoría opción A
- * referencia el cobro original ({@code id_transaccion_pagos}). No libera si hay disputa activa para la reserva
- * ({@link com.patiperro.pagos.repository.BilleteraDisputaReservaRepository}), coherente con abrir/cerrar disputa
- * que bloquea la misma fila de tracking cuando existe.</p>
+ * <p>
+ * Bloqueo pesimístico en tracking y billetera para evitar doble liberación
+ * concurrente; auditoría opción A
+ * referencia el cobro original ({@code id_transaccion_pagos}). No libera si hay
+ * disputa activa para la reserva
+ * ({@link com.patiperro.pagos.repository.BilleteraDisputaReservaRepository}),
+ * coherente con abrir/cerrar disputa
+ * que bloquea la misma fila de tracking cuando existe.
+ * </p>
  */
 @Service
 @RequiredArgsConstructor
@@ -89,7 +96,8 @@ public class BilleteraLiberacionTransaccionalService {
         BigDecimal ver = verAntes.subtract(neto).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal disp = dispAntes.add(neto).setScale(SCALE, RoundingMode.HALF_UP);
         if (ver.signum() < 0) {
-            log.warn("Billetera liberación: saldo_verificacion negativo (reserva={}); se fija a cero", t.getIdReserva());
+            log.warn("Billetera liberación: saldo_verificacion negativo (reserva={}); se fija a cero",
+                    t.getIdReserva());
             ver = BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP);
         }
 
@@ -119,7 +127,8 @@ public class BilleteraLiberacionTransaccionalService {
     }
 
     /**
-     * Garantiza fila {@link Billetera} y la bloquea para actualización ({@code FOR UPDATE}).
+     * Garantiza fila {@link Billetera} y la bloquea para actualización
+     * ({@code FOR UPDATE}).
      */
     private Billetera obtenerOBloquearBilletera(Long idUsuarioPaseador) {
         return billeteraRepository

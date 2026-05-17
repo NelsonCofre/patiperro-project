@@ -2,6 +2,9 @@ package com.patiperro.pagos.controller;
 
 import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.CatalogoRegistroCuentaResponse;
+import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.RegistrarCuentaBancariaPaseadorRequest;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.SolicitarRetiroPaseadorRequest;
 import com.patiperro.pagos.service.BilleteraService;
@@ -18,6 +21,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/pagos/paseador/billetera")
@@ -41,6 +46,48 @@ public class BilleteraPaseadorController {
                     : HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(billeteraService.resumenParaPaseador(idUsuario));
+    }
+
+    @GetMapping("/cuentas-bancarias")
+    public ResponseEntity<List<CuentaBancariaPaseadorResponse>> listarCuentasBancarias(Authentication authentication) {
+        Long idUsuario = resolvePaseadorIdOrNull(authentication);
+        if (idUsuario == null) {
+            return ResponseEntity.status(authentication == null || !authentication.isAuthenticated()
+                    ? HttpStatus.UNAUTHORIZED
+                    : HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(billeteraService.listarCuentasBancariasParaPaseador(idUsuario));
+    }
+
+    /**
+     * Listas ordenadas de {@code banco} y {@code tipo_cuenta} para el formulario de registro de cuenta.
+     */
+    @GetMapping("/catalogo/registro-cuenta")
+    public ResponseEntity<CatalogoRegistroCuentaResponse> catalogoRegistroCuenta(Authentication authentication) {
+        if (resolvePaseadorIdOrNull(authentication) == null) {
+            return ResponseEntity.status(authentication == null || !authentication.isAuthenticated()
+                    ? HttpStatus.UNAUTHORIZED
+                    : HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(billeteraService.catalogoParaRegistroCuentaBancaria());
+    }
+
+    /**
+     * Registra o actualiza la cuenta bancaria de destino para retiros (una por billetera).
+     */
+    @PostMapping("/cuentas-bancarias")
+    public ResponseEntity<CuentaBancariaPaseadorResponse> registrarCuentaBancaria(
+            @Valid @RequestBody RegistrarCuentaBancariaPaseadorRequest body,
+            Authentication authentication) {
+        Long idUsuario = resolvePaseadorIdOrNull(authentication);
+        if (idUsuario == null) {
+            return ResponseEntity.status(authentication == null || !authentication.isAuthenticated()
+                    ? HttpStatus.UNAUTHORIZED
+                    : HttpStatus.FORBIDDEN).build();
+        }
+        CuentaBancariaPaseadorResponse saved = billeteraService.registrarOActualizarCuentaBancaria(
+                idUsuario, body.bancoId(), body.tipoCuentaId(), body.numeroCuenta());
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /**

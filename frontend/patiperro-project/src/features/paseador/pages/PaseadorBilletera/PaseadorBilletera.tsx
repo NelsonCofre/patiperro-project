@@ -88,6 +88,9 @@ export default function PaseadorBilletera() {
     setWithdrawalError,
     isSubmittingWithdrawal,
     bankAccounts,
+    bankAccountsLoadError,
+    catalogoRegistroCuenta,
+    catalogoRegistroLoadError,
     pendingWithdrawals,
     minWithdrawalAmount
   } = usePaseadorBilletera();
@@ -159,6 +162,38 @@ export default function PaseadorBilletera() {
           />
         ))}
       </section>
+
+      {!isLoading && !error && data.proyeccionLiberacionesPorDia.length > 0 ? (
+        <section className={styles.proyeccionSection} aria-label="Proyección de liberación a saldo disponible">
+          <div className={styles.proyeccionHeader}>
+            <p className={styles.cardEyebrow}>Calendario de liberación</p>
+            <h2>Cuándo pasará a disponible lo que está en verificación</h2>
+            <p className={styles.proyeccionIntro}>
+              Agrupación según la misma regla N+2 del backend (día del fin del paseo más dos días calendario). Si hay
+              disputa activa en una reserva, la liberación puede quedar en pausa hasta que soporte la cierre.
+            </p>
+          </div>
+          {data.proyeccionLiberacionesPorDia.map((grupo) => (
+            <div key={grupo.fechaDisponibleDesde} className={styles.proyeccionGrupo}>
+              <div className={styles.proyeccionGrupoHeader}>
+                <strong>Disponible desde: {formatDate(grupo.fechaDisponibleDesde)}</strong>
+                <span>Total neto: {formatMoney(grupo.totalNeto)}</span>
+              </div>
+              {grupo.liberacionPausadaPorDisputa ? (
+                <p className={styles.proyeccionDisputa}>
+                  Hay al menos una reserva en este grupo con disputa activa: la liberación automática puede estar en
+                  pausa.
+                </p>
+              ) : null}
+              <div className={styles.proyeccionLista}>
+                {grupo.reservas.map((reserva) => (
+                  <ReservaWalletRow key={`${grupo.fechaDisponibleDesde}-${reserva.idReserva}`} reserva={reserva} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <AvailableBalance
         bucket={data.disponible}
@@ -253,6 +288,9 @@ export default function PaseadorBilletera() {
         availableAmount={data.disponible.amount}
         minWithdrawalAmount={minWithdrawalAmount}
         bankAccounts={bankAccounts}
+        bankAccountsLoadError={bankAccountsLoadError}
+        catalogoRegistroCuenta={catalogoRegistroCuenta}
+        catalogoRegistroLoadError={catalogoRegistroLoadError}
         isSubmitting={isSubmittingWithdrawal}
         submitError={withdrawalError}
         onClose={() => {
@@ -260,8 +298,8 @@ export default function PaseadorBilletera() {
           setWithdrawalError("");
           setIsWithdrawalModalOpen(false);
         }}
-        onSubmit={async (amount, bankAccountId) => {
-          await withdrawAvailableBalance(amount, bankAccountId);
+        onSubmit={async (amount, bankAccountId, registro) => {
+          await withdrawAvailableBalance(amount, bankAccountId, registro);
         }}
       />
     </main>

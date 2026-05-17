@@ -54,32 +54,6 @@ public class Reserva {
     @Column(name = "id_pago")
     private Long idPago;
 
-    /**
-     * Id del pago en Mercado Pago (API {@code /v1/payments/{id}}). Se persiste al aprobar el cobro;
-     * permite devoluciones y soporte sin consultar solo a pagos-service.
-     */
-    @Column(name = "mercadopago_payment_id", length = 64)
-    private String mercadopagoPaymentId;
-
-    /** Cuándo se registró reembolso exitoso vía pagos-service (idempotencia). */
-    @Column(name = "mercadopago_reembolso_procesado_en")
-    private LocalDateTime mercadopagoReembolsoProcesadoEn;
-
-    /** Último {@code status} del pago en MP cuando no está {@code approved} (webhook / sincronización). */
-    @Column(name = "mercadopago_ultimo_estado", length = 32)
-    private String mercadopagoUltimoEstado;
-
-    /** {@code status_detail} de MP asociado al último intento fallido o rechazado. */
-    @Column(name = "mercadopago_ultimo_estado_detalle", length = 120)
-    private String mercadopagoUltimoEstadoDetalle;
-
-    @Column(name = "mercadopago_ultimo_estado_en")
-    private LocalDateTime mercadopagoUltimoEstadoEn;
-
-    /** Cuándo se confirmó envío del correo de reembolso al tutor (reintentos vía job si queda null). */
-    @Column(name = "notificacion_reembolso_enviada_en")
-    private LocalDateTime notificacionReembolsoEnviadaEn;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estado_reserva_id_estado_reserva", nullable = false)
     private EstadoReserva estadoReserva;

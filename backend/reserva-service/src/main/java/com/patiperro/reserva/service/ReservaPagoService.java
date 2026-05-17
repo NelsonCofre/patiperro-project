@@ -20,14 +20,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
-/**
- * Lógica de negocio para aplicar efectos de pago en la reserva.
- * <p>Orden de trabajo sugerido (solo backend), paso 1: al aprobar cobro, persistir {@code mercadopago_payment_id}
- * en la entidad {@link Reserva} (requisito para reembolsos vía {@link ReservaReembolsoService}).</p>
- */
+/** Lógica de negocio para aplicar efectos de pago en la reserva. */
 @Service
 @RequiredArgsConstructor
 public class ReservaPagoService {
@@ -61,11 +56,9 @@ public class ReservaPagoService {
     }
 
     /**
-     * Idempotente: si ya está PAGADA, no repite STOMP/notificación/billetera; aún persiste {@code mpPaymentId}
-     * si faltaba y reintenta sincronizar agenda vía interno tras commit.
+     * Idempotente: si ya está PAGADA, no repite STOMP/notificación/billetera y reintenta sincronizar agenda tras commit.
      *
      * @param idTransaccionPagos {@code transaccion.id_transaccion} en pagos-service
-     * @param mpPaymentId        opcional; si viene, se guarda en {@code mercadopago_payment_id} (reembolsos / soporte)
      */
     @Transactional
     public void marcarReservaComoPagada(Integer idReserva, Long idTransaccionPagos, String mpPaymentId) {
@@ -93,11 +86,6 @@ public class ReservaPagoService {
                     log.warn("Pago aprobado idempotente: reserva ya tenía otro id_pago; no se sobrescribe (idReserva={})",
                             idReserva);
                 }
-                String mpPersistId = truncate(mpId, MP_PAYMENT_ID_MAX);
-                if (mpPersistId != null && !StringUtils.hasText(r.getMercadopagoPaymentId())) {
-                    r.setMercadopagoPaymentId(mpPersistId);
-                    needSave = true;
-                }
                 if (needSave) {
                     reservaRepository.save(r);
                 }
@@ -124,10 +112,6 @@ public class ReservaPagoService {
         }
         rUpdate.setEstadoReserva(pagada);
         rUpdate.setIdPago(idTransaccionPagos);
-        String mpPersistId = truncate(mpId, MP_PAYMENT_ID_MAX);
-        if (mpPersistId != null) {
-            rUpdate.setMercadopagoPaymentId(mpPersistId);
-        }
         Reserva saved = reservaRepository.saveAndFlush(rUpdate);
 
         Integer idPaseador = null;
@@ -171,19 +155,21 @@ public class ReservaPagoService {
             }
         }
 
+        // Retención en billetera del paseador: solo si ya había aceptado (pago después de aceptar).
+        // Si estaba SOLICITADA/PENDIENTE_PAGO, el acreditado se hace al aceptar (ReservaService).
+        boolean acreditarRetenidoAhora = Objects.equals(EstadoReservaCatalogo.ID_ACEPTADA, idEstadoUpd);
         programarSincroniaExternaTrasCommitPago(
-                saved.getIdAgendaBloque(), true, saved.getIdReserva(), saved.getIdPago(), idPaseador);
+                saved.getIdAgendaBloque(), acreditarRetenidoAhora, saved.getIdReserva(), saved.getIdPago(), idPaseador);
 
         log.info("Pago aprobado aplicado: reserva marcada PAGADA (idReserva={}, idTutor={}, idPaseador={}, idTransaccion={}, mp={})",
                 saved.getIdReserva(), saved.getIdTutorUsuario(), idPaseador, idTransaccionPagos, mpId);
     }
 
-    private static final int MP_ESTADO_MAX = 32;
-    private static final int MP_DETALLE_MAX = 120;
-    private static final int MP_PAYMENT_ID_MAX = 64;
-
     /**
-     * Tras COMMIT de la reserva: acreditación billetera (solo primera vez PAGADA) y sincronía agenda (siempre best-effort).
+     * Tras COMMIT de la reserva: acreditación billetera (retenido) si corresponde y sincronía agenda (siempre best-effort).
+     * <p>El acreditado a {@code EN_RETENIDO} ocurre al marcar PAGADA solo si el origen era {@code ACEPTADA}
+     * (tutor pagó después de aceptación); si el origen era {@code SOLICITADA}/{@code PENDIENTE_PAGO}, se difiere
+     * hasta que el paseador acepte ({@code ReservaService}).</p>
      */
     private void programarSincroniaExternaTrasCommitPago(
             Integer idAgendaBloque,
@@ -266,12 +252,8 @@ public class ReservaPagoService {
     }
 
     /**
-     * Persiste el último estado MP cuando el cobro no está aprobado (rechazo, cancelación, etc.).
-     * <ul>
-     *   <li>Idempotente si la reserva ya está {@code PAGADA}.</li>
-     *   <li>Solo aplica en estados que admiten checkout/reintento ({@link EstadoReservaCatalogo#estadoAdmiteCheckoutOReintentoMercadoPago}).</li>
-     *   <li>Si llega el mismo {@code status} y {@code status_detail} ya persistidos, no reescribe.</li>
-     * </ul>
+     * Para mantener la entidad Reserva alineada al MER, ya no persistimos estado transitorio de intentos no aprobados.
+     * El estado operativo queda en pagos-service.
      */
     @Transactional
     public void registrarMercadoPagoNoAprobado(Integer idReserva, String mpPaymentId, String mpStatus, String mpStatusDetail) {
@@ -304,20 +286,12 @@ public class ReservaPagoService {
             return;
         }
 
-        String estadoNuevo = truncate(mpStatus, MP_ESTADO_MAX);
-        String detalleNuevo = truncate(mpStatusDetail, MP_DETALLE_MAX);
-        if (Objects.equals(estadoNuevo, r.getMercadopagoUltimoEstado())
-                && Objects.equals(detalleNuevo, r.getMercadopagoUltimoEstadoDetalle())) {
-            log.debug("MP no aprobado idempotente: sin cambios (idReserva={}, status={})", idReserva, estadoNuevo);
-            return;
-        }
-
-        r.setMercadopagoUltimoEstado(estadoNuevo);
-        r.setMercadopagoUltimoEstadoDetalle(detalleNuevo);
-        r.setMercadopagoUltimoEstadoEn(LocalDateTime.now());
-        reservaRepository.save(r);
-        log.info("Registrado intento MP no aprobado (idReserva={}, mpPaymentId={}, status={})",
-                idReserva, mpPaymentId.trim(), estadoNuevo);
+        log.info(
+                "MP no aprobado recibido (idReserva={}, mpPaymentId={}, status={}, detail={}); no se persiste en reserva.",
+                idReserva,
+                mpPaymentId.trim(),
+                mpStatus.trim(),
+                truncate(mpStatusDetail, 120));
     }
 
     private static String truncate(String s, int maxLen) {

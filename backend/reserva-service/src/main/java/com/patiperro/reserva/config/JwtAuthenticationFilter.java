@@ -169,6 +169,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         }
 
+        String fromForwardedCookie = extractAccessTokenFromCookieHeader(
+                request.getHeader("X-Patiperro-Forwarded-Cookie"));
+
+        if (fromForwardedCookie != null) {
+
+            return fromForwardedCookie;
+
+        }
+
         String header = request.getHeader("Authorization");
 
         if (header != null && header.regionMatches(true, 0, "Bearer ", 0, 7)) {
@@ -178,6 +187,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (!t.isEmpty()) {
 
                 return t;
+
+            }
+
+        }
+
+        // Gateway WebMVC no reenvía Authorization; api-gateway duplica en este header.
+        String forwarded = request.getHeader("X-Patiperro-Authorization");
+
+        if (forwarded != null && forwarded.regionMatches(true, 0, "Bearer ", 0, 7)) {
+
+            String t = forwarded.substring(7).trim();
+
+            if (!t.isEmpty()) {
+
+                return t;
+
+            }
+
+        }
+
+        return null;
+
+    }
+
+    private static String extractAccessTokenFromCookieHeader(String cookieHeader) {
+
+        if (cookieHeader == null || cookieHeader.isBlank()) {
+
+            return null;
+
+        }
+
+        for (String part : cookieHeader.split(";")) {
+
+            String[] kv = part.trim().split("=", 2);
+
+            if (kv.length == 2 && "access_token".equals(kv[0].trim())) {
+
+                String v = kv[1].trim();
+
+                if (!v.isEmpty()) {
+
+                    return v;
+
+                }
 
             }
 

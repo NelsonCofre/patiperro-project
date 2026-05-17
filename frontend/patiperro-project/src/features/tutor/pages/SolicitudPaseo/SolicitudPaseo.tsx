@@ -83,7 +83,6 @@ export default function SolicitudPaseo() {
   const [mascotaId, setMascotaId] = useState("");
   const [bloqueId, setBloqueId] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [loadingData, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [correoPaseador, setCorreoPaseador] = useState<string>("");
 
@@ -103,11 +102,9 @@ export default function SolicitudPaseo() {
     async function loadData() {
       if (!paseadorId) {
         setErrors({ general: "Falta paseadorId en la URL. Vuelve al dashboard." });
-        setLoadingData(false);
         return;
       }
 
-      setLoadingData(true);
       try {
         const today = new Date();
         const until = new Date(today);
@@ -149,8 +146,6 @@ export default function SolicitudPaseo() {
       } catch (error) {
         if (!active) return;
         setErrors({ general: error instanceof Error ? error.message : "Error al cargar datos." });
-      } finally {
-        if (active) setLoadingData(false);
       }
     }
 
@@ -231,16 +226,6 @@ export default function SolicitudPaseo() {
     }
     return null;
   }, [selectedMascota, tarifasPaseador]);
-
-  const desajusteTamanoTarifa = useMemo(
-    () => Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length > 0),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length]
-  );
-
-  const paseadorSinTarifasPublicas = useMemo(
-    () => Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length === 0 && !loadingData),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length, loadingData]
-  );
 
   const duracionMinutos = useMemo(() => {
     if (!selectedBloque) return 0;

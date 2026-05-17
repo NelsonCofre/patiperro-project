@@ -5,12 +5,14 @@ import com.patiperro.pagos.model.Origen;
 import com.patiperro.pagos.model.Destino;
 import com.patiperro.pagos.model.TipoTransaccion;
 import com.patiperro.pagos.model.Transaccion;
+import com.patiperro.pagos.repository.ComprobantePagoRegistroRepository;
 import com.patiperro.pagos.repository.PagoExternoRepository;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
 import com.patiperro.pagos.reserva.dto.ReservaComprobanteDto;
 import com.patiperro.pagos.security.JwtService;
 import com.patiperro.pagos.service.ComprobantePagoService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -54,7 +57,15 @@ class ComprobantePagoControllerTest {
     private PagoExternoRepository pagoExternoRepository;
 
     @MockitoBean
+    private ComprobantePagoRegistroRepository comprobantePagoRegistroRepository;
+
+    @MockitoBean
     private JwtService jwtService;
+
+    @BeforeEach
+    void stubRegistroComprobante() {
+        when(comprobantePagoRegistroRepository.findByIdReserva(anyInt())).thenReturn(Optional.empty());
+    }
 
     @Test
     void sinAuth_retorna401() throws Exception {

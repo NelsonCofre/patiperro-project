@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
 import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
@@ -67,7 +68,7 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 }
 
 export default function TutorReservas() {
-  const [selectedReservaState, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
   const [paymentSummaryReserva, setPaymentSummaryReserva] = useState<ReservaTutorDetalleDTO | null>(null);
@@ -92,6 +93,28 @@ export default function TutorReservas() {
       : reservas.find((r) => r.idReserva === selectedReservaId) ?? null;
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
   const selectedPaymentMeta = selectedReserva ? getPaymentStatusMeta(selectedReserva) : null;
+
+  useEffect(() => {
+    if (!reservas.length) {
+      return;
+    }
+    const reservaIdRaw = searchParams.get("reservaId");
+    const openComprobante = searchParams.get("openComprobante") === "1";
+    const reservaId = reservaIdRaw && /^\d+$/.test(reservaIdRaw) ? Number(reservaIdRaw) : null;
+    if (!reservaId) {
+      return;
+    }
+    const reservaObjetivo = reservas.find((r) => r.idReserva === reservaId);
+    if (!reservaObjetivo) {
+      return;
+    }
+    setSelectedReservaId(reservaObjetivo.idReserva);
+    if (openComprobante) {
+      setPaymentSummaryReserva(reservaObjetivo);
+    }
+    // Limpiamos query params para que no se reabra en cada refresco.
+    setSearchParams({}, { replace: true });
+  }, [reservas, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!selectedReserva) return;
@@ -176,6 +199,10 @@ export default function TutorReservas() {
                   preferenceId={selectedReserva.paymentPreferenceId}
                   initPoint={selectedReserva.paymentInitPoint}
                   paymentStatus={selectedReserva.paymentStatus}
+                  isPaid={
+                    normalizePaymentStatus(selectedReserva.paymentStatus).includes("pagad") ||
+                    selectedReserva.idPago != null
+                  }
                   amountLabel={formatReservaMoney(selectedReserva.montoTotal)}
                   onUnavailable={() =>
                     setNotice(

@@ -36,9 +36,6 @@ public class JwtService {
         Claims c = parseClaims(token);
         Object v = c.get(CLAIM_TUTOR_ID);
         if (v == null) {
-            v = c.get("usuarioId");
-        }
-        if (v == null) {
             return null;
         }
         if (v instanceof Number n) {

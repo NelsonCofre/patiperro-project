@@ -158,6 +158,40 @@ SET tipo_evento = EXCLUDED.tipo_evento,
     activo = EXCLUDED.activo;
 ```
 
+### 1.6 `pagos_db`
+
+Tablas de catálogo para datos bancarios del paseador (cuenta de abono / retiros). Son **datos ficticios de ejemplo** inspirados en Chile; los nombres coinciden con productos comunes (Cuenta RUT, Cuenta Vista, etc.).
+
+**`tipo_cuenta`** (ejecutar primero si `cuenta` tiene FK a esta tabla; si la BD está vacía, el orden no importa entre estas dos):
+
+```sql
+INSERT INTO tipo_cuenta (id_tipo_cuenta, nombre) VALUES
+(1, 'Cuenta corriente'),
+(2, 'Cuenta vista'),
+(3, 'Cuenta de ahorro'),
+(4, 'Cuenta RUT')
+ON CONFLICT (id_tipo_cuenta) DO UPDATE
+SET nombre = EXCLUDED.nombre;
+```
+
+**`banco`** (bancos típicos en Chile; solo `nombre` en el esquema JPA):
+
+```sql
+INSERT INTO banco (id_banco, nombre) VALUES
+(1, 'Banco de Chile'),
+(2, 'Banco Estado'),
+(3, 'Banco Santander Chile'),
+(4, 'Banco BCI'),
+(5, 'Scotiabank Chile'),
+(6, 'Itaú Chile'),
+(7, 'Banco Security'),
+(8, 'Coopeuch')
+ON CONFLICT (id_banco) DO UPDATE
+SET nombre = EXCLUDED.nombre;
+```
+
+> Si ya existen filas con otros `id_*`, podés omitir la columna de id y usar solo `INSERT INTO banco (nombre) VALUES (...)` por cada fila, o ajustar los números para no chocar con datos reales de tu entorno.
+
 ---
 
 ## 2) Patrones de diseno usados en backend

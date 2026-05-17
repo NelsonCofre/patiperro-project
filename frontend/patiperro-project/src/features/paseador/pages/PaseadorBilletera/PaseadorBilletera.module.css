@@ -469,6 +469,67 @@
   }
 }
 
+.proyeccionSection {
+  max-width: 1180px;
+  margin: 8px auto 28px;
+  padding: 28px 32px;
+  border: 1px solid rgba(220, 231, 221, 0.78);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+.proyeccionHeader h2 {
+  margin: 8px 0 0;
+  color: #163020;
+  font-size: 1.35rem;
+}
+
+.proyeccionIntro {
+  margin: 10px 0 0;
+  color: #576675;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  max-width: 820px;
+}
+
+.proyeccionGrupo {
+  margin-top: 20px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: #fafdfb;
+}
+
+.proyeccionGrupoHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.proyeccionGrupoHeader strong {
+  font-size: 1.05rem;
+  color: #163020;
+}
+
+.proyeccionDisputa {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #92400e;
+  font-size: 0.9rem;
+}
+
+.proyeccionLista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 @media (max-width: 720px) {
   .page {
     padding: 24px 16px 40px;
@@ -476,7 +537,8 @@
 
   .hero,
   .detailSection,
-  .reservaRow {
+  .reservaRow,
+  .proyeccionSection {
     padding: 20px;
     border-radius: 22px;
   }

@@ -30,6 +30,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   const [now, setNow] = useState(() => Date.now());
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   const successNotifiedRef = useRef(false);
+  const submitInFlightRef = useRef(false);
 
   const lockedRemainingSeconds =
     lockedUntil == null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000));
@@ -77,7 +78,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
     resetDigits();
   }
 
-  async function refreshEstadoEncuentro(silent = false): Promise<void> {
+  async function refreshEstadoEncuentro(silent = false): Promise<boolean> {
     try {
       const estado = await obtenerEstadoEncuentroReserva(solicitud.idReserva);
       setAttempts(Math.max(0, estado.intentosFallidos || 0));
@@ -90,18 +91,20 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
             (typeof solicitud.horaInicio === "string" ? solicitud.horaInicio : new Date().toISOString())
         );
         setIsSuccess(true);
-        return;
+        return true;
       }
 
       if (!silent && estado.mensaje) {
         setError(estado.mensaje);
       }
+      return false;
     } catch (e) {
       if (!silent) {
         setError(
           e instanceof Error ? e.message : "No se pudo consultar el estado actual del encuentro."
         );
       }
+      return false;
     }
   }
 
@@ -136,7 +139,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   }
 
   async function handleSubmit() {
-    if (isLocked || isSuccess || isValidating) return;
+    if (submitInFlightRef.current || isLocked || isSuccess || isValidating) return;
     if (!isComplete) {
       triggerError("Ingresa los 4 digitos del codigo.");
       return;
@@ -146,6 +149,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
       return;
     }
 
+    submitInFlightRef.current = true;
     setIsValidating(true);
     try {
       const response = await validarCodigoEncuentroPaseador(solicitud.idReserva, code);
@@ -159,10 +163,19 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
       );
       setIsSuccess(true);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Codigo incorrecto, intentalo nuevamente";
-      triggerError(msg);
-      await refreshEstadoEncuentro(true);
+      const msg = e instanceof Error ? e.message : "";
+      const yaConfirmadoBackend = await refreshEstadoEncuentro(true);
+      if (yaConfirmadoBackend) {
+        setError("");
+        return;
+      }
+      if (/ya fue validado/i.test(msg)) {
+        setError("");
+        return;
+      }
+      triggerError(msg || "Codigo incorrecto, intentalo nuevamente");
     } finally {
+      submitInFlightRef.current = false;
       setIsValidating(false);
     }
   }

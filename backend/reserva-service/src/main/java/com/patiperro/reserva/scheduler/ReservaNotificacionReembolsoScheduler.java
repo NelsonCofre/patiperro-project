@@ -51,7 +51,7 @@ public class ReservaNotificacionReembolsoScheduler {
             return;
         }
         long t0 = System.nanoTime();
-        List<Integer> ids = reservaRepository.findIdReservasPendientesNotificacionReembolso(
+        List<Integer> ids = reservaRepository.findIdReservasConCobroEnEstados(
                 EstadoReservaCatalogo.IDS_ESTADO_REEMBOLSO_MERCADOPAGO,
                 PageRequest.of(0, maxBatchSize));
         if (ids.isEmpty()) {

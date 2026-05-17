@@ -4,6 +4,7 @@ type Props = {
   preferenceId?: string | null;
   initPoint?: string | null;
   paymentStatus?: string | null;
+  isPaid?: boolean;
   amountLabel: string;
   onUnavailable?: () => void;
 };
@@ -31,10 +32,11 @@ export default function PagoReservaButton({
   preferenceId,
   initPoint,
   paymentStatus,
+  isPaid,
   amountLabel,
   onUnavailable
 }: Props) {
-  const paid = isPaidStatus(paymentStatus);
+  const paid = Boolean(isPaid) || isPaidStatus(paymentStatus);
   const pendingPayment = isPendingPaymentStatus(paymentStatus);
 
   const handleClick = () => {

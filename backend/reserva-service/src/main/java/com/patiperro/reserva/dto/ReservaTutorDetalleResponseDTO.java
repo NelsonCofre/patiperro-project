@@ -38,14 +38,6 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime codigoEncuentroExpiraEn;
     private String motivoRechazo;
     private String detalleRechazo;
-    /** Último {@code status} MP cuando el cobro no quedó aprobado (webhook). */
-    private String mercadopagoUltimoEstado;
-    private String mercadopagoUltimoEstadoDetalle;
-    private LocalDateTime mercadopagoUltimoEstadoEn;
     /** {@code true} si el tutor puede reintentar el pago (estado SOLICITADA / PENDIENTE_PAGO). */
     private Boolean puedeReintentarPago;
-    /** Cuándo pagos-service confirmó reembolso MP (idempotencia); visible vía gateway en listados tutor. */
-    private LocalDateTime mercadopagoReembolsoProcesadoEn;
-    /** Cuándo se registró envío del correo de reembolso al tutor (puede ser null hasta el job). */
-    private LocalDateTime notificacionReembolsoEnviadaEn;
 }

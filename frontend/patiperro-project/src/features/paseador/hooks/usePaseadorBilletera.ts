@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchBilleteraPaseador,
+  fetchCatalogoRegistroCuentaPaseador,
+  fetchCuentasBancariasPaseador,
+  registrarCuentaBancariaPaseador,
+  solicitarRetiroPaseador,
   type BilleteraBucket,
   type BilleteraBucketKey,
-  type BilleteraPaseadorData
+  type BilleteraPaseadorData,
+  type CatalogoRegistroCuenta,
+  type CuentaBancariaPaseador,
+  type RegistroCuentaBancariaBody
 } from "../services/billeteraPaseadorService";
 
 const REFRESH_MS = 15000;
 export const MIN_WITHDRAWAL_AMOUNT = 5000;
 
-export type PaseadorBankAccount = {
-  id: string;
-  bankName: string;
-  accountType: string;
-  accountNumberMasked: string;
-  holderName: string;
-};
+export type PaseadorBankAccount = CuentaBancariaPaseador;
+
+export type { RegistroCuentaBancariaBody, CatalogoRegistroCuenta };
 
 export type PendingWithdrawal = {
   operationId: string;
@@ -25,23 +28,6 @@ export type PendingWithdrawal = {
   requestedAt: string;
   status: "Retiro en Proceso";
 };
-
-const MOCK_BANK_ACCOUNTS: PaseadorBankAccount[] = [
-  {
-    id: "cta-001",
-    bankName: "Banco de Chile",
-    accountType: "Cuenta Corriente",
-    accountNumberMasked: "****8432",
-    holderName: "Paseador Patiperro"
-  },
-  {
-    id: "cta-002",
-    bankName: "BancoEstado",
-    accountType: "Cuenta Vista",
-    accountNumberMasked: "****2190",
-    holderName: "Paseador Patiperro"
-  }
-];
 
 function createEmptyBucket(
   key: BilleteraBucketKey,
@@ -75,6 +61,7 @@ const EMPTY_DATA: BilleteraPaseadorData = {
     "Saldo Disponible",
     "Fondos liberados y listos para retiro desde tu billetera."
   ),
+  proyeccionLiberacionesPorDia: [],
   updatedAt: ""
 };
 
@@ -105,6 +92,11 @@ export function usePaseadorBilletera() {
   const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([]);
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
   const [withdrawalError, setWithdrawalError] = useState("");
+  const [bankAccounts, setBankAccounts] = useState<PaseadorBankAccount[]>([]);
+  const [catalogoRegistroCuenta, setCatalogoRegistroCuenta] = useState<CatalogoRegistroCuenta | null>(null);
+  const [catalogoRegistroLoadError, setCatalogoRegistroLoadError] = useState("");
+  /** Si falla GET cuentas-bancarias (CORS, JWT, etc.); no confundir con "sin cuentas". */
+  const [bankAccountsLoadError, setBankAccountsLoadError] = useState("");
 
   const load = useCallback(async (silent = false) => {
     if (silent) {
@@ -113,9 +105,35 @@ export function usePaseadorBilletera() {
       setIsLoading(true);
     }
     setError("");
+    setBankAccountsLoadError("");
+    setCatalogoRegistroLoadError("");
     try {
       const next = await fetchBilleteraPaseador();
       setData(next);
+      try {
+        const cuentas = await fetchCuentasBancariasPaseador();
+        setBankAccounts(cuentas);
+        setBankAccountsLoadError("");
+      } catch (cuentasError) {
+        setBankAccounts([]);
+        setBankAccountsLoadError(
+          cuentasError instanceof Error
+            ? cuentasError.message
+            : "No se pudieron cargar las cuentas bancarias."
+        );
+      }
+      try {
+        const catalogo = await fetchCatalogoRegistroCuentaPaseador();
+        setCatalogoRegistroCuenta(catalogo);
+        setCatalogoRegistroLoadError("");
+      } catch (catalogoError) {
+        setCatalogoRegistroCuenta(null);
+        setCatalogoRegistroLoadError(
+          catalogoError instanceof Error
+            ? catalogoError.message
+            : "No se pudo cargar el catalogo de bancos."
+        );
+      }
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -151,16 +169,12 @@ export function usePaseadorBilletera() {
   );
 
   const withdrawAvailableBalance = useCallback(
-    async (amount: number, bankAccountId: string) => {
+    async (amount: number, bankAccountId: string, registro?: RegistroCuentaBancariaBody) => {
       setWithdrawalError("");
       setWithdrawalNotice("");
       setIsSubmittingWithdrawal(true);
 
       try {
-        const selectedAccount = MOCK_BANK_ACCOUNTS.find((account) => account.id === bankAccountId);
-        if (!selectedAccount) {
-          throw new Error("Complete sus datos bancarios antes de solicitar el retiro.");
-        }
         if (amount < MIN_WITHDRAWAL_AMOUNT) {
           throw new Error(
             `El monto debe ser mayor o igual a ${new Intl.NumberFormat("es-CL", {
@@ -176,29 +190,33 @@ export function usePaseadorBilletera() {
           throw new Error("Saldo insuficiente para completar esta solicitud de retiro.");
         }
 
-        await new Promise((resolve) => window.setTimeout(resolve, 900));
+        let selectedAccount: CuentaBancariaPaseador | null =
+          bankAccounts.find((account) => account.id === bankAccountId) ?? null;
+        if (registro) {
+          selectedAccount = await registrarCuentaBancariaPaseador(registro);
+          setBankAccounts([selectedAccount]);
+          setBankAccountsLoadError("");
+        }
+        if (!selectedAccount) {
+          throw new Error("Complete sus datos bancarios antes de solicitar el retiro.");
+        }
 
-        const operationId = `RET-${new Date()
-          .toISOString()
-          .slice(0, 10)
-          .replace(/-/g, "")}-${Math.floor(Math.random() * 9000 + 1000)}`;
+        const result = await solicitarRetiroPaseador(amount);
+        const operationId = `RET-${result.idTransaccion}`;
 
-        setData((current) => {
-          const nextAmount = Math.max(current.disponible.amount - amount, 0);
-          return {
-            ...current,
-            disponible: {
-              ...current.disponible,
-              amount: nextAmount
-            },
-            updatedAt: new Date().toISOString()
-          };
-        });
+        setData((current) => ({
+          ...current,
+          disponible: {
+            ...current.disponible,
+            amount: Math.max(result.saldoDisponibleTrasRetiro, 0)
+          },
+          updatedAt: new Date().toISOString()
+        }));
 
         setPendingWithdrawals((current) => [
           {
             operationId,
-            amount,
+            amount: result.montoRetirado || amount,
             bankAccountId: selectedAccount.id,
             bankLabel: `${selectedAccount.bankName} · ${selectedAccount.accountType} · ${selectedAccount.accountNumberMasked}`,
             requestedAt: new Date().toISOString(),
@@ -207,9 +225,7 @@ export function usePaseadorBilletera() {
           ...current
         ]);
 
-        setWithdrawalNotice(
-          `Su solicitud de retiro ha sido recibida y sera procesada en las proximas 48 horas habiles. Operacion ${operationId}.`
-        );
+        setWithdrawalNotice(`${result.mensaje} Operacion ${operationId}.`);
         return { operationId };
       } catch (submitError) {
         const message =
@@ -222,7 +238,7 @@ export function usePaseadorBilletera() {
         setIsSubmittingWithdrawal(false);
       }
     },
-    [data.disponible.amount]
+    [bankAccounts, data.disponible.amount]
   );
 
   return {
@@ -236,7 +252,10 @@ export function usePaseadorBilletera() {
     withdrawalError,
     setWithdrawalError,
     isSubmittingWithdrawal,
-    bankAccounts: MOCK_BANK_ACCOUNTS,
+    bankAccounts,
+    bankAccountsLoadError,
+    catalogoRegistroCuenta,
+    catalogoRegistroLoadError,
     pendingWithdrawals,
     minWithdrawalAmount: MIN_WITHDRAWAL_AMOUNT,
     lastUpdatedLabel: formatLastUpdated(data.updatedAt),

@@ -46,7 +46,7 @@ public class ReservaReembolsoReconciliacionScheduler {
             fixedDelayString = "${patiperro.reserva.reembolso.reconciliacion.scheduler.fixed-delay-ms:600000}")
     public void reconciliarReembolsosPendientes() {
         long t0 = System.nanoTime();
-        List<Integer> ids = reservaRepository.findIdReservasPendientesReconciliacionReembolsoMercadoPago(
+        List<Integer> ids = reservaRepository.findIdReservasConCobroEnEstados(
                 EstadoReservaCatalogo.IDS_ESTADO_REEMBOLSO_MERCADOPAGO,
                 PageRequest.of(0, maxBatchSize));
         if (ids.isEmpty()) {

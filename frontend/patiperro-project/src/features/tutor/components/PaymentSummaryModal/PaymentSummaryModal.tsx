@@ -1,9 +1,8 @@
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { obtenerComprobantePagoTutor, type ComprobantePagoTutorResponse } from "../../services/pagoTutorApi";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
-import {
-  formatReservaDate,
-  formatReservaMoney,
-  formatReservaTime
-} from "../../utils/reservaEstadoUtils";
+import { formatReservaMoney } from "../../utils/reservaEstadoUtils";
 import styles from "./PaymentSummaryModal.module.css";
 
 type Props = {
@@ -11,10 +10,15 @@ type Props = {
   onClose: () => void;
 };
 
-function formatDateTime(value?: string | null): string {
-  if (!value) return "Fecha no disponible";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+function formatDateTime(value?: string | null | unknown): string {
+  if (value == null || value === "") return "Fecha no disponible";
+  if (typeof value === "object") return "Fecha no disponible";
+  const s = String(value).trim();
+  if (!s) return "Fecha no disponible";
+  const date = new Date(s);
+  if (Number.isNaN(date.getTime())) {
+    return s.length > 80 ? "Fecha no disponible" : s;
+  }
   return new Intl.DateTimeFormat("es-CL", {
     dateStyle: "full",
     timeStyle: "short"
@@ -29,23 +33,6 @@ function getTransactionId(reserva: ReservaTutorDetalleDTO): string {
   );
 }
 
-function getOperationDate(reserva: ReservaTutorDetalleDTO): string | null {
-  return (
-    reserva.paymentConfirmedAt ||
-    reserva.fechaAceptacion ||
-    reserva.fechaSolicitud ||
-    reserva.fecha ||
-    null
-  );
-}
-
-function getServiceDetail(reserva: ReservaTutorDetalleDTO): string {
-  const fecha = formatReservaDate(reserva.fecha ?? reserva.horaInicio);
-  const inicio = formatReservaTime(reserva.horaInicio);
-  const fin = formatReservaTime(reserva.horaFinal);
-  return `${fecha} · ${inicio} - ${fin}`;
-}
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -55,10 +42,43 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function downloadSummaryAsHtml(reserva: ReservaTutorDetalleDTO): void {
-  const transactionId = getTransactionId(reserva);
-  const operationDate = formatDateTime(getOperationDate(reserva));
-  const total = formatReservaMoney(reserva.montoTotal);
+function buildFallbackFromReserva(reserva: ReservaTutorDetalleDTO): ComprobantePagoTutorResponse {
+  return {
+    tipoDocumento: "RESUMEN_TRANSACCION",
+    disclaimerLegal: "Resumen de Transaccion (informativo). No constituye boleta o factura legal.",
+    idReserva: reserva.idReserva,
+    idOrden: reserva.idPago ?? reserva.idReserva,
+    idTransaccionExterna: getTransactionId(reserva),
+    fechaHoraOperacion: reserva.paymentConfirmedAt ?? reserva.fechaAceptacion ?? reserva.fechaSolicitud ?? null,
+    paseadorNombre: reserva.paseadorNombre,
+    mascotaNombre: reserva.mascotaNombre,
+    fechaPaseo: reserva.fecha ?? null,
+    horaInicio: reserva.horaInicio ?? null,
+    horaFinal: reserva.horaFinal ?? null,
+    duracionMinutos: null,
+    moneda: "CLP",
+    montoTotal: Number(reserva.montoTotal ?? 0),
+    comisionApp: 0,
+    montoNeto: Number(reserva.montoTotal ?? 0),
+    estadoFondos:
+      "Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio"
+  };
+}
+
+function formatServiceDetail(data: ComprobantePagoTutorResponse): string {
+  const fecha =
+    data.fechaPaseo != null && String(data.fechaPaseo).trim() !== ""
+      ? String(data.fechaPaseo)
+      : "Fecha no disponible";
+  const inicio = data.horaInicio ? formatDateTime(data.horaInicio) : "--:--";
+  const fin = data.horaFinal ? formatDateTime(data.horaFinal) : "--:--";
+  return `${fecha} · ${inicio} - ${fin}`;
+}
+
+function downloadSummaryAsHtml(data: ComprobantePagoTutorResponse): void {
+  const transactionId = data.idTransaccionExterna || `TRX-${data.idOrden || data.idReserva}`;
+  const operationDate = formatDateTime(data.fechaHoraOperacion);
+  const total = formatReservaMoney(data.montoTotal);
   const html = `<!doctype html>
 <html lang="es">
   <head>
@@ -85,9 +105,9 @@ function downloadSummaryAsHtml(reserva: ReservaTutorDetalleDTO): void {
       <div class="grid">
         <div class="card"><span class="label">ID de transaccion</span><div class="value">${escapeHtml(transactionId)}</div></div>
         <div class="card"><span class="label">Fecha y hora</span><div class="value">${escapeHtml(operationDate)}</div></div>
-        <div class="card"><span class="label">Paseador</span><div class="value">${escapeHtml(reserva.paseadorNombre)}</div></div>
-        <div class="card"><span class="label">Mascota</span><div class="value">${escapeHtml(reserva.mascotaNombre)}</div></div>
-        <div class="card"><span class="label">Detalle del servicio</span><div class="value">${escapeHtml(getServiceDetail(reserva))}</div></div>
+        <div class="card"><span class="label">Paseador</span><div class="value">${escapeHtml(data.paseadorNombre)}</div></div>
+        <div class="card"><span class="label">Mascota</span><div class="value">${escapeHtml(data.mascotaNombre)}</div></div>
+        <div class="card"><span class="label">Detalle del servicio</span><div class="value">${escapeHtml(formatServiceDetail(data))}</div></div>
         <div class="card"><span class="label">Monto total pagado</span><div class="value">${escapeHtml(total)}</div></div>
       </div>
       <div class="note">
@@ -112,11 +132,59 @@ function downloadSummaryAsHtml(reserva: ReservaTutorDetalleDTO): void {
 }
 
 export default function PaymentSummaryModal({ reserva, onClose }: Props) {
-  const transactionId = getTransactionId(reserva);
-  const operationDate = formatDateTime(getOperationDate(reserva));
-  const serviceDetail = getServiceDetail(reserva);
+  const [data, setData] = useState<ComprobantePagoTutorResponse>(() => buildFallbackFromReserva(reserva));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const reservaRef = useRef(reserva);
+  reservaRef.current = reserva;
 
-  return (
+  useEffect(() => {
+    let cancelled = false;
+    const idReserva = reserva.idReserva;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const result = await obtenerComprobantePagoTutor(idReserva);
+        if (cancelled) return;
+        setData(result);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "No se pudo cargar el comprobante real.");
+        setData(buildFallbackFromReserva(reservaRef.current));
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [reserva.idReserva]);
+
+  const transactionId = useMemo(
+    () => data.idTransaccionExterna || `TRX-${data.idOrden || data.idReserva}`,
+    [data.idOrden, data.idReserva, data.idTransaccionExterna]
+  );
+
+  const { operationDate, serviceDetail } = useMemo(() => {
+    try {
+      return {
+        operationDate: formatDateTime(data.fechaHoraOperacion),
+        serviceDetail: formatServiceDetail(data)
+      };
+    } catch {
+      return {
+        operationDate: "Fecha no disponible",
+        serviceDetail: "Detalle no disponible"
+      };
+    }
+  }, [data]);
+
+  return createPortal(
     <div className={styles.overlay}>
       <section className={styles.modal} role="dialog" aria-modal="true">
         <div className={styles.header}>
@@ -143,11 +211,11 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
           </article>
           <article className={styles.card}>
             <span>Paseador</span>
-            <strong>{reserva.paseadorNombre}</strong>
+            <strong>{data.paseadorNombre}</strong>
           </article>
           <article className={styles.card}>
             <span>Mascota</span>
-            <strong>{reserva.mascotaNombre}</strong>
+            <strong>{data.mascotaNombre}</strong>
           </article>
           <article className={styles.card}>
             <span>Detalle del servicio</span>
@@ -155,12 +223,14 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
           </article>
           <article className={styles.card}>
             <span>Monto total pagado</span>
-            <strong>{formatReservaMoney(reserva.montoTotal)}</strong>
+            <strong>{formatReservaMoney(data.montoTotal)}</strong>
           </article>
         </div>
 
         <div className={styles.noteBox}>
-          Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio.
+          {typeof data.estadoFondos === "string" && data.estadoFondos.trim()
+            ? data.estadoFondos
+            : "Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio."}
         </div>
 
         <div className={styles.emailBox}>
@@ -168,19 +238,35 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
         </div>
 
         <div className={styles.legalBox}>
-          Este documento corresponde a un <strong>Resumen de Transaccion</strong> y no constituye una boleta o factura legal.
+          {typeof data.disclaimerLegal === "string" && data.disclaimerLegal.trim() ? (
+            data.disclaimerLegal
+          ) : (
+            <>
+              Este documento corresponde a un <strong>Resumen de Transaccion</strong> y no constituye una boleta o
+              factura legal.
+            </>
+          )}
         </div>
+
+        {error ? <div className={styles.emailBox}>Aviso: {error}</div> : null}
+
+        {loading ? (
+          <div className={styles.loadingOverlay} role="status" aria-live="polite">
+            Cargando comprobante real...
+          </div>
+        ) : null}
 
         <div className={styles.footer}>
           <button
             type="button"
             className={styles.downloadButton}
-            onClick={() => downloadSummaryAsHtml(reserva)}
+            onClick={() => downloadSummaryAsHtml(data)}
           >
             Descargar resumen
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

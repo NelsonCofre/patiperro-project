@@ -1,18 +1,19 @@
 // src/features/tutor/services/resenaApi.ts
-import type { 
-  ResenaRequest, 
-  ResenaResponse, 
-  ResenaDetalleDTO 
-} from '../types/resena.types';
+import { API_BASE_URL } from "../../../config/api";
+import type {
+  ResenaRequest,
+  ResenaResponse,
+  ResenaDetalleDTO
+} from "../types/resena.types";
 
-const BASE_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080/api';
+const API_PREFIX = API_BASE_URL ? `${API_BASE_URL.replace(/\/$/, "")}/api` : "/api";
 
 export const resenaApi = {
   /**
    * Envía una nueva calificación al microservicio de reseñas.
    */
   crearResena: async (resena: ResenaRequest): Promise<ResenaResponse> => {
-    const response = await fetch(`${BASE_URL}/resenas`, {
+    const response = await fetch(`${API_PREFIX}/resenas`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,7 +35,7 @@ export const resenaApi = {
    * Utiliza el endpoint: GET /api/resenas/paseador/{idPaseador}
    */
   obtenerResenasPorPaseador: async (idPaseador: number): Promise<ResenaDetalleDTO[]> => {
-    const response = await fetch(`${BASE_URL}/resenas/paseador/${idPaseador}`);
+    const response = await fetch(`${API_PREFIX}/resenas/paseador/${idPaseador}`);
     
     if (!response.ok) {
       throw new Error('No se pudieron cargar las reseñas del paseador');
@@ -48,7 +49,7 @@ export const resenaApi = {
    * Utiliza el endpoint: GET /api/resenas/paseador/{idPaseador}/promedio
    */
   obtenerPromedioPaseador: async (idPaseador: number): Promise<number> => {
-    const response = await fetch(`${BASE_URL}/resenas/paseador/${idPaseador}/promedio`);
+    const response = await fetch(`${API_PREFIX}/resenas/paseador/${idPaseador}/promedio`);
     
     if (!response.ok) return 0;
     

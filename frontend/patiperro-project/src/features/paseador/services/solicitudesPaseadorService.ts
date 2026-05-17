@@ -6,7 +6,6 @@ import type {
   SolicitudPendientePaseador
 } from "../types/solicitudPaseador.types";
 
-type ApiErrorBody = { message?: string; mensaje?: string };
 type EstadoEncuentroApiDTO = {
   idReserva?: number;
   estadoEncuentro?: "PENDIENTE" | "CONFIRMADO" | "FALLIDO" | string;
@@ -20,9 +19,21 @@ type EstadoEncuentroApiDTO = {
 
 function readApiErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object") {
-    const o = data as ApiErrorBody;
-    if (typeof o.message === "string" && o.message.trim()) return o.message;
-    if (typeof o.mensaje === "string" && o.mensaje.trim()) return o.mensaje;
+    const o = data as Record<string, unknown>;
+    for (const key of ["message", "mensaje", "detail", "title"]) {
+      const v = o[key];
+      if (typeof v === "string" && v.trim()) {
+        return v.trim();
+      }
+    }
+    const errors = o.errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      const first = errors[0] as Record<string, unknown>;
+      const d = first.defaultMessage ?? first.message;
+      if (typeof d === "string" && d.trim()) {
+        return d.trim();
+      }
+    }
   }
   return fallback;
 }
@@ -193,6 +204,28 @@ export async function responderSolicitudPaseador(
   return { idReserva, estado };
 }
 
+/** Marca la reserva como FINALIZADA (solo desde EN_CURSO). Dispara liberación a verificación en billetera. */
+export async function finalizarPaseoPaseador(idReserva: number): Promise<{ idReserva: number; estado: string }> {
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    throw new Error("La reserva no es válida.");
+  }
+
+  const response = await fetch(API_ENDPOINTS.reserva.status(idReserva), {
+    method: "PATCH",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ decision: "FINALIZAR_PASEO" })
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo finalizar el paseo."));
+  }
+
+  const row = data as { nombreEstado?: string | null };
+  const nombre = (row?.nombreEstado ?? "").trim();
+  return { idReserva, estado: nombre || "FINALIZADA" };
+}
+
 export async function validarCodigoEncuentroPaseador(
   idReserva: number,
   codigoIngresado: string
@@ -208,7 +241,7 @@ export async function validarCodigoEncuentroPaseador(
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
-    throw new Error(readApiErrorMessage(data, "No se pudo validar el codigo."));
+    throw new Error(readApiErrorMessage(data, `No se pudo validar el codigo (HTTP ${response.status}).`));
   }
   const row = data as { idReserva: number; nombreEstado?: string; fechaInicioReal?: string | null };
   return {

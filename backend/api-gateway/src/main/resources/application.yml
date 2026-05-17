@@ -10,6 +10,10 @@
 spring:
   application:
     name: api-gateway
+  # Carga opcional (dev): backend/api-gateway/.env.local — mismo formato que .properties (KEY=valor).
+  # Si también existe GATEWAY_EXTRA_CORS_ORIGINS en el entorno del proceso, puede prevalecer según orden de Spring.
+  config:
+    import: "optional:file:.env.local[.properties]"
   cloud:
     gateway:
       # Cliente HTTP del Gateway Server WebMVC (proxificación). Checkout MP puede tardar.
@@ -91,3 +95,6 @@ patiperro:
         - http://localhost:5174
         - http://127.0.0.1:5173
         - http://127.0.0.1:5174
+      # Front en túnel HTTPS: definir GATEWAY_EXTRA_CORS_ORIGINS en el entorno o en backend/api-gateway/.env.local
+      # (carga vía spring.config.import). Ej.: https://midlands-mile-dealers-batteries.trycloudflare.com
+      extra-allowed-origins-csv: ${GATEWAY_EXTRA_CORS_ORIGINS:}

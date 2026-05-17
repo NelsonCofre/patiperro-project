@@ -42,8 +42,6 @@ export default function PerfilPaseadorModal({
 
   // --- ESTADOS ---
   const [bloques, setBloques] = useState<AgendaBloqueOfertaDTO[]>([]);
-  const [loadingBloques, setLoadingBloques] = useState(false);
-  const [bloquesError, setBloquesError] = useState<string | null>(null);
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
 
   // Inicialización con fecha local YYYY-MM-DD
@@ -76,9 +74,7 @@ export default function PerfilPaseadorModal({
     const idPaseadorNum = Number.parseInt(paseador.id, 10);
 
     async function loadData() {
-      setLoadingBloques(true);
       setLoadingResenas(true);
-      setBloquesError(null);
 
       try {
         const today = new Date();
@@ -112,10 +108,8 @@ export default function PerfilPaseadorModal({
         setPromedioReal(promedio || 0);
       } catch (error) {
         if (!active) return;
-        setBloquesError(error instanceof Error ? error.message : "Error al cargar información.");
       } finally {
         if (active) {
-          setLoadingBloques(false);
           setLoadingResenas(false);
         }
       }

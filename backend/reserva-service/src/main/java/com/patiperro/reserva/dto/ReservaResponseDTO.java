@@ -38,8 +38,4 @@ public class ReservaResponseDTO {
     private Integer idPaseadorUsuario;
     /** {@code true} si el tutor puede iniciar o reintentar checkout (SOLICITADA / PENDIENTE_PAGO). */
     private Boolean puedeReintentarPago;
-    /** Último {@code status} MP cuando el cobro no quedó aprobado (webhook). */
-    private String mercadopagoUltimoEstado;
-    private String mercadopagoUltimoEstadoDetalle;
-    private LocalDateTime mercadopagoUltimoEstadoEn;
 }

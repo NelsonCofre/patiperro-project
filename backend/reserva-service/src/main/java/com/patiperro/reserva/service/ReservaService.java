@@ -304,10 +304,7 @@ public class ReservaService {
     }
 
     private static boolean reservaTieneCobroMercadoPago(Reserva r) {
-        if (r == null || r.getMercadopagoPaymentId() == null) {
-            return false;
-        }
-        return !r.getMercadopagoPaymentId().isBlank();
+        return r != null && r.getIdPago() != null;
     }
 
     /**
@@ -418,6 +415,10 @@ public class ReservaService {
         if (esFinalizada(nuevo)) {
             programarBilleteraPasarVerificacionTrasCommit(saved);
         }
+        // Cobro ya hecho (PAGADA) y paseador acepta: recién entonces queda retenido en billetera (pagos-service).
+        if (esAceptada(nuevo) && esPagada(actual)) {
+            programarBilleteraAcreditarRetenidoTrasCommit(saved);
+        }
         return ReservaDtoMapper.toReservaResponse(saved);
     }
 
@@ -458,10 +459,7 @@ public class ReservaService {
     /**
      * Punto único para paso 5 (disparadores PDF): no llama a Mercado Pago dentro de
      * la transacción actual.
-     * El cobro debe estar referenciado en {@code mercadopago_payment_id}
-     * (persistido al aprobar pago en
-     * {@link ReservaPagoService#marcarReservaComoPagada}); si falta, se registra
-     * advertencia para operación.
+     * El cobro debe estar referenciado en {@code id_pago}; si falta, se registra advertencia para operación.
      *
      * @param reservaAuditoriaPaymentId reserva ya persistida con el estado de
      *                                  cierre; solo para comprobar
@@ -472,10 +470,9 @@ public class ReservaService {
         if (idReserva == null) {
             return;
         }
-        if (reservaAuditoriaPaymentId != null
-                && !StringUtils.hasText(reservaAuditoriaPaymentId.getMercadopagoPaymentId())) {
+        if (reservaAuditoriaPaymentId != null && reservaAuditoriaPaymentId.getIdPago() == null) {
             log.warn(
-                    "Reembolso MP programado tras commit pero la reserva no tiene mercadopago_payment_id; "
+                    "Reembolso MP programado tras commit pero la reserva no tiene id_pago; "
                             + "ReservaReembolsoService no invocará pagos-service hasta existir id (idReserva={})",
                     idReserva);
         }
@@ -508,6 +505,39 @@ public class ReservaService {
                 return;
             }
             pagosBilleteraIntegracionClient.pasarAVerificacion(idR, uid, fin);
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            run.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                run.run();
+            }
+        });
+    }
+
+    /**
+     * Tras aceptación con cobro ya confirmado: primera acreditación a saldo retenido del paseador (idempotente en pagos).
+     */
+    private void programarBilleteraAcreditarRetenidoTrasCommit(Reserva saved) {
+        if (!pagosBilleteraIntegracionClient.isEnabled() || saved == null) {
+            return;
+        }
+        Long idPago = saved.getIdPago();
+        if (idPago == null) {
+            log.warn("Billetera retenido omitido: reserva sin id_pago (idReserva={})", saved.getIdReserva());
+            return;
+        }
+        Integer idR = saved.getIdReserva();
+        Runnable run = () -> {
+            Long uid = resolverIdUsuarioPaseador(saved);
+            if (uid == null) {
+                log.warn("Billetera retenido omitido: sin id usuario paseador (idReserva={})", idR);
+                return;
+            }
+            pagosBilleteraIntegracionClient.acreditarRetenido(idR, uid, idPago);
         };
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             run.run();

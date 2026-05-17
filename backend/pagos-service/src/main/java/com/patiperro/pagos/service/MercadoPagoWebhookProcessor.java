@@ -56,6 +56,21 @@ public class MercadoPagoWebhookProcessor {
     @Async
     public void procesar(String topic, String paymentId) {
         try {
+            ejecutarProcesamientoMercadoPago(topic, paymentId);
+        } catch (RuntimeException e) {
+            log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
+        }
+    }
+
+    /**
+     * Misma lógica que el webhook, en hilo actual (p. ej. retorno Checkout Pro en local sin IPN).
+     */
+    public void procesarSincrono(String paymentId) {
+        ejecutarProcesamientoMercadoPago("payment", paymentId);
+    }
+
+    private void ejecutarProcesamientoMercadoPago(String topic, String paymentId) {
+        try {
             if (!StringUtils.hasText(paymentId)) {
                 return;
             }
@@ -160,7 +175,8 @@ public class MercadoPagoWebhookProcessor {
                     "Webhook MP: notificado pago no aprobado a reserva-service (idReserva={}, mpPaymentId={}, status={})",
                     idReserva, mpId, status);
         } catch (RuntimeException e) {
-            log.error("Webhook MP: error procesando notificación (topic={}, paymentId={})", topic, paymentId, e);
+            log.error("Webhook MP: error en procesamiento (topic={}, paymentId={})", topic, paymentId, e);
+            throw e;
         }
     }
 
@@ -178,7 +194,7 @@ public class MercadoPagoWebhookProcessor {
                 || "authorized".equals(s);
     }
 
-    private static Integer resolverIdReserva(MercadoPagoPaymentDto pago) {
+    public static Integer resolverIdReserva(MercadoPagoPaymentDto pago) {
         String ref = pago.externalReference();
         if (!StringUtils.hasText(ref)) {
             return null;

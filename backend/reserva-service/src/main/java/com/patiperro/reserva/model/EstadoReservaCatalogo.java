@@ -7,8 +7,11 @@ import java.util.List;
  *
  * <p><strong>Flujo tutor / pasarela:</strong> típicamente {@link #NOMBRE_SOLICITADA} → opcional
  * {@link #NOMBRE_PENDIENTE_PAGO} (checkout abierto) → {@link #NOMBRE_PAGADA} cuando Mercado Pago confirma el cobro.
- * El dinero retenido no liquida al paseador hasta que el servicio finalice; ante rechazo, expiración o cierta
- * cancelación por tutor puede ejecutarse devolución vía API de la pasarela (fuera de este catálogo).</p>
+ * El saldo del paseador en billetera pasa a &quot;retenido&quot; al aceptar la solicitud si ya estaba pagada
+ * (si pagó antes de aceptar); si aceptó antes de pagar, el retenido se registra al confirmar el cobro.
+ * Tras {@link #NOMBRE_FINALIZADA} el monto entra en verificación y, por regla de negocio (N+2 días calendario desde
+ * fin del paseo), a disponible. Ante rechazo, expiración o cierta cancelación por tutor puede ejecutarse devolución
+ * vía API de la pasarela (fuera de este catálogo).</p>
  *
  * <p><strong>Flujo paseador:</strong> desde {@link #NOMBRE_SOLICITADA}, {@link #NOMBRE_PENDIENTE_PAGO} o {@link #NOMBRE_PAGADA}
  * (aún sin aceptación), el paseador pasa a {@link #NOMBRE_ACEPTADA} o {@link #NOMBRE_RECHAZADA}. Luego

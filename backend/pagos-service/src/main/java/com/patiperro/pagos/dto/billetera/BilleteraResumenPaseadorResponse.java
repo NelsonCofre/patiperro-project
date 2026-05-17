@@ -12,6 +12,11 @@ public record BilleteraResumenPaseadorResponse(
          * {@code disponible.amount} por retiros, reembolsos u otros ajustes sobre {@code saldo_actual}.
          */
         List<BilleteraReservaItemResponse> historialLiberacionesDisponible,
+        /**
+         * Ítems en {@code EN_VERIFICACION} agrupados por fecha estimada de paso a disponible (regla N+2 en zona
+         * {@code patiperro.pagos.billetera.zona}). Vacío si no hay montos en verificación.
+         */
+        List<BilleteraProyeccionLiberacionGrupoResponse> proyeccionLiberacionesPorDia,
         LocalDateTime updatedAt
 ) {
 }

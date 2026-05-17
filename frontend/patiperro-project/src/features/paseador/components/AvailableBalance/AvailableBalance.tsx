@@ -23,6 +23,11 @@ export default function AvailableBalance({
   const canWithdraw = bucket.amount > 0;
   const disabledMessage =
     "Necesitas saldo disponible mayor a $0 para solicitar un retiro.";
+  const sumBrutoReservas = bucket.reservas.reduce((acc, r) => acc + r.montoBruto, 0);
+  const sumComisionReservas = bucket.reservas.reduce((acc, r) => acc + r.comision, 0);
+  const brutoMostrado = bucket.grossAmount > 0 ? bucket.grossAmount : sumBrutoReservas;
+  const comisionMostrada =
+    bucket.commissionAmount > 0 ? bucket.commissionAmount : sumComisionReservas;
 
   return (
     <section className={styles.panel}>
@@ -44,11 +49,11 @@ export default function AvailableBalance({
       <div className={styles.metaGrid}>
         <article className={styles.metaCard}>
           <span>Bruto procesado</span>
-          <strong>{formatMoney(bucket.grossAmount)}</strong>
+          <strong>{formatMoney(brutoMostrado)}</strong>
         </article>
         <article className={styles.metaCard}>
           <span>Comision Patiperro</span>
-          <strong>{formatMoney(bucket.commissionAmount)}</strong>
+          <strong>{formatMoney(comisionMostrada)}</strong>
         </article>
         <article className={styles.metaCard}>
           <span>Reservas liberadas</span>
@@ -57,9 +62,9 @@ export default function AvailableBalance({
       </div>
 
       <div className={styles.commissionNote}>
-        <strong>Comision de la plataforma: 5%</strong>
+        <strong>Comision de la plataforma aplicada</strong>
         <p>
-          El saldo disponible ya descuenta automaticamente este porcentaje, por lo que el monto visible corresponde a lo que recibirias efectivamente.
+          El saldo disponible ya descuenta automaticamente la comision, por lo que el monto visible corresponde a lo que recibirias efectivamente.
         </p>
       </div>
 

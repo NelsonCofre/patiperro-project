@@ -1,9 +1,11 @@
 package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.dto.comprobante.ComprobantePagoResponse;
+import com.patiperro.pagos.model.ComprobantePagoRegistro;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.PagoExterno;
 import com.patiperro.pagos.model.Transaccion;
+import com.patiperro.pagos.repository.ComprobantePagoRegistroRepository;
 import com.patiperro.pagos.repository.PagoExternoRepository;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import com.patiperro.pagos.reserva.ReservaConsultaClient;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -31,16 +34,20 @@ public class ComprobantePagoService {
     private final ReservaConsultaClient reservaConsultaClient;
     private final TransaccionRepository transaccionRepository;
     private final PagoExternoRepository pagoExternoRepository;
+    private final ComprobantePagoRegistroRepository comprobantePagoRegistroRepository;
 
     public ComprobantePagoService(
             ReservaConsultaClient reservaConsultaClient,
             TransaccionRepository transaccionRepository,
-            PagoExternoRepository pagoExternoRepository) {
+            PagoExternoRepository pagoExternoRepository,
+            ComprobantePagoRegistroRepository comprobantePagoRegistroRepository) {
         this.reservaConsultaClient = reservaConsultaClient;
         this.transaccionRepository = transaccionRepository;
         this.pagoExternoRepository = pagoExternoRepository;
+        this.comprobantePagoRegistroRepository = comprobantePagoRegistroRepository;
     }
 
+    @Transactional
     public ComprobantePagoResponse obtenerParaTutor(Long idReserva, Authentication authentication) {
         Long tutorId = extraerTutorId(authentication);
         if (tutorId == null) {
@@ -97,7 +104,7 @@ public class ComprobantePagoService {
             idExterna = String.valueOf(tx.getIdPago());
         }
 
-        return new ComprobantePagoResponse(
+        ComprobantePagoResponse respuesta = new ComprobantePagoResponse(
                 "RESUMEN_TRANSACCION",
                 DISCLAIMER,
                 idReserva,
@@ -116,6 +123,19 @@ public class ComprobantePagoService {
                 tx.getMontoNeto(),
                 "Estado: " + ESTADO_FONDOS_TEXTO
         );
+
+        int idReservaInt = Math.toIntExact(idReserva);
+        if (comprobantePagoRegistroRepository.findByIdReserva(idReservaInt).isEmpty()) {
+            comprobantePagoRegistroRepository.save(
+                    ComprobantePagoRegistro.builder()
+                            .idReserva(idReservaInt)
+                            .idTransaccionPagos(tx.getIdTransaccion())
+                            .providerPaymentId(idExterna)
+                            .creadoEn(LocalDateTime.now())
+                            .build());
+        }
+
+        return respuesta;
     }
 
     private static Long extraerTutorId(Authentication authentication) {

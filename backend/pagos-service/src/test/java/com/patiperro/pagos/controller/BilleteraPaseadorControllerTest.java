@@ -1,6 +1,7 @@
 package com.patiperro.pagos.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
 import com.patiperro.pagos.security.JwtService;
 import com.patiperro.pagos.service.BilleteraService;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -68,6 +70,30 @@ class BilleteraPaseadorControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idTransaccion").value(10))
                 .andExpect(jsonPath("$.mensaje").isNotEmpty());
+    }
+
+    @Test
+    void registrarCuentaBancaria_responde201() throws Exception {
+        when(billeteraService.registrarOActualizarCuentaBancaria(eq(2L), eq(1L), eq(3L), any()))
+                .thenReturn(new CuentaBancariaPaseadorResponse(
+                        "9", "Banco Test", "Vista", "****6789", "Titular registrado"));
+
+        TestingAuthenticationToken auth = new TestingAuthenticationToken(
+                "2",
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+        auth.setAuthenticated(true);
+
+        mockMvc.perform(
+                        post("/api/pagos/paseador/billetera/cuentas-bancarias")
+                                .with(SecurityMockMvcRequestPostProcessors.authentication(auth))
+                                .with(SecurityMockMvcRequestPostProcessors.csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(
+                                        Map.of("bancoId", 1, "tipoCuentaId", 3, "numeroCuenta", "123456789"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value("9"))
+                .andExpect(jsonPath("$.bankName").value("Banco Test"));
     }
 
     private record MontoBody(String monto) {

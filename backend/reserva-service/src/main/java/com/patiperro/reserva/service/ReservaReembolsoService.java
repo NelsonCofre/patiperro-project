@@ -12,16 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
 
 /**
  * Orquesta devolución Mercado Pago (pagos-service) y aviso al tutor (notification-service).
- * <p>Orden: validar estado y cobro → llamada pagos → solo si {@code 204} persiste marca en reserva → correo tutor.
+ * <p>Orden: validar estado y cobro → llamada pagos → correo tutor.
  * Ejecutado de forma asíncrona tras commit para no bloquear el hilo que cerró la transacción.</p>
  */
 @Service
@@ -33,22 +28,16 @@ public class ReservaReembolsoService {
     private final PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient;
     private final NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient;
     private final TutorIntegracionClient tutorIntegracionClient;
-    private final Clock clock;
-    private final TransactionTemplate transactionTemplate;
 
     public ReservaReembolsoService(
             ReservaRepository reservaRepository,
             PagosReembolsoIntegracionClient pagosReembolsoIntegracionClient,
             NotificacionReembolsoIntegracionClient notificacionReembolsoIntegracionClient,
-            TutorIntegracionClient tutorIntegracionClient,
-            Clock clock,
-            PlatformTransactionManager transactionManager) {
+            TutorIntegracionClient tutorIntegracionClient) {
         this.reservaRepository = reservaRepository;
         this.pagosReembolsoIntegracionClient = pagosReembolsoIntegracionClient;
         this.notificacionReembolsoIntegracionClient = notificacionReembolsoIntegracionClient;
         this.tutorIntegracionClient = tutorIntegracionClient;
-        this.clock = clock;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Value("${patiperro.reserva.reembolso.retry-delay-ms:400}")
@@ -83,12 +72,6 @@ public class ReservaReembolsoService {
             log.warn("Reembolso: reserva {} no encontrada", idReserva);
             return;
         }
-        if (r.getMercadopagoReembolsoProcesadoEn() != null) {
-            log.info("Reembolso: idempotente, ya marcado en reserva {} (procesadoEn={})", idReserva,
-                    r.getMercadopagoReembolsoProcesadoEn());
-            return;
-        }
-
         EstadoReserva est = r.getEstadoReserva();
         if (!requiereReembolsoPorEstado(est)) {
             log.debug("Reembolso: reserva {} estado {} no amerita devolución MP", idReserva,
@@ -96,11 +79,12 @@ public class ReservaReembolsoService {
             return;
         }
 
-        String mpId = safe(r.getMercadopagoPaymentId());
-        if (!StringUtils.hasText(mpId)) {
-            log.debug("Reembolso: reserva {} sin mercadopago_payment_id; no se llama a pagos-service", idReserva);
+        Long idPago = r.getIdPago();
+        if (idPago == null) {
+            log.debug("Reembolso: reserva {} sin id_pago; no se llama a pagos-service", idReserva);
             return;
         }
+        String mpId = String.valueOf(idPago);
 
         if (!pagosReembolsoIntegracionClient.isEnabled()) {
             log.warn("Reembolso: integración pagos-reembolso deshabilitada o sin URL/secreto; omitido (reserva={})",
@@ -111,12 +95,7 @@ public class ReservaReembolsoService {
         int code = solicitarReembolsoConReintento(idReserva, mpId);
 
         if (code == 204) {
-            if (marcarReembolsoProcesado(idReserva)) {
-                enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
-            } else {
-                log.info("Reembolso: pagos OK pero marca procesadoEn ya existía; omitiendo notificación duplicada "
-                        + "(reserva={})", idReserva);
-            }
+            enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
             return;
         }
 
@@ -186,19 +165,6 @@ public class ReservaReembolsoService {
     }
 
     /**
-     * @return {@code true} si esta ejecución aplicó la marca (fila actualizada); {@code false} si ya estaba marcada.
-     */
-    private boolean marcarReembolsoProcesado(Integer idReserva) {
-        LocalDateTime ahora = LocalDateTime.now(clock);
-        Integer filas = transactionTemplate.execute(
-                status -> reservaRepository.marcarMercadopagoReembolsoProcesadoSiPendiente(
-                        idReserva,
-                        ahora,
-                        EstadoReservaCatalogo.IDS_ESTADO_REEMBOLSO_MERCADOPAGO));
-        return filas != null && filas > 0;
-    }
-
-    /**
      * Reintento solo del correo (reembolso ya marcado). Usado por el scheduler de notificaciones at-least-once.
      */
     public void reintentarNotificacionReembolsoTutorSync(Integer idReserva) {
@@ -210,10 +176,7 @@ public class ReservaReembolsoService {
             log.warn("Notificación reembolso (job): reserva {} no encontrada", idReserva);
             return;
         }
-        if (r.getMercadopagoReembolsoProcesadoEn() == null) {
-            return;
-        }
-        if (r.getNotificacionReembolsoEnviadaEn() != null) {
+        if (!requiereReembolsoPorEstado(r.getEstadoReserva()) || r.getIdPago() == null) {
             return;
         }
         enviarNotificacionReembolsoAlTutor(idReserva, r.getIdTutorUsuario());
@@ -230,13 +193,8 @@ public class ReservaReembolsoService {
                 : null;
         boolean ok = notificacionReembolsoIntegracionClient.notificarReembolsoTutor(idReserva, correo);
         if (ok) {
-            LocalDateTime ahora = LocalDateTime.now(clock);
-            Integer filas = transactionTemplate.execute(
-                    status -> reservaRepository.marcarNotificacionReembolsoEnviadaSiPendiente(idReserva, ahora));
-            if (filas != null && filas > 0) {
-                log.info("Notificación reembolso tutor confirmada y persistida (reserva={}, correoPresente={})",
-                        idReserva, StringUtils.hasText(correo));
-            }
+            log.info("Notificación reembolso tutor confirmada (reserva={}, correoPresente={})",
+                    idReserva, StringUtils.hasText(correo));
         } else {
             log.warn("Notificación reembolso tutor fallida o no aplicada; quedará para job de reenvío (reserva={})",
                     idReserva);

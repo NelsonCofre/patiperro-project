@@ -158,24 +158,20 @@ export async function fetchMascotasTutor(): Promise<MascotaTutorDTO[]> {
 }
 
 export async function fetchPerfilPaseador(idPaseador: number): Promise<PaseadorPerfilDTO> {
-  const url = `http://localhost:8080/api/paseadores/public/${idPaseador}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(API_ENDPOINTS.auth.paseadores.publicPerfil(idPaseador), {
     method: "GET",
     credentials: "include",
     headers: { ...bearerAuthHeaders() }
   });
-  
+
   const data = await parseJsonSafe(response);
-  
+
   if (!response.ok) {
     throw new Error(readApiErrorMessage(data, "No se pudo cargar el perfil del paseador para enviar la notificación."));
   }
-  
-  return data as PaseadorPerfilDTO; 
+
+  return data as PaseadorPerfilDTO;
 }
-  
-  // ... resto del código intacto ...
 
 export async function fetchTarifasPublicasPaseador(
   idPaseador: number

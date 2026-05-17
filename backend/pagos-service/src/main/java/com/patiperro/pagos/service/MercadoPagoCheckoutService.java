@@ -24,7 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Orquesta la creación de preferencias Checkout Pro ({@code POST /checkout/preferences}).
+ * Orquesta la creación de preferencias Checkout Pro
+ * ({@code POST /checkout/preferences}).
  */
 @Service
 public class MercadoPagoCheckoutService {
@@ -54,7 +55,8 @@ public class MercadoPagoCheckoutService {
 
     /**
      * Crea una preferencia de pago para una reserva.
-     * Se usa formato {@code external_reference = "reserva-" + idReserva} para mantener paridad
+     * Se usa formato {@code external_reference = "reserva-" + idReserva} para
+     * mantener paridad
      * con el prototipo validado en pago-service.
      */
     @Transactional
@@ -72,7 +74,8 @@ public class MercadoPagoCheckoutService {
             return Optional.empty();
         }
         if (!checkoutProperties.tieneBackUrlsCompletas()) {
-            log.warn("Checkout MP: faltan patiperro.mercadopago.checkout.back-url-* (success, failure, pending)");
+            log.warn(
+                    "Checkout MP: definir patiperro.mercadopago.checkout.public-front-base-url o las tres back-url-*");
             return Optional.empty();
         }
 
@@ -99,11 +102,11 @@ public class MercadoPagoCheckoutService {
         body.put("external_reference", "reserva-" + idReserva);
 
         Map<String, String> backUrls = new LinkedHashMap<>();
-        backUrls.put("success", checkoutProperties.getBackUrlSuccess());
-        backUrls.put("failure", checkoutProperties.getBackUrlFailure());
-        backUrls.put("pending", checkoutProperties.getBackUrlPending());
+        backUrls.put("success", checkoutProperties.resolveBackUrlSuccess());
+        backUrls.put("failure", checkoutProperties.resolveBackUrlFailure());
+        backUrls.put("pending", checkoutProperties.resolveBackUrlPending());
         body.put("back_urls", backUrls);
-        String successUrl = checkoutProperties.getBackUrlSuccess();
+        String successUrl = checkoutProperties.resolveBackUrlSuccess();
         boolean successHttps = StringUtils.hasText(successUrl)
                 && successUrl.trim().regionMatches(true, 0, "https://", 0, 8);
         if (successHttps && StringUtils.hasText(checkoutProperties.getAutoReturn())) {
@@ -140,8 +143,8 @@ public class MercadoPagoCheckoutService {
         transaccionRepository.save(tx);
         reservaPagosIntegracionClient.vincularTransaccionReserva(idReserva, tx.getIdTransaccion());
 
-        Optional<MercadoPagoPreferenceResponseDto> pref =
-                mercadoPagoApiClient.crearPreferenciaCheckout(body, idempotencyKey);
+        Optional<MercadoPagoPreferenceResponseDto> pref = mercadoPagoApiClient.crearPreferenciaCheckout(body,
+                idempotencyKey);
         if (pref.isEmpty()) {
             return Optional.empty();
         }
@@ -152,16 +155,15 @@ public class MercadoPagoCheckoutService {
                     dto.id(),
                     String.valueOf(body.get("external_reference")),
                     "Checkout Pro preference created",
-                    null
-            );
+                    null);
         } catch (RuntimeException ex) {
-            log.warn("Checkout MP: preferencia creada pero no se pudo registrar pago_externo (reserva={})", idReserva, ex);
+            log.warn("Checkout MP: preferencia creada pero no se pudo registrar pago_externo (reserva={})", idReserva,
+                    ex);
         }
         return Optional.of(new PreferenciaCheckoutCreada(
                 dto.id(),
                 dto.initPoint(),
-                dto.sandboxInitPoint()
-        ));
+                dto.sandboxInitPoint()));
     }
 
     /**
@@ -170,13 +172,14 @@ public class MercadoPagoCheckoutService {
     public record PreferenciaCheckoutCreada(
             String preferenceId,
             String initPoint,
-            String sandboxInitPoint
-    ) {
+            String sandboxInitPoint) {
     }
 
     /**
-     * Log diagnóstico antes de {@code POST /checkout/preferences} (equivale a persistir la preferencia en MP).
-     * No incluye datos sensibles; {@code payer} solo aparece si lo añadís al map en el futuro.
+     * Log diagnóstico antes de {@code POST /checkout/preferences} (equivale a
+     * persistir la preferencia en MP).
+     * No incluye datos sensibles; {@code payer} solo aparece si lo añadís al map en
+     * el futuro.
      */
     @SuppressWarnings("unchecked")
     private void logCuerpoPreferenciaAntesDePost(Integer idReserva, Map<String, Object> body) {

@@ -7,10 +7,12 @@ import com.patiperro.pagos.model.Cuenta;
 import com.patiperro.pagos.model.Destino;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.Origen;
+import com.patiperro.pagos.model.RetiroFondo;
 import com.patiperro.pagos.model.TipoTransaccion;
 import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.BilleteraRepository;
 import com.patiperro.pagos.repository.CuentaRepository;
+import com.patiperro.pagos.repository.RetiroFondoRepository;
 import com.patiperro.pagos.repository.TransaccionRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 
 /**
  * Retiro desde saldo disponible: una transacción atómica con bloqueo pesimístico ({@code FOR UPDATE}) sobre la fila
@@ -42,6 +45,7 @@ public class RetiroPaseadorService {
     private final BilleteraRepository billeteraRepository;
     private final CuentaRepository cuentaRepository;
     private final TransaccionRepository transaccionRepository;
+    private final RetiroFondoRepository retiroFondoRepository;
     private final RetiroProperties retiroProperties;
 
     @Transactional(rollbackFor = Exception.class)
@@ -102,6 +106,14 @@ public class RetiroPaseadorService {
                 monto,
                 tx.getIdTransaccion(),
                 nuevoSaldo);
+
+        retiroFondoRepository.save(
+                RetiroFondo.builder()
+                        .transaccion(tx)
+                        .idUsuarioPaseador(idUsuarioPaseador)
+                        .monto(monto)
+                        .creadoEn(LocalDateTime.now())
+                        .build());
 
         return new RetiroPaseadorResponse(tx.getIdTransaccion(), monto, nuevoSaldo, MENSAJE_RETIRO_OK);
     }

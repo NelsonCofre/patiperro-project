@@ -33,22 +33,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
         if (token != null) {
             try {
-                Long tutorId = jwtService.extractTutorId(token);
-                if (tutorId != null) {
-                    // Sobreescribir usuario anónimo (AnonymousAuthenticationFilter corre antes en la cadena):
-                    // si solo se comprobaba getAuthentication()==null, nunca se aplicaba el JWT → 403.
+                // Mismo criterio que api-gateway: paseador antes que tutor. Si se evaluaba tutor primero,
+                // un claim legacy {@code usuarioId} podía clasificar mal un JWT de paseador como TUTOR y
+                // bloquear {@code @PreAuthorize("hasRole('PASEADOR')")} en billetera (403 en POST/GET).
+                Long paseadorId = jwtService.extractPaseadorId(token);
+                if (paseadorId != null) {
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            tutorId,
+                            paseadorId,
                             null,
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_TUTOR")));
+                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_PASEADOR")));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 } else {
-                    Long paseadorId = jwtService.extractPaseadorId(token);
-                    if (paseadorId != null) {
+                    Long tutorId = jwtService.extractTutorId(token);
+                    if (tutorId != null) {
                         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                                paseadorId,
+                                tutorId,
                                 null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_TUTOR")));
                         SecurityContextHolder.getContext().setAuthentication(auth);
                     }
                 }
@@ -61,21 +62,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private static String extractToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("access_token".equals(cookie.getName()) && cookie.getValue() != null
-                        && !cookie.getValue().isBlank()) {
-                    return cookie.getValue();
-                }
-            }
-        }
-        String tokenFromForwardedCookie = extractAccessTokenFromCookieHeader(
-                request.getHeader("X-Patiperro-Forwarded-Cookie"));
-        if (tokenFromForwardedCookie != null) {
-            return tokenFromForwardedCookie;
-        }
-
+        // Preferir Bearer explícito antes que cookie: el SPA envía sessionStorage en Authorization;
+        // una cookie access_token antigua (p. ej. sesión tutor) podía ganar y forzar 403 en rutas PASEADOR.
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
@@ -91,7 +79,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return token;
             }
         }
-        return null;
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("access_token".equals(cookie.getName()) && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return extractAccessTokenFromCookieHeader(request.getHeader("X-Patiperro-Forwarded-Cookie"));
     }
 
     /**
