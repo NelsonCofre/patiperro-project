@@ -7,3 +7,4 @@ backend/reserva-service/src/main/resources/application.properties
 backend/tutores-service/src/main/resources/application.properties
 backend/tutores-service/target/classes/application.properties
 backend/tutores-service/target/classes/application.properties
+backend/tutores-service/src/main/resources/application.properties

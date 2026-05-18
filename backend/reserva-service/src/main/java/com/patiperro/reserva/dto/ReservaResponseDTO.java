@@ -21,7 +21,8 @@ public class ReservaResponseDTO {
     /** Cuando el paseador aceptó (stepper / historial). */
     private LocalDateTime fechaAceptacion;
     private BigDecimal montoTotal;
-    private Integer idPago;
+    /** Id de {@code transaccion} en pagos-service (enlace al cobro). */
+    private Long idPago;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaInicioReal;
@@ -35,4 +36,6 @@ public class ReservaResponseDTO {
     private LocalDateTime agendaHoraFin;
     /** {@code id_usuario} del paseador en agenda_bloque. */
     private Integer idPaseadorUsuario;
+    /** {@code true} si el tutor puede iniciar o reintentar checkout (SOLICITADA / PENDIENTE_PAGO). */
+    private Boolean puedeReintentarPago;
 }

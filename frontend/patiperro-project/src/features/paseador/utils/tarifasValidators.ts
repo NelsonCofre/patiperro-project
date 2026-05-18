@@ -34,13 +34,25 @@ export function validateTarifaValue(enabled: boolean, value: string): string | u
 
 export function validateRadioCobertura(value: string): string | undefined {
   const t = value.trim();
+  
+  // 1. Validar que no esté vacío
   if (!t) {
     return "Indica el radio de cobertura en kilómetros.";
   }
+
+  // Convertimos a número manejando comas por puntos (estándar chileno)
   const n = Number.parseFloat(t.replace(",", "."));
-  if (Number.isNaN(n) || n < 0) {
-    return "El radio debe ser un número mayor o igual a 0.";
+
+  // 2. Validar que sea un número válido
+  if (Number.isNaN(n)) {
+    return "Por favor, ingresa un número válido.";
   }
+
+  // 3. Validar rango: Mínimo 1km y Máximo 50km (Según Criterios de Aceptación)
+  if (n < 1 || n > 50) {
+    return "El radio debe estar entre 1 y 50 kilómetros.";
+  }
+
   return undefined;
 }
 

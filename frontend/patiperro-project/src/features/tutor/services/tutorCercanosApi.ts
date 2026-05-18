@@ -35,6 +35,8 @@ export type PaseadorCercanoApi = {
   radioCoberturaKm?: number | string | null;
   latitud: number;
   longitud: number;
+  calificacionPromedio?: number;
+  tarifaDesde?: number; // <--- AÑADES ESTO
 };
 
 export async function fetchTutorPorId(idTutor: number): Promise<TutorPerfilResponse> {

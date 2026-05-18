@@ -106,3 +106,26 @@
   }
 }
 
+.nameRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.ratingBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f5f9; /* Color gris muy suave */
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.starIcon {
+  color: #f2c45d; /* Dorado característico de Patiperro */
+  font-size: 1rem;
+}

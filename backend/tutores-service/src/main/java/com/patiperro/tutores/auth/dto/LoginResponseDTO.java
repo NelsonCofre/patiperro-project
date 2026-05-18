@@ -18,4 +18,5 @@ public class LoginResponseDTO {
      * usar {@code Authorization: Bearer ...} hacia el gateway.
      */
     private String accessToken;
+    private String nombreTutor;
 }

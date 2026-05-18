@@ -14,4 +14,5 @@ public class LoginResponseDTO {
     private Long idPaseador;
     /** Mismo JWT que cookie {@code access_token}; para SPAs que envían {@code Authorization: Bearer}. */
     private String accessToken;
+    private String nombrePaseador;
 }

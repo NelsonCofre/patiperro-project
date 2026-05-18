@@ -10,9 +10,12 @@ import type {
   AgendaToast
 } from "../types/agenda.types";
 import {
+  crearBloqueoDia,
   crearBloque,
   crearSerieMensualBloques,
+  desbloquearDiaPorUsuario,
   eliminarBloque,
+  fetchBloqueosDiaPorUsuario,
   fetchBloquesPorUsuario,
   fetchDiasSemana,
   fetchEstadosBloque,
@@ -93,6 +96,21 @@ function formatDuration(startTime: string, endTime: string): string {
 function parseISOToMinutes(iso: string): number {
   const d = new Date(iso);
   return d.getHours() * 60 + d.getMinutes();
+}
+
+function buildIsoDatesInRange(fechaInicio: string, fechaFin: string): string[] {
+  const out: string[] = [];
+  const start = new Date(`${fechaInicio}T12:00:00`);
+  const end = new Date(`${fechaFin}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return out;
+  }
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    out.push(toISODateLocal(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
 }
 
 function validateForm(form: AgendaApiForm): AgendaApiFormErrors {
@@ -265,9 +283,34 @@ export function usePaseadorAgendaApi() {
     }
   }, [paseadorId]);
 
+  const refreshBloqueos = useCallback(async () => {
+    if (paseadorId == null) {
+      setBlockedRanges([]);
+      return;
+    }
+    try {
+      const bloqueos = await fetchBloqueosDiaPorUsuario(paseadorId);
+      setBlockedRanges(
+        bloqueos.map((b) => ({
+          id: `blocked-${b.idBloqueo}`,
+          fecha_inicio: b.fecha,
+          fecha_fin: b.fecha,
+          estadoBloqueId: null
+        }))
+      );
+    } catch (e) {
+      showToast({
+        type: "error",
+        title: "Bloqueos",
+        message: e instanceof Error ? e.message : "No se pudieron cargar los dias bloqueados."
+      });
+    }
+  }, [paseadorId]);
+
   useEffect(() => {
     refreshBloques();
-  }, [refreshBloques]);
+    refreshBloqueos();
+  }, [refreshBloques, refreshBloqueos]);
 
   useEffect(() => {
     if (paseadorId == null) {
@@ -540,7 +583,7 @@ export function usePaseadorAgendaApi() {
     }
   };
 
-  const handleBlockDays = () => {
+  const handleBlockDays = async () => {
     const validationErrors = validateBlockRangeForm(blockRangeForm);
     setBlockRangeErrors(validationErrors);
 
@@ -558,26 +601,66 @@ export function usePaseadorAgendaApi() {
       return;
     }
 
-    const nextBlockedRange: AgendaBlockedRange = {
-      id: `blocked-${Date.now()}`,
-      fecha_inicio: blockRangeForm.fecha_inicio,
-      fecha_fin: blockRangeForm.fecha_fin,
-      estadoBloqueId: null
-    };
+    if (paseadorId == null) {
+      showToast({
+        type: "error",
+        title: "Sesion",
+        message: "No hay id de paseador. Inicia sesion nuevamente."
+      });
+      return;
+    }
 
-    setBlockedRanges((prev) => [...prev, nextBlockedRange]);
-    closeBlockDaysModal();
-    showToast({
-      type: "success",
-      title: "Bloqueo aplicado",
-      message:
-        blockRangeForm.fecha_inicio === blockRangeForm.fecha_fin
-          ? "Dia bloqueado exitosamente. Tus bloques de horario para esta fecha han sido ocultados"
-          : "Dias bloqueados exitosamente. Tus bloques de horario para este rango han sido ocultados"
-    });
+    setSaving(true);
+    try {
+      const fechas = buildIsoDatesInRange(blockRangeForm.fecha_inicio, blockRangeForm.fecha_fin);
+      const yaBloqueadas = new Set(
+        blockedRanges.flatMap((r) => buildIsoDatesInRange(r.fecha_inicio, r.fecha_fin))
+      );
+      let creadas = 0;
+      let omitidas = 0;
+      for (const fecha of fechas) {
+        if (yaBloqueadas.has(fecha)) {
+          omitidas += 1;
+          continue;
+        }
+        try {
+          await crearBloqueoDia({
+            idUsuario: paseadorId,
+            fecha,
+            motivo: "Bloqueo personal de disponibilidad"
+          });
+          creadas += 1;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "";
+          if (msg.toLowerCase().includes("ya existe")) {
+            omitidas += 1;
+            continue;
+          }
+          throw e;
+        }
+      }
+      await refreshBloqueos();
+      closeBlockDaysModal();
+      showToast({
+        type: "success",
+        title: "Bloqueo aplicado",
+        message:
+          creadas > 0
+            ? `Bloqueo guardado en servidor. Dias creados: ${creadas}${omitidas > 0 ? `, omitidos: ${omitidas}` : ""}.`
+            : "No se crearon nuevos bloqueos; las fechas seleccionadas ya estaban bloqueadas."
+      });
+    } catch (e) {
+      showToast({
+        type: "error",
+        title: "No se pudo bloquear",
+        message: e instanceof Error ? e.message : "Error al bloquear dias."
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUnblockSelectedDate = () => {
+  const handleUnblockSelectedDate = async () => {
     const hadBlockedRange = isDateInBlockedRanges(selectedISODate, blockedRanges);
 
     if (!hadBlockedRange) {
@@ -589,14 +672,33 @@ export function usePaseadorAgendaApi() {
       return;
     }
 
-    setBlockedRanges((prev) =>
-      prev.filter((range) => !isDateInBlockedRanges(selectedISODate, [range]))
-    );
-    showToast({
-      type: "success",
-      title: "Dia habilitado",
-      message: "Se quito el bloqueo y la agenda vuelve a mostrarse como disponible."
-    });
+    if (paseadorId == null) {
+      showToast({
+        type: "error",
+        title: "Sesion",
+        message: "No hay id de paseador. Inicia sesion nuevamente."
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await desbloquearDiaPorUsuario(paseadorId, selectedISODate);
+      await refreshBloqueos();
+      showToast({
+        type: "success",
+        title: "Dia habilitado",
+        message: "Se quito el bloqueo y la agenda vuelve a mostrarse como disponible."
+      });
+    } catch (e) {
+      showToast({
+        type: "error",
+        title: "No se pudo desbloquear",
+        message: e instanceof Error ? e.message : "Error al desbloquear el dia."
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteBlock = async (idAgenda: number) => {

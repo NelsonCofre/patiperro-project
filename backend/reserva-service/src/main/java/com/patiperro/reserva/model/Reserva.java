@@ -50,8 +50,9 @@ public class Reserva {
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
 
+    /** {@code transaccion.id_transaccion} en pagos-service. */
     @Column(name = "id_pago")
-    private Integer idPago;
+    private Long idPago;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estado_reserva_id_estado_reserva", nullable = false)

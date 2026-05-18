@@ -1,11 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { TUTOR_ID_SESSION_KEY } from "../../../../config/api";
+import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { subscribeChatMessages } from "../../../chat/services/chatWs";
+import type { ChatToastPayload } from "../../../chat/types/chat.types";
+import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
+import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
+import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
 import ReservaCard from "../../components/ReservaCard/ReservaCard";
 import ReservaStepper from "../../components/ReservaStepper/ReservaStepper";
+import SaldoRetenidoNotice from "../../components/SaldoRetenidoNotice/SaldoRetenidoNotice";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
 import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
+import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
+import { ResenaModal } from "../../components/ResenaForm/ResenaModal"; // Importación nueva
 import {
   formatReservaDate,
   formatReservaMoney,
@@ -14,8 +25,62 @@ import {
 } from "../../utils/reservaEstadoUtils";
 import styles from "./TutorReservas.module.css";
 
+function normalizePaymentStatus(value?: string | null): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
+  title: string;
+  helper: string;
+  tag: string;
+} {
+  const normalized = normalizePaymentStatus(reserva.paymentStatus);
+
+  if (normalized.includes("pagad") || reserva.idPago != null) {
+    return {
+      title: "Pagada",
+      helper: "La transaccion ya fue confirmada y el dinero sigue resguardado hasta el cierre del paseo.",
+      tag: "statusPaid"
+    };
+  }
+
+  if (normalized.includes("pendiente_pago") || normalized.includes("pending_payment")) {
+    return {
+      title: "Pendiente de pago",
+      helper: "La reserva esta lista para que completes el checkout seguro.",
+      tag: "statusPending"
+    };
+  }
+
+  if (normalized.includes("fall")) {
+    return {
+      title: "Pago no completado",
+      helper: "Puedes volver a intentarlo sin perder tu reserva.",
+      tag: "statusFailed"
+    };
+  }
+
+  return {
+    title: "Pago disponible",
+    helper: "Puedes iniciar el pago desde este detalle cuando quieras confirmar la reserva.",
+    tag: "statusReady"
+  };
+}
+
 export default function TutorReservas() {
-  const [selectedReserva, setSelectedReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
+  const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
+  const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
+  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
+  const [paymentSummaryReserva, setPaymentSummaryReserva] = useState<ReservaTutorDetalleDTO | null>(null);
+  const [showRetencionInfo, setShowRetencionInfo] = useState(false);
+  
   const {
     reservas,
     isLoading,
@@ -29,7 +94,81 @@ export default function TutorReservas() {
     cancelarReserva
   } = useTutorReservas();
 
+  const selectedReserva =
+    selectedReservaId == null
+      ? null
+      : reservas.find((r) => r.idReserva === selectedReservaId) ?? null;
+  const activeChatReserva =
+    activeChatReservaId == null
+      ? null
+      : reservas.find((r) => r.idReserva === activeChatReservaId) ?? null;
   const selectedEstado = selectedReserva ? getReservaEstadoMeta(selectedReserva) : null;
+  const selectedPaymentMeta = selectedReserva ? getPaymentStatusMeta(selectedReserva) : null;
+  const tutorIdRaw = sessionStorage.getItem(TUTOR_ID_SESSION_KEY);
+  const currentTutorId = tutorIdRaw ? Number(tutorIdRaw) : 0;
+  const currentTutorName =
+    sessionStorage.getItem("patiperro_nombre_usuario")?.trim() || "Tutor";
+
+  useEffect(() => {
+    if (!reservas.length) {
+      return;
+    }
+    const reservaIdRaw = searchParams.get("reservaId");
+    const openComprobante = searchParams.get("openComprobante") === "1";
+    const reservaId = reservaIdRaw && /^\d+$/.test(reservaIdRaw) ? Number(reservaIdRaw) : null;
+    if (!reservaId) {
+      return;
+    }
+    const reservaObjetivo = reservas.find((r) => r.idReserva === reservaId);
+    if (!reservaObjetivo) {
+      return;
+    }
+    setSelectedReservaId(reservaObjetivo.idReserva);
+    if (openComprobante) {
+      setPaymentSummaryReserva(reservaObjetivo);
+    }
+    // Limpiamos query params para que no se reabra en cada refresco.
+    setSearchParams({}, { replace: true });
+  }, [reservas, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!selectedReserva) return;
+    return subscribeEncuentroTopic({
+      topic: `/topic/reservas/${selectedReserva.idReserva}/encuentro`,
+      onEvent: (event) => {
+        setNotice(
+          event.mensajeTutor?.trim() ||
+            "El paseo ha comenzado. Tu mascota esta en buenas manos."
+        );
+        void reload();
+      }
+    });
+  }, [reload, selectedReserva, setNotice]);
+
+  useEffect(() => {
+    const reservaIds = new Set(reservas.map((reserva) => reserva.idReserva));
+    return subscribeChatMessages((message) => {
+      if (
+        !reservaIds.has(message.idReserva) ||
+        message.senderUserId === currentTutorId ||
+        activeChatReservaId === message.idReserva
+      ) {
+        return;
+      }
+
+      setChatToast({
+        reservaId: message.idReserva,
+        senderName: message.senderName,
+        snippet: buildMessageSnippet(message.content)
+      });
+    });
+  }, [activeChatReservaId, currentTutorId, reservas]);
+
+  useEffect(() => {
+    if (!chatToast) return;
+    const timer = window.setTimeout(() => setChatToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [chatToast]);
 
   return (
     <main className={styles.page}>
@@ -44,6 +183,22 @@ export default function TutorReservas() {
         </div>
       ) : null}
 
+      {chatToast ? (
+        <button
+          type="button"
+          className={styles.chatToast}
+          onClick={() => {
+            setSelectedReservaId(chatToast.reservaId);
+            setActiveChatReservaId(chatToast.reservaId);
+            setChatToast(null);
+          }}
+        >
+          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
+          <span>{chatToast.snippet}</span>
+        </button>
+      ) : null}
+
+      {/* MODAL DE DETALLE (Existente) */}
       {selectedReserva ? (
         <div className={styles.modalOverlay}>
           <section className={styles.modalCard} role="dialog" aria-modal="true">
@@ -52,7 +207,7 @@ export default function TutorReservas() {
                 <p className={styles.cardEyebrow}>Detalle de reserva</p>
                 <h2>Reserva #{selectedReserva.idReserva}</h2>
               </div>
-              <button type="button" onClick={() => setSelectedReserva(null)}>
+              <button type="button" onClick={() => setSelectedReservaId(null)}>
                 Cerrar
               </button>
             </div>
@@ -81,17 +236,66 @@ export default function TutorReservas() {
               </div>
             </div>
 
+            {selectedPaymentMeta ? (
+              <section className={styles.paymentSection}>
+                <div className={styles.paymentHeader}>
+                  <div>
+                    <p className={styles.cardEyebrow}>Pago de la reserva</p>
+                    <h3>Checkout y respaldo del servicio</h3>
+                  </div>
+                  <span className={`${styles.paymentBadge} ${styles[selectedPaymentMeta.tag]}`}>
+                    {selectedPaymentMeta.title}
+                  </span>
+                </div>
+
+                <p className={styles.paymentHelper}>{selectedPaymentMeta.helper}</p>
+
+                <PagoReservaButton
+                  preferenceId={selectedReserva.paymentPreferenceId}
+                  initPoint={selectedReserva.paymentInitPoint}
+                  paymentStatus={selectedReserva.paymentStatus}
+                  isPaid={
+                    normalizePaymentStatus(selectedReserva.paymentStatus).includes("pagad") ||
+                    selectedReserva.idPago != null
+                  }
+                  amountLabel={formatReservaMoney(selectedReserva.montoTotal)}
+                  onUnavailable={() =>
+                    setNotice(
+                      "El backend aun debe entregar el preferenceId o el enlace seguro de Mercado Pago para completar este checkout."
+                    )
+                  }
+                />
+
+                <SaldoRetenidoNotice
+                  message={selectedReserva.mensajeRetencionFondos}
+                  onOpenInfo={() => setShowRetencionInfo(true)}
+                />
+
+                {(normalizePaymentStatus(selectedReserva.paymentStatus).includes("pagad") ||
+                  selectedReserva.idPago != null) ? (
+                  <div className={styles.paymentSummaryRow}>
+                    <span>Resumen disponible para consulta historica y descarga.</span>
+                    <button
+                      type="button"
+                      className={styles.summaryButton}
+                      onClick={() => setPaymentSummaryReserva(selectedReserva)}
+                    >
+                      Ver resumen de transaccion
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
             {selectedEstado?.key === "en_curso" ? (
               <PaseoEnCursoCard
-                statusMessage="¡El paseo ha comenzado! Tu mascota esta en buenas manos"
+                statusMessage="El paseo ha comenzado. Tu mascota esta en buenas manos"
                 actorLabel="Paseador"
                 actorNombre={selectedReserva.paseadorNombre}
                 mascotaNombre={selectedReserva.mascotaNombre}
                 horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
                 chatLabel="Abrir chat del paseo"
-                onOpenChat={() =>
-                  setNotice("El chat durante el paseo quedara disponible en una siguiente etapa del MVP.")
-                }
+                onOpenChat={() => setActiveChatReservaId(selectedReserva.idReserva)}
               />
             ) : null}
 
@@ -156,6 +360,9 @@ export default function TutorReservas() {
           <div>
             <p className={styles.cardEyebrow}>Listado cronologico</p>
             <h2>Todas tus solicitudes</h2>
+            <p className={styles.sectionSubtext}>
+              El historial conserva tambien la referencia del pago y la politica de saldo retenido.
+            </p>
           </div>
           {error ? <span className={styles.errorText}>{error}</span> : null}
         </div>
@@ -168,9 +375,10 @@ export default function TutorReservas() {
               <ReservaCard
                 key={reserva.idReserva}
                 reserva={reserva}
-                onDetalle={setSelectedReserva}
+                onDetalle={(item) => setSelectedReservaId(item.idReserva)}
                 onCancelar={(item) => void cancelarReserva(item)}
-                onCalificar={() => setNotice("La calificacion del paseador quedara para una siguiente etapa del MVP.")}
+                onVerResumenPago={setPaymentSummaryReserva}
+                onCalificar={(item) => setReservaParaCalificar(item)} // Implementación nueva: abre el modal real
               />
             ))}
           </div>
@@ -189,6 +397,71 @@ export default function TutorReservas() {
           </article>
         )}
       </section>
+
+      {/* MODAL DE RESEÑA EN TUTORRESERVAS */}
+      {reservaParaCalificar && (
+        <ResenaModal 
+          reserva={reservaParaCalificar} 
+          onClose={() => {
+            setReservaParaCalificar(null);
+            void reload(); // Refrescamos la lista para actualizar el booleano 'calificada'
+          }} 
+        />
+      )}
+
+      {paymentSummaryReserva ? (
+        <PaymentSummaryModal
+          reserva={paymentSummaryReserva}
+          onClose={() => setPaymentSummaryReserva(null)}
+        />
+      ) : null}
+
+      {activeChatReserva ? (
+        <ChatWindow
+          isOpen
+          reservaId={activeChatReserva.idReserva}
+          currentUserId={
+            Number.isFinite(currentTutorId) && currentTutorId > 0
+              ? currentTutorId
+              : activeChatReserva.idTutorUsuario
+          }
+          currentUserRole="tutor"
+          currentUserName={currentTutorName}
+          counterpartName={activeChatReserva.paseadorNombre}
+          mascotaNombre={activeChatReserva.mascotaNombre}
+          onClose={() => setActiveChatReservaId(null)}
+        />
+      ) : null}
+
+      {/* MODAL DE INFO RETENCION (Existente) */}
+      {showRetencionInfo ? (
+        <div className={styles.modalOverlay}>
+          <section className={styles.infoModalCard} role="dialog" aria-modal="true">
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.cardEyebrow}>Pago seguro</p>
+                <h2>Como funciona el saldo retenido</h2>
+              </div>
+              <button type="button" onClick={() => setShowRetencionInfo(false)}>
+                Cerrar
+              </button>
+            </div>
+
+            <div className={styles.infoModalContent}>
+              <p>
+                Patiperro retiene temporalmente el dinero del pago para proteger a ambas
+                partes durante la ejecucion del servicio.
+              </p>
+              <ul className={styles.infoList}>
+                <li>El cobro se inicia desde una pasarela de pago segura.</li>
+                <li>El dinero no se libera al paseador mientras el paseo siga en curso.</li>
+                <li>Cuando el servicio finaliza satisfactoriamente, se habilita la liberacion del saldo.</li>
+                <li>Si el pago falla o se cancela, puedes reintentar sin perder la reserva.</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

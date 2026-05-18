@@ -343,3 +343,94 @@
     grid-template-columns: 1fr;
   }
 }
+/* Contenedor de la fila de estrellas */
+.starRatingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
+/* Botón de estrella base */
+.starButton, .starButtonActive {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.starButton {
+  color: #e2e8f0; /* Gris suave para estrellas apagadas */
+}
+
+.starButtonActive {
+  color: #f2c45d; /* Dorado característico de Patiperro */
+}
+
+/* Efecto Hover para mejorar la UX */
+.starButton:hover, .starButtonActive:hover {
+  transform: scale(1.2);
+}
+
+.starButton:hover {
+  color: #cbd5e1;
+}
+
+/* Texto descriptivo al lado de las estrellas */
+.ratingText {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-left: 8px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Caja de feedback "Sin resultados" (Escenario de búsqueda sin coincidencias) */
+.noResultsBox {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #fff1f2; /* Rojo muy suave */
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #be123c;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.noResultsBox p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Animaciones para que el cambio no sea brusco */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ajuste para el layout de los filtros */
+.fieldGrow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}

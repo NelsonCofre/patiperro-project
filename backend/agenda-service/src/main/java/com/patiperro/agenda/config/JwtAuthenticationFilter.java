@@ -61,11 +61,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         }
+        String tokenFromForwardedCookie = extractAccessTokenFromCookieHeader(
+                request.getHeader("X-Patiperro-Forwarded-Cookie"));
+        if (tokenFromForwardedCookie != null) {
+            return tokenFromForwardedCookie;
+        }
         String header = request.getHeader("Authorization");
         if (header != null && header.regionMatches(true, 0, "Bearer ", 0, 7)) {
             String t = header.substring(7).trim();
             if (!t.isEmpty()) {
                 return t;
+            }
+        }
+        String forwarded = request.getHeader("X-Patiperro-Authorization");
+        if (forwarded != null && forwarded.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            String t = forwarded.substring(7).trim();
+            if (!t.isEmpty()) {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    private static String extractAccessTokenFromCookieHeader(String cookieHeader) {
+        if (cookieHeader == null || cookieHeader.isBlank()) {
+            return null;
+        }
+        for (String part : cookieHeader.split(";")) {
+            String[] kv = part.trim().split("=", 2);
+            if (kv.length == 2 && "access_token".equals(kv[0].trim())) {
+                String value = kv[1].trim();
+                if (!value.isEmpty()) {
+                    return value;
+                }
             }
         }
         return null;

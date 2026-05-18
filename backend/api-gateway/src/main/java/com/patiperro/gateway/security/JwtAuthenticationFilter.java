@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -37,19 +39,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String subject = jwtService.extractSubject(token);
+        Long paseadorId = jwtService.extractPaseadorId(token);
+        Long tutorId = jwtService.extractTutorId(token);
 
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                subject,
-                null,
-                Collections.emptyList()
-        );
+        UsernamePasswordAuthenticationToken authentication;
+        if (paseadorId != null) {
+            authentication = new UsernamePasswordAuthenticationToken(
+                    paseadorId,
+                    null,
+                    List.of(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+        } else if (tutorId != null) {
+            authentication = new UsernamePasswordAuthenticationToken(
+                    tutorId,
+                    null,
+                    List.of(new SimpleGrantedAuthority("ROLE_TUTOR")));
+        } else {
+            String subject = jwtService.extractSubject(token);
+            authentication = new UsernamePasswordAuthenticationToken(
+                    subject,
+                    null,
+                    Collections.emptyList());
+        }
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         filterChain.doFilter(request, response);
     }
 
     private String extractToken(HttpServletRequest request) {
+        // Mismo criterio que pagos-service: Bearer del cliente antes que cookie, para no mezclar roles
+        // si quedó access_token de otra sesión y el SPA envía el JWT activo en Authorization.
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            if (!token.isEmpty()) {
+                return token;
+            }
+        }
+
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
@@ -57,12 +83,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return cookie.getValue();
                 }
             }
-        }
-
-        // Fallback para herramientas que usen Authorization header.
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
         }
         return null;
     }

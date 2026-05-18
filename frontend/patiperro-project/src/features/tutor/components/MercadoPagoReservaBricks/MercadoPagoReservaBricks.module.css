@@ -1,0 +1,44 @@
+.wrap {
+  margin-top: 8px;
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: #4a5166;
+  font-size: 0.95rem;
+}
+
+.brick {
+  min-height: 200px;
+}
+
+.loading {
+  margin: 12px 0 0;
+  color: #5f6780;
+  font-size: 0.9rem;
+}
+
+.fallback {
+  padding: 12px 0;
+  color: #4a5166;
+  font-size: 0.95rem;
+}
+
+.fallback code {
+  font-size: 0.85em;
+  background: #f0f2ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.fallbackLink {
+  display: inline-block;
+  margin-top: 10px;
+  color: #4f46e5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.fallbackLink:hover {
+  text-decoration: underline;
+}

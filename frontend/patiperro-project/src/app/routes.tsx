@@ -1,17 +1,35 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import type { ReactElement } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { ACCESS_TOKEN_SESSION_KEY, TUTOR_ID_SESSION_KEY } from "../config/api";
 import LoginPaseador from "../features/auth/pages/LoginPaseador/LoginPaseador";
 import LoginTutor from "../features/auth/pages/LoginTutor/LoginTutor";
 import RegisterPaseador from "../features/auth/pages/RegisterPaseador/RegisterPaseador";
 import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
 import LandingHome from "../features/home/pages/LandingHome/LandingHome";
+import CheckoutProSandboxPage from "../features/labs/pages/CheckoutProSandboxPage/CheckoutProSandboxPage";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
+import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
+import PagoReservaTutor from "../features/tutor/pages/PagoReservaTutor/PagoReservaTutor";
+import TutorCheckoutRetornoPage from "../features/tutor/pages/TutorCheckoutRetorno/TutorCheckoutRetornoPage";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
 import TutorReservas from "../features/tutor/pages/TutorReservas/TutorReservas";
+
+function RequireTutorAuth({ children }: { children: ReactElement }) {
+  const location = useLocation();
+  const accessToken = sessionStorage.getItem(ACCESS_TOKEN_SESSION_KEY)?.trim();
+  const tutorId = sessionStorage.getItem(TUTOR_ID_SESSION_KEY)?.trim();
+
+  if (!accessToken || !tutorId) {
+    return <Navigate to="/login/tutor" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
 
 export default function AppRoutes() {
   return (
@@ -34,11 +52,62 @@ export default function AppRoutes() {
       <Route path="/paseador/dashboard/solicitudes/en-curso" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/rechazadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
+      <Route path="/paseador/dashboard/billetera" element={<PaseadorBilletera />} />
       {/* Primeras rutas del espacio del tutor. */}
-      <Route path="/tutor/dashboard" element={<TutorDashboard />} />
-      <Route path="/tutor/mascota/nueva" element={<AddMascota />} />
-      <Route path="/tutor/solicitud-paseo" element={<SolicitudPaseo />} />
-      <Route path="/tutor/reservas" element={<TutorReservas />} />
+      <Route
+        path="/tutor/dashboard"
+        element={
+          <RequireTutorAuth>
+            <TutorDashboard />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/mascota/nueva"
+        element={
+          <RequireTutorAuth>
+            <AddMascota />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/solicitud-paseo"
+        element={
+          <RequireTutorAuth>
+            <SolicitudPaseo />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/pago-reserva"
+        element={
+          <RequireTutorAuth>
+            <PagoReservaTutor />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/reservas/pago/exito"
+        element={<TutorCheckoutRetornoPage tipo="success" />}
+      />
+      <Route
+        path="/tutor/reservas/pago/error"
+        element={<TutorCheckoutRetornoPage tipo="failure" />}
+      />
+      <Route
+        path="/tutor/reservas/pago/pendiente"
+        element={<TutorCheckoutRetornoPage tipo="pending" />}
+      />
+      <Route
+        path="/tutor/reservas"
+        element={
+          <RequireTutorAuth>
+            <TutorReservas />
+          </RequireTutorAuth>
+        }
+      />
+      {/* Modulo aislado de pruebas Checkout Pro (MVP sandbox). */}
+      <Route path="/labs/checkout-pro" element={<CheckoutProSandboxPage />} />
       {/* Fallback para rutas desconocidas. */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

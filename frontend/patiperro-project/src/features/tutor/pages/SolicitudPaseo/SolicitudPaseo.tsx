@@ -1,8 +1,9 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { type FormEvent, useEffect, useMemo, useState, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import {
   crearReservaTutor,
+  iniciarCheckoutMercadoPagoReserva,
   nowLocalDateTimeISO,
   fetchAgendaOfertaPaseador,
   fetchEstadoSolicitadaId,
@@ -15,7 +16,7 @@ import {
   type TarifaConfiguracionPublicaDTO
 } from "../../services/reservaTutorApi";
 import styles from "./SolicitudPaseo.module.css";
-import { dispararNotificacion } from "../../services/notificacionesApi"; // <-- Agrega esto
+import { dispararNotificacion } from "../../services/notificacionesApi";
 
 type FormErrors = {
   mascotaId?: string;
@@ -64,78 +65,143 @@ function toDateSafe(fecha: string, hora: string): Date | null {
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
-
   return null;
 }
 
 export default function SolicitudPaseo() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   const paseadorId = parsePositiveInt(searchParams.get("paseadorId") ?? "");
   const paseadorNombre = (searchParams.get("paseadorNombre") ?? "").trim() || null;
   const agendaIdParam = parsePositiveInt(searchParams.get("agendaId") ?? "");
+
   const [mascotas, setMascotas] = useState<MascotaTutorDTO[]>([]);
   const [tarifasPaseador, setTarifasPaseador] = useState<TarifaConfiguracionPublicaDTO[]>([]);
   const [bloques, setBloques] = useState<AgendaBloqueOfertaDTO[]>([]);
   const [mascotaId, setMascotaId] = useState("");
   const [bloqueId, setBloqueId] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [loadingData, setLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [correoPaseador, setCorreoPaseador] = useState<string>("");
+
+  // --- ESTADOS DEL CALENDARIO ---
+  const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+  const [selectedISODate, setSelectedISODate] = useState(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  });
 
   useEffect(() => {
     let active = true;
 
     async function loadData() {
       if (!paseadorId) {
-        setErrors({ general: "Falta paseadorId en la URL. Vuelve al dashboard y selecciona un perfil." });
-        setLoadingData(false);
+        setErrors({ general: "Falta paseadorId en la URL. Vuelve al dashboard." });
         return;
       }
-
-      setLoadingData(true);
-      setErrors({});
 
       try {
         const today = new Date();
         const until = new Date(today);
-        until.setDate(until.getDate() + 14);
-        const desde = today.toISOString().slice(0, 10);
-        const hasta = until.toISOString().slice(0, 10);
+        until.setDate(today.getDate() + 28); // Rango de 28 días
 
-        // 👇 Modificamos el Promise.all para incluir fetchPerfilPaseador 👇
+        const desde = today.toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+        const hasta = until.toLocaleDateString('sv-SE');
+
         const [mascotasData, bloquesData, tarifasData, perfilPaseador] = await Promise.all([
           fetchMascotasTutor(),
           fetchAgendaOfertaPaseador(paseadorId, desde, hasta),
           fetchTarifasPublicasPaseador(paseadorId),
-          fetchPerfilPaseador(paseadorId) // <-- NUEVO
+          fetchPerfilPaseador(paseadorId)
         ]);
 
         if (!active) return;
         setMascotas(mascotasData);
         setBloques(bloquesData);
         setTarifasPaseador(tarifasData);
-        setCorreoPaseador(perfilPaseador.correo); // <-- NUEVO: Guardamos el correo
+        setCorreoPaseador(perfilPaseador.correo);
 
-        if (agendaIdParam && bloquesData.some((b) => b.idAgenda === agendaIdParam)) {
-          setBloqueId(String(agendaIdParam));
+        // Si viene un bloque seleccionado por URL
+        if (agendaIdParam) {
+          const bloqueEncontrado = bloquesData.find(b => b.idAgenda === agendaIdParam);
+          if (bloqueEncontrado) {
+            setBloqueId(String(agendaIdParam));
+            setSelectedISODate(bloqueEncontrado.fecha);
+            
+            // Calcular el offset de semana si el bloque es de una semana futura
+            const bDate = new Date(bloqueEncontrado.fecha + "T00:00:00");
+            const tDate = new Date();
+            tDate.setHours(0,0,0,0);
+            const diffDays = Math.floor((bDate.getTime() - tDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 7) {
+                setCurrentWeekOffset(Math.floor(diffDays / 7));
+            }
+          }
         }
       } catch (error) {
         if (!active) return;
-        const message =
-          error instanceof Error ? error.message : "No se pudieron cargar los datos de la solicitud.";
-        setErrors({ general: message });
-      } finally {
-        if (active) setLoadingData(false);
+        setErrors({ general: error instanceof Error ? error.message : "Error al cargar datos." });
       }
     }
 
     loadData();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [agendaIdParam, paseadorId]);
+
+  // --- LÓGICA DE DÍAS DE LA SEMANA (LOCAL) ---
+  const weekDays = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dayOfWeek = today.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMonday + (currentWeekOffset * 7));
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const isoLocal = d.toLocaleDateString('sv-SE');
+      
+      days.push({
+        isoDate: isoLocal,
+        dayNumber: d.getDate(),
+        dayLabel: new Intl.DateTimeFormat("es-CL", { weekday: "short" }).format(d),
+        monthLabel: new Intl.DateTimeFormat("es-CL", { month: "short" }).format(d),
+        isToday: isoLocal === new Date().toLocaleDateString('sv-SE'),
+        hasBlocks: bloques.some(b => b.fecha === isoLocal)
+      });
+    }
+    return days;
+  }, [currentWeekOffset, bloques]);
+
+  const currentDayBlocks = useMemo(() => {
+    const now = new Date();
+    // Obtenemos la fecha local de hoy en formato YYYY-MM-DD
+    const currentISODate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    return bloques
+      .filter((b) => b.fecha === selectedISODate)
+      .filter((b) => {
+        // Si el día seleccionado es hoy, evaluamos la hora
+        if (selectedISODate === currentISODate) {
+          const blockStartTime = toDateSafe(b.fecha, b.horaInicio);
+          // Si el bloque comienza antes de la hora actual, lo filtramos
+          if (blockStartTime && blockStartTime < now) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  }, [selectedISODate, bloques]);
 
   const selectedMascota = useMemo(
     () => mascotas.find((mascota) => String(mascota.idMascota) === mascotaId) ?? null,
@@ -161,18 +227,6 @@ export default function SolicitudPaseo() {
     return null;
   }, [selectedMascota, tarifasPaseador]);
 
-  /** Mascota elegida pero su tamaño no coincide con ninguna tarifa del paseador (y hay tarifas cargadas). */
-  const desajusteTamanoTarifa = useMemo(
-    () =>
-      Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length > 0),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length]
-  );
-
-  const paseadorSinTarifasPublicas = useMemo(
-    () => Boolean(selectedMascota && !selectedTarifa && tarifasPaseador.length === 0 && !loadingData),
-    [selectedMascota, selectedTarifa, tarifasPaseador.length, loadingData]
-  );
-
   const duracionMinutos = useMemo(() => {
     if (!selectedBloque) return 0;
     const inicio = toDateSafe(selectedBloque.fecha, selectedBloque.horaInicio);
@@ -186,114 +240,93 @@ export default function SolicitudPaseo() {
     return Math.round((selectedTarifa.precioPorHora * duracionMinutos) / 60);
   }, [selectedTarifa, duracionMinutos]);
 
-  const canSubmit = Boolean(mascotaId && bloqueId && selectedTarifa && total > 0) && !isSubmitting && !isSubmitted;
+  const canSubmit = Boolean(mascotaId && bloqueId && selectedTarifa && total > 0) && !isSubmitting;
 
   const bloqueLabel = useMemo(() => {
     if (!selectedBloque) return "Por seleccionar";
     const inicio = toDateSafe(selectedBloque.fecha, selectedBloque.horaInicio);
     const fin = toDateSafe(selectedBloque.fecha, selectedBloque.horaFinal);
-    if (!inicio || !fin) {
-      return `${selectedBloque.fecha} ${selectedBloque.horaInicio} - ${selectedBloque.horaFinal}`;
-    }
+    if (!inicio || !fin) return `${selectedBloque.fecha} ${selectedBloque.horaInicio}`;
+    
     const formatter = new Intl.DateTimeFormat("es-CL", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit"
+      weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
     });
     return `${formatter.format(inicio)} - ${formatter.format(fin)}`;
   }, [selectedBloque]);
 
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = scrollContainerRef.current.offsetWidth * 0.8;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   function validateForm(): boolean {
     const nextErrors: FormErrors = {};
-
-    if (!mascotaId) {
-      nextErrors.mascotaId = "Debes seleccionar una mascota para continuar";
-    }
-
-    if (!bloqueId) {
-      nextErrors.bloqueId = "Debes seleccionar un horario disponible para continuar";
-    }
+    if (!mascotaId) nextErrors.mascotaId = "Debes seleccionar una mascota";
+    if (!bloqueId) nextErrors.bloqueId = "Debes seleccionar un horario";
     if (selectedMascota && !selectedTarifa) {
-      nextErrors.general = desajusteTamanoTarifa
-        ? "El tamaño de tu mascota no coincide con las tarifas que ofrece este paseador. Revisa el recuadro de tarifas disponibles."
-        : paseadorSinTarifasPublicas
-          ? "Este paseador aún no tiene tarifas publicadas. No puedes completar la reserva hasta que configure precios."
-          : `No hay tarifa aplicable para ${selectedMascota.tamanoNombre || "este tamaño"}.`;
-    } else if (
-      mascotaId &&
-      bloqueId &&
-      selectedTarifa &&
-      !(Number.isFinite(total) && total > 0)
-    ) {
-      nextErrors.general = "No se pudo calcular el monto total de la reserva.";
+      nextErrors.general = "No hay tarifa aplicable para este tamaño de mascota.";
     }
-
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (isSubmitting || isSubmitted) return;
-
-    if (!validateForm()) {
-      return;
-    }
+    if (isSubmitting || !validateForm()) return;
 
     setIsSubmitting(true);
-    setErrors({});
-
     try {
       const idTutor = readTutorIdFromSession();
       const idEstadoSolicitada = await fetchEstadoSolicitadaId();
-      const agenda = parsePositiveInt(bloqueId);
-      const mascota = parsePositiveInt(mascotaId);
-
-      // 👇 SOLUCIÓN ERROR 2: Declaramos el nombreTutor leyendo la sesión.
-      // (Si en tu login no guardas el nombre, dirá "Tutor" por defecto)
-      const nombreTutor = sessionStorage.getItem("nombreTutor") || "Tutor"; 
+      const nombreTutorRaw = sessionStorage.getItem("patiperro_nombre_usuario");
+      const nombreTutorFinal = nombreTutorRaw ? nombreTutorRaw.split(" ")[0] : "Un tutor";
       
-      if (!selectedTarifa || !agenda || !mascota) {
-        throw new Error("Hay campos inválidos para crear la reserva.");
-      }
-
-      // 1. CREA LA RESERVA
-      await crearReservaTutor({
+      const reservaCreada = await crearReservaTutor({
         idTutorUsuario: idTutor,
-        idMascota: mascota,
-        idAgendaBloque: agenda,
-        idTarifa: selectedTarifa.idTarifa,
+        idMascota: parsePositiveInt(mascotaId)!,
+        idAgendaBloque: parsePositiveInt(bloqueId)!,
+        idTarifa: selectedTarifa!.idTarifa,
         fechaSolicitud: nowLocalDateTimeISO(),
         montoTotal: total,
         idEstadoReserva: idEstadoSolicitada
       });
 
-      // 2. DISPARA EL CORREO AL PASEADOR 🚀
       try {
         await dispararNotificacion({
           emailDestino: correoPaseador, 
           tipoEvento: "SOLICITUD_PASEO", 
           variables: {
-            nombrePaseador: getPaseadorName(paseadorNombre),
+            nombrePaseador: getPaseadorName(paseadorNombre).split(" ")[0],
             nombreMascota: selectedMascota?.nombre || "tu mascota",
             montoTotal: total.toString(),
-            nombreTutor: nombreTutor // <-- ¡Ahora sí existe y no dará error!
+            nombreTutor: nombreTutorFinal,
+            urlReserva: "http://localhost:5173/login/paseador"
           }
         });
-        console.log("Notificación enviada con éxito a Brevo");
-      } catch (emailError) {
-        console.error("Reserva creada, pero la notificación falló:", emailError);
-      }
+      } catch (e) { console.error("Fallo notificación", e); }
       
-      setIsSubmitted(true);
+      const bloqueResumen = `${selectedBloque?.fecha ?? ""} ${selectedBloque?.horaInicio ?? ""}-${selectedBloque?.horaFinal ?? ""}`;
+      const pref = await iniciarCheckoutMercadoPagoReserva(reservaCreada.idReserva);
+      const query = new URLSearchParams({
+        idReserva: String(reservaCreada.idReserva),
+        total: String(total),
+        paseador: getPaseadorName(paseadorNombre),
+        mascota: selectedMascota?.nombre ?? "",
+        bloque: bloqueResumen,
+        preferenceId: pref.preferenceId ?? "",
+        urlCheckout: pref.urlCheckout ?? "",
+        sandboxInitPoint: pref.sandboxInitPoint ?? "",
+        initPoint: pref.initPoint ?? ""
+      });
+      navigate(`/tutor/pago-reserva?${query.toString()}`);
 
-    // 👇 SOLUCIÓN ERROR 1: Aquí está el catch y finally que faltaba para cerrar el try principal
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo crear la reserva.";
-      setErrors({ general: message });
+      setErrors({ general: error instanceof Error ? error.message : "Error al crear reserva." });
     } finally {
       setIsSubmitting(false);
     }
@@ -301,35 +334,16 @@ export default function SolicitudPaseo() {
 
   return (
     <main className={styles.page}>
-      {isSubmitted ? (
-        <div className={styles.toastOverlay}>
-          <div className={styles.toastCard} role="dialog" aria-modal="true">
-            <span className={styles.toastEyebrow}>Solicitud enviada</span>
-            <h2>Tu solicitud ha sido enviada con exito</h2>
-            <p>
-              Tu reserva fue creada con estado SOLICITADA. El paseador ya puede verla para
-              aceptarla o rechazarla.
-            </p>
-            <Link to="/tutor/dashboard" className={styles.toastButton}>
-              Volver al home
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
       <TutorNavbar />
 
       <section className={styles.shell}>
         <div className={styles.heading}>
           <p>Confirmacion de solicitud</p>
           <h1>Revisa los detalles antes de enviar tu solicitud</h1>
-          <span>
-            {paseadorId
-              ? `Paseador seleccionado: ${getPaseadorName(paseadorNombre)}`
-              : "Selecciona un paseador desde el home del tutor para completar este flujo."}
-          </span>
+          <span>{getPaseadorName(paseadorNombre)}</span>
         </div>
-        {errors.general ? <p className={styles.errorText}>{errors.general}</p> : null}
+
+        {errors.general && <p className={styles.errorText}>{errors.general}</p>}
 
         <form className={styles.contentGrid} onSubmit={handleSubmit} noValidate>
           <section className={styles.formCard}>
@@ -339,103 +353,105 @@ export default function SolicitudPaseo() {
               <span>Mascota</span>
               <select
                 value={mascotaId}
-                onChange={(event) => {
-                  setMascotaId(event.target.value);
-                  setErrors((prev) => ({ ...prev, mascotaId: undefined, general: undefined }));
-                }}
+                onChange={(e) => setMascotaId(e.target.value)}
                 className={errors.mascotaId ? styles.fieldError : ""}
-                disabled={loadingData}
               >
                 <option value="">Selecciona una mascota</option>
-                {mascotas.map((mascota) => (
-                  <option key={mascota.idMascota} value={mascota.idMascota}>
-                    {mascota.nombre}
-                  </option>
+                {mascotas.map((m) => (
+                  <option key={m.idMascota} value={m.idMascota}>{m.nombre}</option>
                 ))}
               </select>
-              {errors.mascotaId ? <small>{errors.mascotaId}</small> : null}
+              {errors.mascotaId && <small>{errors.mascotaId}</small>}
             </label>
 
-            {desajusteTamanoTarifa ? (
-              <div className={styles.tarifaMismatchBox} role="status">
-                <strong>Tarifas por tamaño de este paseador</strong>
-                <p>
-                  El paseador solo ofrece tarifa por los tamaños que aparecen abajo. El tamaño de tu
-                  mascota no coincide con ninguna de esas tarifas.
-                </p>
-                <ul className={styles.tarifaMismatchList}>
-                  {tarifasPaseador.map((t) => (
-                    <li key={`${t.tamanoId}-${t.tamanoNombre}`}>
-                      {t.tamanoNombre}: {formatCurrency(t.precioPorHora)} / hora
-                    </li>
-                  ))}
-                </ul>
-                <p>
-                  Tu mascota está registrada como{" "}
-                  <strong>{selectedMascota?.tamanoNombre?.trim() || "sin tamaño indicado"}</strong>.
-                  Prueba con otra mascota o contacta al paseador.
-                </p>
+            <div className={styles.calendarSection}>
+              <div className={styles.calendarHeader}>
+                <h3>Bloque horario disponible</h3>
+                <div className={styles.weekNav}>
+                  <button type="button" onClick={() => setCurrentWeekOffset(o => o - 1)} disabled={currentWeekOffset <= 0}>Anterior</button>
+                  <button type="button" onClick={() => setCurrentWeekOffset(o => o + 1)}>Siguiente</button>
+                </div>
               </div>
-            ) : null}
 
-            {paseadorSinTarifasPublicas ? (
-              <div className={styles.tarifaMismatchBox} role="alert">
-                <strong>Sin tarifas publicadas</strong>
-                <p>
-                  Este paseador aún no tiene tarifas configuradas. No podrás completar la reserva hasta
-                  que publique precios por tamaño.
-                </p>
+              {/* TABS DE DÍAS */}
+              <div className={styles.dayTabs}>
+                {weekDays.map((day) => (
+                  <button
+                    key={day.isoDate}
+                    type="button"
+                    className={`${styles.dayTab} ${selectedISODate === day.isoDate ? styles.dayTabActive : ""} ${!day.hasBlocks ? styles.dayDisabled : ""}`}
+                    onClick={() => setSelectedISODate(day.isoDate)}
+                  >
+                    <span className={styles.dayName}>{day.dayLabel}</span>
+                    <strong className={styles.dayNum}>{day.dayNumber}</strong>
+                    <span className={styles.dayMonth}>{day.monthLabel}</span>
+                  </button>
+                ))}
               </div>
-            ) : null}
 
-            <label className={styles.field}>
-              <span>Bloque horario disponible</span>
-              <div
-                className={`${styles.blockGrid} ${errors.bloqueId ? styles.blockGridError : ""}`}
-                role="radiogroup"
-                aria-label="Bloques horarios disponibles"
-              >
-                {bloques.map((bloque) => {
-                  const isSelected = String(bloque.idAgenda) === bloqueId;
-                  const inicio = toDateSafe(bloque.fecha, bloque.horaInicio);
-                  const fin = toDateSafe(bloque.fecha, bloque.horaFinal);
-                  const duracionMinutos =
-                    inicio && fin
-                      ? Math.max(1, Math.round((fin.getTime() - inicio.getTime()) / (1000 * 60)))
-                      : 60;
-                  const dia = inicio
-                    ? new Intl.DateTimeFormat("es-CL", {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "short"
-                      }).format(inicio)
-                    : bloque.fecha;
+              {/* LISTADO HORIZONTAL DE BLOQUES (5-6 visible) */}
+<div className={styles.blocksWrapper}>
+  <button 
+    type="button" 
+    className={styles.navArrow} 
+    onClick={() => handleScroll('left')}
+  >
+    ‹
+  </button>
+  
+  <div className={styles.blocksScroll} ref={scrollContainerRef}>
+    {currentDayBlocks.length > 0 ? (
+      currentDayBlocks.map((b) => {
+        // Intentamos convertir a objeto Date para un formateo limpio y seguro
+        const dateInicio = toDateSafe(b.fecha, b.horaInicio);
+        const dateFin = toDateSafe(b.fecha, b.horaFinal);
+        
+        // Configurador de formato: fuerza 24 horas (HH:mm)
+        const fmt = new Intl.DateTimeFormat("es-CL", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        });
 
-                  return (
-                    <button
-                      key={bloque.idAgenda}
-                      type="button"
-                      className={`${styles.timeBlock} ${isSelected ? styles.timeBlockSelected : ""}`}
-                      onClick={() => {
-                        setBloqueId(String(bloque.idAgenda));
-                        setErrors((prev) => ({ ...prev, bloqueId: undefined }));
-                      }}
-                      role="radio"
-                      aria-checked={isSelected}
-                      disabled={loadingData}
-                    >
-                      <span className={styles.timeBlockDay}>{dia}</span>
-                      <strong>
-                        {bloque.horaInicio} - {bloque.horaFinal}
-                      </strong>
-                      <span>{duracionMinutos} minutos</span>
-                      <small>Disponible</small>
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.bloqueId ? <small>{errors.bloqueId}</small> : null}
-            </label>
+        // Si la conversión falla, usamos slice como respaldo para evitar el "2026-"
+        const hInicio = dateInicio ? fmt.format(dateInicio) : (b.horaInicio ?? "").slice(0, 5);
+        const hFin = dateFin ? fmt.format(dateFin) : (b.horaFinal ?? "").slice(0, 5);
+
+        return (
+          <button
+            key={b.idAgenda}
+            type="button"
+            className={`${styles.timeCard} ${bloqueId === String(b.idAgenda) ? styles.timeCardSelected : ""}`}
+            onClick={() => {
+              setBloqueId(String(b.idAgenda));
+              setErrors((prev) => ({ ...prev, bloqueId: undefined }));
+            }}
+          >
+            <span className={styles.cardDate}>{b.fecha}</span>
+            <div className={styles.cardHours}>
+              <strong>{hInicio}</strong>
+              <span>-</span>
+              <strong>{hFin}</strong>
+            </div>
+            <small>Disponible</small>
+          </button>
+        );
+      })
+    ) : (
+      <p className={styles.noBlocks}>No hay bloques para este día.</p>
+    )}
+  </div>
+
+  <button 
+    type="button" 
+    className={styles.navArrow} 
+    onClick={() => handleScroll('right')}
+  >
+    ›
+  </button>
+</div>
+              {errors.bloqueId && <small className={styles.errorSmall}>{errors.bloqueId}</small>}
+            </div>
           </section>
 
           <aside className={styles.checkoutCard}>
@@ -443,34 +459,14 @@ export default function SolicitudPaseo() {
             <h2>Resumen de costos</h2>
 
             <div className={styles.checkoutList}>
+              <div><span>Paseador</span><strong>{getPaseadorName(paseadorNombre)}</strong></div>
+              <div><span>Mascota</span><strong>{selectedMascota?.nombre ?? "--"}</strong></div>
+              <div><span>Bloque</span><strong>{bloqueLabel}</strong></div>
               <div>
-                <span>Paseador</span>
-                <strong>{getPaseadorName(paseadorNombre)}</strong>
+                <span>Tarifa</span>
+                <strong>{selectedTarifa ? `${selectedTarifa.tamanoNombre} · ${formatCurrency(selectedTarifa.precioPorHora)}/h` : "--"}</strong>
               </div>
-              <div>
-                <span>Mascota</span>
-                <strong>{selectedMascota?.nombre ?? "Por seleccionar"}</strong>
-              </div>
-              <div>
-                <span>Bloque</span>
-                <strong>{bloqueLabel}</strong>
-              </div>
-              <div>
-                <span>Tarifa aplicada</span>
-                <strong>
-                  {selectedTarifa
-                    ? `${selectedTarifa.tamanoNombre} · ${formatCurrency(selectedTarifa.precioPorHora)}/hora`
-                    : desajusteTamanoTarifa
-                      ? "No aplica (revisa el recuadro de arriba)"
-                      : paseadorSinTarifasPublicas
-                        ? "Sin tarifas publicadas"
-                        : "Por seleccionar mascota y bloque"}
-                </strong>
-              </div>
-              <div>
-                <span>Duración estimada</span>
-                <strong>{duracionMinutos > 0 ? `${duracionMinutos} min` : "--"}</strong>
-              </div>
+              <div><span>Duración</span><strong>{duracionMinutos > 0 ? `${duracionMinutos} min` : "--"}</strong></div>
             </div>
 
             <div className={styles.totalBox}>
@@ -478,19 +474,10 @@ export default function SolicitudPaseo() {
               <strong>{total ? formatCurrency(total) : "--"}</strong>
             </div>
 
-            <p className={styles.checkoutNote}>
-              Al enviar, se crea la reserva real en backend con estado SOLICITADA y el bloque de
-              agenda pasa a RESERVADO.
-            </p>
-
             <div className={styles.actions}>
               <Link to="/tutor/dashboard">Volver</Link>
               <button type="submit" disabled={!canSubmit}>
-                {isSubmitting
-                  ? "Enviando solicitud..."
-                  : isSubmitted
-                    ? "Solicitud enviada"
-                    : "Enviar solicitud de paseo"}
+                {isSubmitting ? "Procesando..." : "Continuar al pago"}
               </button>
             </div>
           </aside>
