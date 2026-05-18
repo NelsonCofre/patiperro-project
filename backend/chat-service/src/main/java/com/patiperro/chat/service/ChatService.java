@@ -202,12 +202,14 @@ public class ChatService {
 	}
 
 	/**
-	 * Usuario que debe recibir la notificación push (el interlocutor, no el remitente).
-	 * Usa reserva-service interno; {@code null} si la integración falla o no hay participantes.
+	 * Usuario que debe recibir la notificación push (el interlocutor de la reserva, no el remitente).
+	 * Usa reserva-service interno ({@link ReservaChatIntegracionClient}).
+	 *
+	 * @return {@code null} si la integración falla, el remitente no es tutor ni paseador de la reserva,
+	 *         o no hay interlocutor identificable
 	 */
-	@Transactional(readOnly = true)
 	public Integer resolverDestinatarioPush(Integer idReserva, Integer idRemitente) {
-		if (idReserva == null || idRemitente == null) {
+		if (idReserva == null || idReserva <= 0 || idRemitente == null || idRemitente <= 0) {
 			return null;
 		}
 		ReservaParticipantesDto participantes = reservaChatIntegracionClient.obtenerParticipantes(idReserva);
@@ -217,16 +219,10 @@ public class ChatService {
 		Integer tutor = participantes.idTutorUsuario();
 		Integer paseador = participantes.idPaseadorUsuario();
 		if (tutor != null && Objects.equals(tutor, idRemitente)) {
-			return paseador;
+			return paseador != null && !Objects.equals(paseador, idRemitente) ? paseador : null;
 		}
 		if (paseador != null && Objects.equals(paseador, idRemitente)) {
-			return tutor;
-		}
-		if (tutor != null && !Objects.equals(tutor, idRemitente)) {
-			return tutor;
-		}
-		if (paseador != null && !Objects.equals(paseador, idRemitente)) {
-			return paseador;
+			return tutor != null && !Objects.equals(tutor, idRemitente) ? tutor : null;
 		}
 		return null;
 	}

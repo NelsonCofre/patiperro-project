@@ -1,10 +1,10 @@
 package com.patiperro.notification_service.config;
 
 import com.patiperro.notification_service.security.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,35 +17,43 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * {@code /api/notificaciones/push/**} exige JWT (suscripciones Web Push).
- * El resto de {@code /api/notificaciones/**} sigue abierto en este servicio (plantillas, Brevo).
- * Rutas {@code /internal/**} usan cabecera secreta en cada controller: no exponer el microservicio
- * públicamente (el api-gateway solo proxifica {@code /api/notificaciones/**}).
+ * Seguridad HTTP del notification-service.
+ * <p><strong>Web Push:</strong> {@code GET /push/vapid-public-key} es público; el resto de
+ * {@code /api/notificaciones/push/**} exige JWT (suscripciones).</p>
+ * <p>El resto de {@code /api/notificaciones/**} sigue abierto aquí (plantillas, Brevo); el gateway
+ * proxifica solo ese prefijo público.</p>
+ * <p>{@code /internal/**} queda en {@code permitAll} a nivel Spring; cada controller valida
+ * {@code X-Patiperro-Interno-Secret}. No exponer el puerto del microservicio a Internet.</p>
+ * <p><strong>Orden:</strong> reglas más específicas (push, vapid) antes que
+ * {@code /api/notificaciones/**}.</p>
  */
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private static final String PATH_PUSH = "/api/notificaciones/push/**";
+    private static final String PATH_PUSH_VAPID_PUBLIC_KEY = "/api/notificaciones/push/vapid-public-key";
+    private static final String PATH_NOTIFICACIONES_API = "/api/notificaciones/**";
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**")
                         .permitAll()
-                        // Orden importante: push antes que notificaciones/** (más específico primero).
-                        .requestMatchers("/api/notificaciones/push/**").authenticated()
-                        .requestMatchers("/api/notificaciones/**").permitAll()
+                        // Web Push: clave VAPID pública (estándar); POST/DELETE suscripciones → authenticated.
+                        .requestMatchers(HttpMethod.GET, PATH_PUSH_VAPID_PUBLIC_KEY).permitAll()
+                        .requestMatchers(PATH_PUSH).authenticated()
+                        .requestMatchers(PATH_NOTIFICACIONES_API).permitAll()
+                        // Servidor-a-servidor: secreto en Internal*Controller (no JWT de usuario).
                         .requestMatchers("/internal/paseo/**").permitAll()
                         .requestMatchers("/internal/pagos/**").permitAll()
                         .requestMatchers("/internal/chat/**").permitAll()
@@ -60,8 +68,8 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:5174",
-                "http://127.0.0.1:5173"
-        ));
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:5174"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
                 "Authorization",

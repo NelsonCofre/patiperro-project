@@ -12,6 +12,10 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+/**
+ * STOMP realtime del chat por reserva ({@code /app/chat.send}, {@code /app/chat.typing}).
+ * Web Push: tras publicar en el topic, best-effort vía notification-service (no en typing).
+ */
 @Controller
 @RequiredArgsConstructor
 public class ChatRealtimeController {
@@ -20,28 +24,22 @@ public class ChatRealtimeController {
 	private final SimpMessagingTemplate messagingTemplate;
 	private final NotificacionChatPushIntegracionClient notificacionChatPushIntegracionClient;
 
+	/**
+	 * 1) Persiste mensaje · 2) {@code /topic/reserva.{id}} · 3) push al interlocutor (si integración activa).
+	 */
 	@MessageMapping("/chat.send")
 	public void sendMessage(@Valid ChatMessageInbound request) {
 		ChatMessageOutbound outbound = chatService.enviarMensajeRealtime(request);
 		messagingTemplate.convertAndSend("/topic/reserva." + outbound.getIdReserva(), outbound);
 
-		// Web Push best-effort (no bloquea el chat si notification-service falla).
+		// Best-effort: errores HTTP no propagan al WebSocket (ver NotificacionChatPushIntegracionClient).
 		Integer destinatarioId = chatService.resolverDestinatarioPush(
 				outbound.getIdReserva(),
 				outbound.getIdUsuario());
-		if (destinatarioId != null) {
-			String preview = outbound.getContent();
-			if (preview != null && preview.length() > 120) {
-				preview = preview.substring(0, 119) + "…";
-			}
-			notificacionChatPushIntegracionClient.notificarNuevoMensaje(new ChatNuevoMensajePushIntegracionRequest(
-					destinatarioId,
-					outbound.getIdReserva(),
-					outbound.getIdConversacion(),
-					outbound.getIdMensaje(),
-					outbound.getSender(),
-					preview != null ? preview : "",
-					"/chat/reserva/" + outbound.getIdReserva()));
+		ChatNuevoMensajePushIntegracionRequest pushPayload =
+				ChatNuevoMensajePushIntegracionRequest.desdeMensajeRealtime(destinatarioId, outbound);
+		if (pushPayload != null) {
+			notificacionChatPushIntegracionClient.notificarNuevoMensaje(pushPayload);
 		}
 	}
 

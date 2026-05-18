@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,16 +18,14 @@ import java.util.Collections;
 
 /**
  * JWT para rutas que exigen autenticación (p. ej. {@code /api/notificaciones/push/**}).
- * Principal = {@code idUsuario} (claim tutorId o paseadorId).
+ * Mismo criterio de extracción y orden de claims que {@code pagos-service} / api-gateway.
+ * Principal = {@code idUsuario} ({@link Integer}, claim tutorId o paseadorId).
  */
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-
-    public JwtAuthenticationFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
-    }
 
     @Override
     protected void doFilterInternal(
@@ -37,22 +36,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
         if (token != null) {
             try {
-                Long tutorId = jwtService.extractTutorId(token);
-                if (tutorId != null) {
-                    // Sobreescribir usuario anónimo: AnonymousAuthenticationFilter corre antes en la cadena.
+                Long paseadorId = jwtService.extractPaseadorId(token);
+                if (paseadorId != null) {
                     SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(
-                                    tutorId.intValue(),
+                                    toPrincipalId(paseadorId),
                                     null,
-                                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_TUTOR"))));
+                                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_PASEADOR"))));
                 } else {
-                    Long paseadorId = jwtService.extractPaseadorId(token);
-                    if (paseadorId != null) {
+                    Long tutorId = jwtService.extractTutorId(token);
+                    if (tutorId != null) {
                         SecurityContextHolder.getContext().setAuthentication(
                                 new UsernamePasswordAuthenticationToken(
-                                        paseadorId.intValue(),
+                                        toPrincipalId(tutorId),
                                         null,
-                                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_PASEADOR"))));
+                                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_TUTOR"))));
                     }
                 }
             } catch (Exception ignored) {
@@ -63,23 +61,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private static String extractToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("access_token".equals(cookie.getName())
-                        && cookie.getValue() != null
-                        && !cookie.getValue().isBlank()) {
-                    return cookie.getValue().trim();
-                }
-            }
-        }
-        String tokenFromForwardedCookie = extractAccessTokenFromCookieHeader(
-                request.getHeader("X-Patiperro-Forwarded-Cookie"));
-        if (tokenFromForwardedCookie != null) {
-            return tokenFromForwardedCookie;
-        }
+    private static Integer toPrincipalId(Long id) {
+        return id != null ? id.intValue() : null;
+    }
 
+    private static String extractToken(HttpServletRequest request) {
+        // Preferir Bearer explícito antes que cookie (mismo orden que pagos-service).
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
@@ -94,9 +81,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return token;
             }
         }
-        return null;
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("access_token".equals(cookie.getName())
+                        && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue().trim();
+                }
+            }
+        }
+        return extractAccessTokenFromCookieHeader(request.getHeader("X-Patiperro-Forwarded-Cookie"));
     }
 
+    /**
+     * Replica del header Cookie cuando el gateway solo reenvía {@code X-Patiperro-Forwarded-Cookie}.
+     */
     private static String extractAccessTokenFromCookieHeader(String cookieHeader) {
         if (cookieHeader == null || cookieHeader.isBlank()) {
             return null;

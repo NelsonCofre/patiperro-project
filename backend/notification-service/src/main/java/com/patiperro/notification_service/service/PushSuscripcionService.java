@@ -29,6 +29,7 @@ public class PushSuscripcionService {
     private final PushSuscripcionRepository pushSuscripcionRepository;
     private final WebPushProperties webPushProperties;
 
+    @Transactional(readOnly = true)
     public VapidPublicKeyResponse obtenerClavePublicaVapid() {
         if (!webPushProperties.hasPublicKey()) {
             throw new ResponseStatusException(
@@ -38,9 +39,13 @@ public class PushSuscripcionService {
         return new VapidPublicKeyResponse(webPushProperties.getVapid().getPublicKey());
     }
 
+    /**
+     * Registra o actualiza la suscripción del dispositivo (UPSERT por {@code endpoint}).
+     */
     @Transactional
     public PushSuscripcionResponse registrar(Integer idUsuarioJwt, PushSuscripcionRequest req) {
         validarIdUsuario(idUsuarioJwt);
+        validarVapidPublicaParaSuscripcion();
 
         String endpoint = req.endpoint().trim();
         PushSuscripcion existente = pushSuscripcionRepository.findByEndpoint(endpoint).orElse(null);
@@ -93,9 +98,20 @@ public class PushSuscripcionService {
         pushSuscripcionRepository.delete(suscripcion);
     }
 
+    private void validarVapidPublicaParaSuscripcion() {
+        if (!webPushProperties.hasPublicKey()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Web Push no disponible: configure la clave VAPID pública");
+        }
+    }
+
     private static void validarIdUsuario(Integer idUsuarioJwt) {
         if (idUsuarioJwt == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no autenticado");
+        }
+        if (idUsuarioJwt <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idUsuario inválido");
         }
     }
 
