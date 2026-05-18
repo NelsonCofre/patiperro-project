@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.patiperro.pagos.dto.billetera.BilleteraBucketResponse;
 import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
+import com.patiperro.pagos.dto.billetera.RetiroHistorialItemResponse;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
 import com.patiperro.pagos.security.JwtService;
 import com.patiperro.pagos.service.BilleteraService;
@@ -78,6 +79,33 @@ class BilleteraPaseadorControllerTest {
                 .andExpect(jsonPath("$.disponible.key").value("disponible"))
                 .andExpect(jsonPath("$.historialLiberacionesDisponible").isArray())
                 .andExpect(jsonPath("$.proyeccionLiberacionesPorDia").isArray());
+    }
+
+    @Test
+    void listarHistorialRetiros_devuelveLista() throws Exception {
+        when(retiroPaseadorService.listarHistorialRetiros(eq(1L)))
+                .thenReturn(List.of(new RetiroHistorialItemResponse(
+                        5L,
+                        10L,
+                        "RET-10",
+                        new BigDecimal("1200.00"),
+                        "PENDIENTE",
+                        "Retiro en proceso",
+                        LocalDateTime.of(2026, 5, 17, 10, 0),
+                        "Banco Test · Vista · ****6789")));
+
+        TestingAuthenticationToken auth = new TestingAuthenticationToken(
+                1L,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_PASEADOR")));
+        auth.setAuthenticated(true);
+
+        mockMvc.perform(
+                        get("/api/pagos/paseador/billetera/retiros")
+                                .with(SecurityMockMvcRequestPostProcessors.authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].operationId").value("RET-10"))
+                .andExpect(jsonPath("$[0].estadoEtiqueta").value("Retiro en proceso"));
     }
 
     @Test

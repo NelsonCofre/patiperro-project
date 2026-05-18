@@ -46,6 +46,16 @@ function formatDateTime(value?: string | null): string {
   }).format(date);
 }
 
+function formatWithdrawalDate(value: string): string {
+  if (!value) return "Fecha no disponible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
 function getProximaLiberacion(reservas: BilleteraReservaItem[]): string {
   const fechas = reservas
     .map((item) => item.fechaLiberacionEstimada)
@@ -123,7 +133,8 @@ export default function PaseadorBilletera() {
     bankAccountsLoadError,
     catalogoRegistroCuenta,
     catalogoRegistroLoadError,
-    pendingWithdrawals,
+    withdrawalHistory,
+    withdrawalHistoryError,
     minWithdrawalAmount
   } = usePaseadorBilletera();
   const [selectedBucket, setSelectedBucket] = useState<BilleteraBucketKey>("retenido");
@@ -255,31 +266,51 @@ export default function PaseadorBilletera() {
         </div>
       ) : null}
 
-      {pendingWithdrawals.length > 0 ? (
-        <section className={styles.withdrawalsSection}>
-          <div className={styles.withdrawalsHeader}>
-            <div>
-              <p className={styles.cardEyebrow}>Retiros en proceso</p>
-              <h2>Solicitudes registradas</h2>
-            </div>
+      <section className={styles.withdrawalsSection} aria-label="Historial de retiros">
+        <div className={styles.withdrawalsHeader}>
+          <div>
+            <p className={styles.cardEyebrow}>Historial de retiros</p>
+            <h2>Solicitudes a tu cuenta bancaria</h2>
+            <p className={styles.sectionText}>
+              Cada retiro descuenta tu saldo disponible al momento de la solicitud. El estado refleja el procesamiento
+              simulado de la transferencia.
+            </p>
           </div>
+        </div>
 
+        {withdrawalHistoryError ? (
+          <article className={styles.errorState} role="alert">
+            <strong>No pudimos cargar el historial</strong>
+            <p>{withdrawalHistoryError}</p>
+          </article>
+        ) : withdrawalHistory.length > 0 ? (
           <div className={styles.withdrawalList}>
-            {pendingWithdrawals.map((withdrawal) => (
-              <article key={withdrawal.operationId} className={styles.withdrawalCard}>
+            {withdrawalHistory.map((withdrawal) => (
+              <article
+                key={`${withdrawal.operationId}-${withdrawal.idRetiroFondos}`}
+                className={styles.withdrawalCard}
+              >
                 <div>
                   <strong>{withdrawal.operationId}</strong>
-                  <p>{withdrawal.bankLabel}</p>
+                  <p>{withdrawal.cuentaDestinoResumen ?? "Cuenta bancaria registrada"}</p>
+                  <p className={styles.withdrawalDate}>
+                    Solicitado: {formatWithdrawalDate(withdrawal.solicitadoEn)}
+                  </p>
                 </div>
                 <div className={styles.withdrawalCardSide}>
-                  <strong>{formatMoney(withdrawal.amount)}</strong>
-                  <span>{withdrawal.status}</span>
+                  <strong>{formatMoney(withdrawal.monto)}</strong>
+                  <span>{withdrawal.estadoEtiqueta}</span>
                 </div>
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <article className={styles.emptyState}>
+            <strong>Aun no tienes retiros registrados</strong>
+            <p>Cuando solicites un retiro desde tu saldo disponible, aparecera aqui con su numero de operacion.</p>
+          </article>
+        )}
+      </section>
 
       <section className={styles.detailSection}>
         <div className={styles.detailHeader}>

@@ -49,6 +49,17 @@ export type RetiroPaseadorResult = {
   mensaje: string;
 };
 
+export type RetiroHistorialItem = {
+  idRetiroFondos: number;
+  idTransaccion: number;
+  operationId: string;
+  monto: number;
+  estadoPago: string;
+  estadoEtiqueta: string;
+  solicitadoEn: string;
+  cuentaDestinoResumen: string | null;
+};
+
 export type CuentaBancariaPaseadorApi = {
   id?: string | null;
   bankName?: string | null;
@@ -102,8 +113,15 @@ function parseAmount(value: unknown): number {
   return 0;
 }
 
+type DesgloseComisionApi = {
+  montoBruto?: number | string | null;
+  comision?: number | string | null;
+  montoNeto?: number | string | null;
+};
+
 type BilleteraReservaItemApi = {
   idReserva?: number | null;
+  desgloseComision?: DesgloseComisionApi | null;
   montoBruto?: number | string | null;
   comision?: number | string | null;
   montoNeto?: number | string | null;
@@ -141,16 +159,30 @@ type BilleteraResumenApi = {
   updatedAt?: string | null;
 };
 
+function readDesgloseMontos(item: BilleteraReservaItemApi): {
+  montoBruto: number;
+  comision: number;
+  montoNeto: number;
+} {
+  const nested = item.desgloseComision;
+  return {
+    montoBruto: parseAmount(nested?.montoBruto ?? item.montoBruto),
+    comision: parseAmount(nested?.comision ?? item.comision),
+    montoNeto: parseAmount(nested?.montoNeto ?? item.montoNeto)
+  };
+}
+
 function mapReservaItem(item: BilleteraReservaItemApi): BilleteraReservaItem {
+  const montos = readDesgloseMontos(item);
   return {
     idReserva: Number(item.idReserva ?? 0),
     mascotaNombre: (item.mascotaNombre ?? "").trim() || "Mascota no disponible",
     tutorNombre: (item.tutorNombre ?? "").trim() || "Tutor no disponible",
     fecha: (item.fechaAgenda ?? "").trim(),
     horaInicio: (item.horaInicio ?? "").trim(),
-    montoBruto: parseAmount(item.montoBruto),
-    comision: parseAmount(item.comision),
-    montoNeto: parseAmount(item.montoNeto),
+    montoBruto: montos.montoBruto,
+    comision: montos.comision,
+    montoNeto: montos.montoNeto,
     estado: (item.nombreEstadoReserva ?? item.estadoEtiqueta ?? "").trim() || "Sin estado"
   };
 }
@@ -202,11 +234,17 @@ function mapBucket(
     (bucket?.helper ?? "").trim() || fallbackHelper,
     reservas
   );
+  let grossAmount = parseAmount(bucket?.grossAmount);
+  let commissionAmount = parseAmount(bucket?.commissionAmount);
+  if (reservas.length > 0 && grossAmount === 0 && commissionAmount === 0) {
+    grossAmount = reservas.reduce((sum, item) => sum + item.montoBruto, 0);
+    commissionAmount = reservas.reduce((sum, item) => sum + item.comision, 0);
+  }
   return {
     ...next,
     amount: parseAmount(bucket?.amount),
-    grossAmount: parseAmount(bucket?.grossAmount),
-    commissionAmount: parseAmount(bucket?.commissionAmount)
+    grossAmount,
+    commissionAmount
   };
 }
 
@@ -359,6 +397,55 @@ export async function fetchBilleteraPaseador(): Promise<BilleteraPaseadorData> {
     proyeccionLiberacionesPorDia,
     updatedAt: (dto.updatedAt ?? "").trim() || new Date().toISOString()
   };
+}
+
+function mapRetiroHistorialItem(raw: unknown): RetiroHistorialItem | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as {
+    idRetiroFondos?: number | string | null;
+    idTransaccion?: number | string | null;
+    operationId?: string | null;
+    monto?: number | string | null;
+    estadoPago?: string | null;
+    estadoEtiqueta?: string | null;
+    solicitadoEn?: string | null;
+    cuentaDestinoResumen?: string | null;
+  };
+  const idRetiroFondos = Number(item.idRetiroFondos ?? 0);
+  const idTransaccion = Number(item.idTransaccion ?? 0);
+  const operationId = (item.operationId ?? "").trim();
+  if (!operationId && idTransaccion <= 0 && idRetiroFondos <= 0) {
+    return null;
+  }
+  return {
+    idRetiroFondos: Number.isFinite(idRetiroFondos) ? idRetiroFondos : 0,
+    idTransaccion: Number.isFinite(idTransaccion) ? idTransaccion : 0,
+    operationId: operationId || (idTransaccion > 0 ? `RET-${idTransaccion}` : `RET-${idRetiroFondos}`),
+    monto: parseAmount(item.monto),
+    estadoPago: (item.estadoPago ?? "").trim() || "PENDIENTE",
+    estadoEtiqueta: (item.estadoEtiqueta ?? "").trim() || "Retiro en proceso",
+    solicitadoEn: (item.solicitadoEn ?? "").trim(),
+    cuentaDestinoResumen: (item.cuentaDestinoResumen ?? "").trim() || null
+  };
+}
+
+export async function fetchHistorialRetirosPaseador(): Promise<RetiroHistorialItem[]> {
+  const response = await fetch(API_ENDPOINTS.pagos.retiroPaseador, {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    const detail = parseApiErrorMessage(data);
+    throw new Error(detail || `No se pudo cargar el historial de retiros (HTTP ${response.status}).`);
+  }
+  if (!Array.isArray(data)) {
+    return [];
+  }
+  return data
+    .map(mapRetiroHistorialItem)
+    .filter((item): item is RetiroHistorialItem => item != null);
 }
 
 export async function solicitarRetiroPaseador(monto: number): Promise<RetiroPaseadorResult> {

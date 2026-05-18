@@ -5,6 +5,7 @@ import com.patiperro.pagos.dto.billetera.BilleteraResumenPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.CatalogoRegistroCuentaResponse;
 import com.patiperro.pagos.dto.billetera.CuentaBancariaPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.RegistrarCuentaBancariaPaseadorRequest;
+import com.patiperro.pagos.dto.billetera.RetiroHistorialItemResponse;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
 import com.patiperro.pagos.dto.billetera.SolicitarRetiroPaseadorRequest;
 import com.patiperro.pagos.service.BilleteraService;
@@ -125,6 +126,20 @@ public class BilleteraPaseadorController {
             case "disponible" -> ResponseEntity.ok(resumen.disponible());
             default -> ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         };
+    }
+
+    /**
+     * Historial de solicitudes de retiro del paseador (más recientes primero).
+     */
+    @GetMapping("/retiros")
+    public ResponseEntity<List<RetiroHistorialItemResponse>> listarHistorialRetiros(Authentication authentication) {
+        Long idUsuario = resolvePaseadorIdOrNull(authentication);
+        if (idUsuario == null) {
+            return ResponseEntity.status(authentication == null || !authentication.isAuthenticated()
+                    ? HttpStatus.UNAUTHORIZED
+                    : HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(retiroPaseadorService.listarHistorialRetiros(idUsuario));
     }
 
     /**

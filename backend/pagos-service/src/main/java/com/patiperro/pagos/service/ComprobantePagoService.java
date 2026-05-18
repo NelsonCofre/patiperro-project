@@ -65,8 +65,8 @@ public class ComprobantePagoService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No autorizado");
         }
 
-        Optional<ComprobantePagoResponse> desdeSnapshot =
-                leerSnapshotSiCorresponde(idReserva, tutorId, r.idTutorUsuario());
+        Optional<ComprobantePagoResponse> desdeSnapshot = leerSnapshotSiCorresponde(idReserva, tutorId,
+                r.idTutorUsuario());
         if (desdeSnapshot.isPresent()) {
             return desdeSnapshot.get();
         }
@@ -83,7 +83,8 @@ public class ComprobantePagoService {
     }
 
     /**
-     * Prioriza snapshot persistido (misma tutoría) para historial estable; si falla deserialización o versión,
+     * Prioriza snapshot persistido (misma tutoría) para historial estable; si falla
+     * deserialización o versión,
      * cae al cálculo en vivo.
      */
     private Optional<ComprobantePagoResponse> leerSnapshotSiCorresponde(
@@ -107,7 +108,8 @@ public class ComprobantePagoService {
             log.debug("Comprobante snapshot: versión esquema no actual (idReserva={}, ver={})", idReserva, ver);
             return Optional.empty();
         }
-        // Consistencia con el endpoint JSON "en vivo": solo servir comprobante si la transacción sigue APROBADA.
+        // Consistencia con el endpoint JSON "en vivo": solo servir comprobante si la
+        // transacción sigue APROBADA.
         if (c.getIdTransaccion() != null) {
             Optional<Transaccion> tx = transaccionRepository.findById(c.getIdTransaccion());
             if (tx.isEmpty() || tx.get().getEstadoPago() != EstadoPago.APROBADO) {

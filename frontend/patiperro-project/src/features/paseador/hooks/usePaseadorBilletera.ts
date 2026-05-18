@@ -3,8 +3,10 @@ import {
   fetchBilleteraPaseador,
   fetchCatalogoRegistroCuentaPaseador,
   fetchCuentasBancariasPaseador,
+  fetchHistorialRetirosPaseador,
   registrarCuentaBancariaPaseador,
   solicitarRetiroPaseador,
+  type RetiroHistorialItem,
   type BilleteraBucket,
   type BilleteraBucketKey,
   type BilleteraPaseadorData,
@@ -19,15 +21,6 @@ export const MIN_WITHDRAWAL_AMOUNT = 5000;
 export type PaseadorBankAccount = CuentaBancariaPaseador;
 
 export type { RegistroCuentaBancariaBody, CatalogoRegistroCuenta };
-
-export type PendingWithdrawal = {
-  operationId: string;
-  amount: number;
-  bankAccountId: string;
-  bankLabel: string;
-  requestedAt: string;
-  status: "Retiro en Proceso";
-};
 
 function createEmptyBucket(
   key: BilleteraBucketKey,
@@ -89,7 +82,8 @@ export function usePaseadorBilletera() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [withdrawalNotice, setWithdrawalNotice] = useState("");
-  const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([]);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<RetiroHistorialItem[]>([]);
+  const [withdrawalHistoryError, setWithdrawalHistoryError] = useState("");
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
   const [withdrawalError, setWithdrawalError] = useState("");
   const [bankAccounts, setBankAccounts] = useState<PaseadorBankAccount[]>([]);
@@ -107,9 +101,21 @@ export function usePaseadorBilletera() {
     setError("");
     setBankAccountsLoadError("");
     setCatalogoRegistroLoadError("");
+    setWithdrawalHistoryError("");
     try {
       const next = await fetchBilleteraPaseador();
       setData(next);
+      try {
+        const historial = await fetchHistorialRetirosPaseador();
+        setWithdrawalHistory(historial);
+      } catch (historialError) {
+        setWithdrawalHistory([]);
+        setWithdrawalHistoryError(
+          historialError instanceof Error
+            ? historialError.message
+            : "No se pudo cargar el historial de retiros."
+        );
+      }
       try {
         const cuentas = await fetchCuentasBancariasPaseador();
         setBankAccounts(cuentas);
@@ -213,17 +219,26 @@ export function usePaseadorBilletera() {
           updatedAt: new Date().toISOString()
         }));
 
-        setPendingWithdrawals((current) => [
-          {
-            operationId,
-            amount: result.montoRetirado || amount,
-            bankAccountId: selectedAccount.id,
-            bankLabel: `${selectedAccount.bankName} · ${selectedAccount.accountType} · ${selectedAccount.accountNumberMasked}`,
-            requestedAt: new Date().toISOString(),
-            status: "Retiro en Proceso"
-          },
-          ...current
-        ]);
+        try {
+          const historial = await fetchHistorialRetirosPaseador();
+          setWithdrawalHistory(historial);
+          setWithdrawalHistoryError("");
+        } catch {
+          const bankLabel = `${selectedAccount.bankName} · ${selectedAccount.accountType} · ${selectedAccount.accountNumberMasked}`;
+          setWithdrawalHistory((current) => [
+            {
+              idRetiroFondos: 0,
+              idTransaccion: result.idTransaccion,
+              operationId,
+              monto: result.montoRetirado || amount,
+              estadoPago: "PENDIENTE",
+              estadoEtiqueta: "Retiro en proceso",
+              solicitadoEn: new Date().toISOString(),
+              cuentaDestinoResumen: bankLabel
+            },
+            ...current.filter((item) => item.operationId !== operationId)
+          ]);
+        }
 
         setWithdrawalNotice(`${result.mensaje} Operacion ${operationId}.`);
         return { operationId };
@@ -256,7 +271,8 @@ export function usePaseadorBilletera() {
     bankAccountsLoadError,
     catalogoRegistroCuenta,
     catalogoRegistroLoadError,
-    pendingWithdrawals,
+    withdrawalHistory,
+    withdrawalHistoryError,
     minWithdrawalAmount: MIN_WITHDRAWAL_AMOUNT,
     lastUpdatedLabel: formatLastUpdated(data.updatedAt),
     reload: () => load(true),

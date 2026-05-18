@@ -1,13 +1,16 @@
 package com.patiperro.pagos.service;
 
 import com.patiperro.pagos.config.RetiroProperties;
+import com.patiperro.pagos.dto.billetera.RetiroHistorialItemResponse;
 import com.patiperro.pagos.dto.billetera.RetiroPaseadorResponse;
+import com.patiperro.pagos.model.Banco;
 import com.patiperro.pagos.model.Billetera;
 import com.patiperro.pagos.model.Cuenta;
 import com.patiperro.pagos.model.Destino;
 import com.patiperro.pagos.model.EstadoPago;
 import com.patiperro.pagos.model.Origen;
 import com.patiperro.pagos.model.RetiroFondo;
+import com.patiperro.pagos.model.TipoCuenta;
 import com.patiperro.pagos.model.TipoTransaccion;
 import com.patiperro.pagos.model.Transaccion;
 import com.patiperro.pagos.repository.BilleteraRepository;
@@ -17,7 +20,9 @@ import com.patiperro.pagos.repository.TransaccionRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +32,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Retiro desde saldo disponible: una transacción atómica con bloqueo pesimístico ({@code FOR UPDATE}) sobre la fila
@@ -47,6 +54,36 @@ public class RetiroPaseadorService {
     private final TransaccionRepository transaccionRepository;
     private final RetiroFondoRepository retiroFondoRepository;
     private final RetiroProperties retiroProperties;
+
+    @Value("${patiperro.pagos.retiro.historial-max:100}")
+    private int historialRetirosMax;
+
+    @Transactional(readOnly = true)
+    public List<RetiroHistorialItemResponse> listarHistorialRetiros(Long idUsuarioPaseador) {
+        if (idUsuarioPaseador == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuario no identificado");
+        }
+        int cap = Math.max(1, Math.min(historialRetirosMax, 500));
+        String cuentaResumen = resumenCuentaDestino(idUsuarioPaseador);
+        List<RetiroFondo> filas = retiroFondoRepository.findHistorialByIdUsuarioPaseador(
+                idUsuarioPaseador, PageRequest.of(0, cap));
+        List<RetiroHistorialItemResponse> salida = new ArrayList<>(filas.size());
+        for (RetiroFondo r : filas) {
+            Transaccion tx = r.getTransaccion();
+            EstadoPago estado = tx != null ? tx.getEstadoPago() : EstadoPago.PENDIENTE;
+            Long idTx = tx != null ? tx.getIdTransaccion() : null;
+            salida.add(new RetiroHistorialItemResponse(
+                    r.getIdRetiroFondos(),
+                    idTx,
+                    idTx != null ? "RET-" + idTx : "RET-" + r.getIdRetiroFondos(),
+                    nz(r.getMonto()),
+                    estado != null ? estado.name() : EstadoPago.PENDIENTE.name(),
+                    etiquetaEstadoRetiro(estado),
+                    r.getCreadoEn(),
+                    cuentaResumen));
+        }
+        return salida;
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public RetiroPaseadorResponse solicitarRetiro(Long idUsuarioPaseador, BigDecimal montoSolicitado) {
@@ -154,6 +191,48 @@ public class RetiroPaseadorService {
         } catch (DataIntegrityViolationException ignored) {
             // Otro hilo creó la fila; continuar al lock.
         }
+    }
+
+    private String resumenCuentaDestino(Long idUsuarioPaseador) {
+        return billeteraRepository
+                .findByIdUsuario(idUsuarioPaseador)
+                .flatMap(b -> cuentaRepository.findByBilletera_IdBilletera(b.getIdBilletera()))
+                .map(RetiroPaseadorService::formatearCuentaResumen)
+                .orElse(null);
+    }
+
+    private static String formatearCuentaResumen(Cuenta cuenta) {
+        if (cuenta == null) {
+            return null;
+        }
+        Banco banco = cuenta.getBanco();
+        TipoCuenta tipo = cuenta.getTipoCuenta();
+        String bancoNombre = banco != null && StringUtils.hasText(banco.getNombre()) ? banco.getNombre().trim() : "Banco";
+        String tipoNombre = tipo != null && StringUtils.hasText(tipo.getNombre()) ? tipo.getNombre().trim() : "Cuenta";
+        String enmascarado = enmascararNumeroCuenta(cuenta.getNumeroCuenta());
+        return bancoNombre + " · " + tipoNombre + " · " + enmascarado;
+    }
+
+    private static String enmascararNumeroCuenta(String numeroCuenta) {
+        if (!StringUtils.hasText(numeroCuenta)) {
+            return "****";
+        }
+        String digits = numeroCuenta.replaceAll("\\s+", "");
+        if (digits.length() <= 4) {
+            return "****" + digits;
+        }
+        return "****" + digits.substring(digits.length() - 4);
+    }
+
+    private static String etiquetaEstadoRetiro(EstadoPago estado) {
+        if (estado == null) {
+            return "Retiro en proceso";
+        }
+        return switch (estado) {
+            case APROBADO -> "Completado";
+            case RECHAZADO -> "Rechazado";
+            case PENDIENTE -> "Retiro en proceso";
+        };
     }
 
     private static BigDecimal nz(BigDecimal v) {

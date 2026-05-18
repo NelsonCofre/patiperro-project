@@ -262,6 +262,12 @@
   line-height: 1.6;
 }
 
+.withdrawalDate {
+  margin-top: 4px !important;
+  font-size: 0.85rem !important;
+  color: #94a3b8 !important;
+}
+
 .withdrawalCardSide {
   text-align: right;
 }

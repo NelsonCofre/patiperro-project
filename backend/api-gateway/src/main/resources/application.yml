@@ -23,6 +23,10 @@ spring:
           read-timeout: ${GATEWAY_HTTP_READ_TIMEOUT:120s}
       server:
         webmvc:
+          # Reenvía JWT a microservicios (Authorization suele no propagarse; pagos lee X-Patiperro-Authorization).
+          default-filters:
+            - AddRequestHeader=X-Patiperro-Authorization, {Authorization}
+            - AddRequestHeader=X-Patiperro-Forwarded-Cookie, {Cookie}
           routes:
             # Agenda + bloqueos-día + catálogos (JWT vía cookie/Authorization propagada al 8084).
             - id: agenda-service
