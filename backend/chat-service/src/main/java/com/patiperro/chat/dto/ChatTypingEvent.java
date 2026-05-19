@@ -14,6 +14,10 @@ public class ChatTypingEvent {
 	@Positive
 	private Integer idReserva;
 
+	@NotNull
+	@Positive
+	private Integer idUsuario;
+
 	@NotBlank
 	private String sender;
 

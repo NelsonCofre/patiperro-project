@@ -232,6 +232,9 @@ public class ChatService {
 		if (event.getIdReserva() == null || event.getIdReserva() <= 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idReserva inválido.");
 		}
+		if (event.getIdUsuario() == null || event.getIdUsuario() <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idUsuario inválido.");
+		}
 		if (event.getSender() == null || event.getSender().trim().isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sender es obligatorio.");
 		}

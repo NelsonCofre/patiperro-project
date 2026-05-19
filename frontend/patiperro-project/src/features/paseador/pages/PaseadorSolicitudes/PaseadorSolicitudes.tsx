@@ -235,10 +235,9 @@ export default function PaseadorSolicitudes() {
   }, []);
 
   useEffect(() => {
-    const reservaIds = new Set(solicitudes.map((solicitud) => solicitud.idReserva));
-    return subscribeChatMessages((message) => {
+    const reservaIds = solicitudes.map((solicitud) => solicitud.idReserva);
+    return subscribeChatMessages(reservaIds, (message) => {
       if (
-        !reservaIds.has(message.idReserva) ||
         message.senderUserId === currentPaseadorId ||
         activeChatReservaId === message.idReserva
       ) {
@@ -384,7 +383,11 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
   }
 
   function handleOpenChat(solicitud: SolicitudPendientePaseador) {
-    if (solicitud.chatActivo) {
+    const puedeChat =
+      solicitud.chatActivo ||
+      solicitud.estado === "En Curso" ||
+      solicitud.estado === "Finalizada";
+    if (puedeChat) {
       setActiveChatReservaId(solicitud.idReserva);
       return;
     }
@@ -624,6 +627,9 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           currentUserId={Number.isFinite(currentPaseadorId) ? currentPaseadorId : 0}
           currentUserRole="paseador"
           currentUserName={currentPaseadorName}
+          counterpartUserId={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.idTutorUsuario
+          }
           counterpartName={
             solicitudes.find((item) => item.idReserva === activeChatReservaId)?.tutorNombre ||
             "Tutor"

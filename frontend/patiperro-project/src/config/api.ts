@@ -84,6 +84,24 @@ export const ACCESS_TOKEN_SESSION_KEY = "patiperro_access_token";
 /** Endpoint WS STOMP expuesto por reserva-service para eventos de encuentro. */
 export const RESERVA_WS_URL = "ws://localhost:8090/ws/reservas";
 
+/**
+ * WebSocket STOMP del chat (mismo origen que Vite/Cloudflare → proxy /ws/chat → chat-service).
+ * Override: {@code VITE_CHAT_WS_URL} (ej. ws://127.0.0.1:8089/ws/chat).
+ */
+export function resolveChatWsBrokerUrl(): string {
+  const override = readEnvTrim("VITE_CHAT_WS_URL");
+  if (override) {
+    return override.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws/chat`;
+  }
+  return "ws://127.0.0.1:5173/ws/chat";
+}
+
+export const CHAT_WS_BROKER_URL = resolveChatWsBrokerUrl();
+
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
   auth: {

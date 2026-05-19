@@ -13,6 +13,7 @@ export type RechazoSolicitudForm = {
 
 export type SolicitudPendientePaseador = {
   idReserva: number;
+  idTutorUsuario: number;
   tutorNombre: string;
   tutorTelefono: string;
   tutorCorreo: string;

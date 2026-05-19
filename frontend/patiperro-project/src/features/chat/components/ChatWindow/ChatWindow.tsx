@@ -6,6 +6,7 @@ import {
   formatChatTimestamp,
   isNearBottom
 } from "../../utils/chatFormatters";
+import { resolveChatSenderName } from "../../utils/chatDisplayNames";
 import styles from "./ChatWindow.module.css";
 
 function getConnectionLabel(value: string): string {
@@ -22,6 +23,7 @@ export default function ChatWindow({
   currentUserId,
   currentUserRole,
   currentUserName,
+  counterpartUserId,
   counterpartName,
   mascotaNombre,
   onClose
@@ -49,7 +51,9 @@ export default function ChatWindow({
     reservaId,
     currentUserId,
     currentUserRole,
-    currentUserName
+    currentUserName,
+    counterpartUserId,
+    counterpartName
   });
 
   const canSend = draft.trim().length > 0 && !isSending;
@@ -140,6 +144,14 @@ export default function ChatWindow({
 
   function renderMessage(message: ChatMessage) {
     const isOwn = message.senderUserId === currentUserId;
+    const senderLabel = isOwn
+      ? "Tu"
+      : resolveChatSenderName(
+          message,
+          currentUserId,
+          counterpartUserId,
+          counterpartName
+        );
     return (
       <article
         key={message.id}
@@ -147,7 +159,7 @@ export default function ChatWindow({
       >
         <div className={`${styles.bubble} ${isOwn ? styles.bubbleOwn : styles.bubbleOther}`}>
           <header className={styles.bubbleHeader}>
-            <strong>{isOwn ? "Tu" : message.senderName}</strong>
+            <strong>{senderLabel}</strong>
             <span>{formatChatTimestamp(message.timestamp)}</span>
           </header>
           <p>{message.content}</p>

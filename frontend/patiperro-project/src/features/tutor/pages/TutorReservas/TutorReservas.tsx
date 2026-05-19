@@ -146,10 +146,9 @@ export default function TutorReservas() {
   }, [reload, selectedReserva, setNotice]);
 
   useEffect(() => {
-    const reservaIds = new Set(reservas.map((reserva) => reserva.idReserva));
-    return subscribeChatMessages((message) => {
+    const reservaIds = reservas.map((reserva) => reserva.idReserva);
+    return subscribeChatMessages(reservaIds, (message) => {
       if (
-        !reservaIds.has(message.idReserva) ||
         message.senderUserId === currentTutorId ||
         activeChatReservaId === message.idReserva
       ) {
@@ -427,6 +426,7 @@ export default function TutorReservas() {
           }
           currentUserRole="tutor"
           currentUserName={currentTutorName}
+          counterpartUserId={activeChatReserva.idPaseador ?? undefined}
           counterpartName={activeChatReserva.paseadorNombre}
           mascotaNombre={activeChatReserva.mascotaNombre}
           onClose={() => setActiveChatReservaId(null)}

@@ -11,6 +11,7 @@ import type {
   ChatRole,
   TypingEvent
 } from "../types/chat.types";
+import { enrichChatMessage } from "../utils/chatDisplayNames";
 
 type UseReservaChatOptions = {
   isOpen: boolean;
@@ -18,7 +19,32 @@ type UseReservaChatOptions = {
   currentUserId: number;
   currentUserRole: ChatRole;
   currentUserName: string;
+  counterpartUserId?: number;
+  counterpartName: string;
 };
+
+function isLocalOptimisticId(id: string): boolean {
+  return id.startsWith("local-");
+}
+
+/** Quita el eco local cuando el servidor devuelve el mismo mensaje por STOMP. */
+function dropOwnOptimisticEcho(
+  current: ChatMessage[],
+  incoming: ChatMessage,
+  currentUserId: number
+): ChatMessage[] {
+  if (incoming.senderUserId !== currentUserId) {
+    return current;
+  }
+  return current.filter(
+    (item) =>
+      !(
+        item.senderUserId === currentUserId &&
+        item.content === incoming.content &&
+        (item.estado === "pendiente" || isLocalOptimisticId(item.id))
+      )
+  );
+}
 
 function mergeMessages(
   current: ChatMessage[],
@@ -48,8 +74,12 @@ export function useReservaChat({
   reservaId,
   currentUserId,
   currentUserRole,
-  currentUserName
+  currentUserName,
+  counterpartUserId,
+  counterpartName
 }: UseReservaChatOptions) {
+  const enrichMessage = (message: ChatMessage): ChatMessage =>
+    enrichChatMessage(message, currentUserId, counterpartUserId, counterpartName);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [typingUsers, setTypingUsers] = useState<TypingEvent[]>([]);
@@ -71,7 +101,7 @@ export function useReservaChat({
     void fetchChatHistory(reservaId)
       .then((history) => {
         if (!active) return;
-        setMessages(history);
+        setMessages(history.map(enrichMessage));
         setConnectionState("connecting");
       })
       .catch((error) => {
@@ -98,7 +128,10 @@ export function useReservaChat({
       },
       onMessage: (message) => {
         if (!active) return;
-        setMessages((prev) => mergeMessages(prev, message));
+        const enriched = enrichMessage(message);
+        setMessages((prev) =>
+          mergeMessages(dropOwnOptimisticEcho(prev, enriched, currentUserId), enriched)
+        );
       },
       onTyping: (event) => {
         if (!active || event.senderUserId === currentUserId) return;
@@ -120,7 +153,7 @@ export function useReservaChat({
       setTypingUsers([]);
       unsubscribe();
     };
-  }, [currentUserId, isOpen, reservaId]);
+  }, [counterpartName, counterpartUserId, currentUserId, isOpen, reservaId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -228,7 +261,7 @@ export function useReservaChat({
     setHistoryError(null);
     try {
       const history = await fetchChatHistory(reservaId);
-      setMessages(history);
+      setMessages(history.map(enrichMessage));
       setConnectionState("connected");
     } catch (error) {
       setHistoryError(

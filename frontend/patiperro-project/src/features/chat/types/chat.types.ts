@@ -34,6 +34,8 @@ export type ChatWindowProps = {
   currentUserId: number;
   currentUserRole: ChatRole;
   currentUserName: string;
+  /** Id del tutor o paseador con quien se chatea (para resolver nombres en historial). */
+  counterpartUserId?: number;
   counterpartName: string;
   mascotaNombre: string;
   onClose: () => void;
