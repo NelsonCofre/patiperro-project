@@ -3,9 +3,11 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./app/App";
 import { installNgrokFetchBypass } from "./config/installNgrokFetchBypass";
+import { registerServiceWorker } from "./config/registerServiceWorker";
 import "leaflet/dist/leaflet.css";
 
 installNgrokFetchBypass();
+void registerServiceWorker();
 
 // BrowserRouter habilita la navegacion por rutas sin recargar toda la pagina.
 ReactDOM.createRoot(document.getElementById("root")!).render(

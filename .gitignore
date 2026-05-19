@@ -8,3 +8,13 @@ backend/tutores-service/src/main/resources/application.properties
 backend/tutores-service/target/classes/application.properties
 backend/tutores-service/target/classes/application.properties
 backend/tutores-service/src/main/resources/application.properties
+backend/agenda-service/src/main/resources/application.properties
+backend/chat-service/src/main/resources/application.properties
+backend/mascotas-service/src/main/resources/application.properties
+backend/mascotas-service/target/classes/application.properties
+backend/notification-service/src/main/resources/application.properties
+backend/pagos-service/src/main/resources/application.properties
+backend/paseadores-service/src/main/resources/application.properties
+backend/resena-service/src/main/resources/application.properties
+backend/reserva-service/src/main/resources/application.properties
+backend/tutores-service/src/main/resources/application.properties

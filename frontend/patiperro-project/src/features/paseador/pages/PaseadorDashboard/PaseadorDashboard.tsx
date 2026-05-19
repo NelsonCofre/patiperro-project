@@ -1,7 +1,11 @@
 // Home principal del paseador.
 // Resume perfil, agenda y metricas iniciales del rol.
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import DailySchedulePanel from "../../components/DailySchedulePanel/DailySchedulePanel";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
+import { fetchDailySchedulePanel } from "../../services/dailyScheduleService";
+import type { DailyScheduleItem } from "../../types/dailySchedule.types";
 import styles from "./PaseadorDashboard.module.css";
 
 const METRICS = [
@@ -30,7 +34,39 @@ const PROFILE_CHECKLIST = [
 ];
 
 export default function PaseadorDashboard() {
+  const navigate = useNavigate();
   const profileStatus = "Incompleto";
+  const [dailyTours, setDailyTours] = useState<DailyScheduleItem[]>([]);
+  const [isLoadingDailyTours, setIsLoadingDailyTours] = useState(true);
+  const [dailyToursError, setDailyToursError] = useState("");
+
+  async function loadDailyTours() {
+    setIsLoadingDailyTours(true);
+    setDailyToursError("");
+    try {
+      const data = await fetchDailySchedulePanel();
+      setDailyTours(data);
+    } catch (error) {
+      setDailyToursError(
+        error instanceof Error ? error.message : "No se pudieron cargar los paseos de hoy."
+      );
+    } finally {
+      setIsLoadingDailyTours(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadDailyTours();
+  }, []);
+
+  function openTourDetail(tour: DailyScheduleItem) {
+    const estado = (tour.nombreEstado ?? "").toUpperCase();
+    if (estado.includes("CURSO")) {
+      navigate("/paseador/dashboard/solicitudes/en-curso");
+      return;
+    }
+    navigate("/paseador/dashboard/solicitudes/aceptadas");
+  }
 
   return (
     <main className={styles.page}>
@@ -95,6 +131,14 @@ export default function PaseadorDashboard() {
           ))}
         </div>
       </section>
+
+      <DailySchedulePanel
+        tours={dailyTours}
+        isLoading={isLoadingDailyTours}
+        error={dailyToursError}
+        onRetry={() => void loadDailyTours()}
+        onOpenTour={openTourDetail}
+      />
 
       <section className={styles.contentGrid}>
         <article className={`${styles.card} ${styles.profileCard}`}>

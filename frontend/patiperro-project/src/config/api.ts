@@ -183,6 +183,8 @@ export const API_ENDPOINTS = {
     byTutorDetalle: (idTutor: number) => `${API_BASE_URL}/api/reserva/tutor/${idTutor}/detalle`,
     byId: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}`,
     status: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}/status`,
+    paseadorAgendaHoyPanel: (idPaseador: number) =>
+      `${API_BASE_URL}/api/reserva/paseador/${idPaseador}/agenda-hoy/panel`,
     paseadorSolicitudesPendientes: (idPaseador: number) =>
       `${API_BASE_URL}/api/reserva/paseador/${idPaseador}/solicitudes-pendientes`
   }

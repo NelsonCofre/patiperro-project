@@ -104,7 +104,12 @@ export function subscribeReservaChat(
   reservaListeners.add(listener);
   handlers.onConnected?.("connected");
 
+  let closed = false;
   return () => {
+    if (closed) {
+      return;
+    }
+    closed = true;
     reservaListeners.delete(listener);
     handlers.onDisconnected?.();
   };
@@ -138,4 +143,3 @@ export async function sendTypingSignal(event: TypingEvent): Promise<void> {
     payload: event
   });
 }
-
