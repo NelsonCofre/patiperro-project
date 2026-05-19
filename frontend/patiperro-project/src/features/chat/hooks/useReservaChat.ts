@@ -89,8 +89,29 @@ export function useReservaChat({
   const [sendError, setSendError] = useState<string | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
 
+  function clearTypingTimeout(): void {
+    if (typingTimeoutRef.current != null) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  }
+
+  async function notifyStoppedTyping(): Promise<void> {
+    if (!Number.isFinite(reservaId) || reservaId <= 0) return;
+    await sendTypingSignal({
+      idReserva: reservaId,
+      senderUserId: currentUserId,
+      senderRole: currentUserRole,
+      senderName: currentUserName,
+      isTyping: false
+    });
+  }
+
   useEffect(() => {
     if (!isOpen || !Number.isFinite(reservaId) || reservaId <= 0) {
+      clearTypingTimeout();
+      setTypingUsers([]);
+      setConnectionState("idle");
       return;
     }
 
@@ -147,10 +168,9 @@ export function useReservaChat({
 
     return () => {
       active = false;
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      clearTypingTimeout();
       setTypingUsers([]);
+      setConnectionState("idle");
       unsubscribe();
     };
   }, [counterpartName, counterpartUserId, currentUserId, isOpen, reservaId]);
@@ -159,13 +179,8 @@ export function useReservaChat({
     if (!isOpen) return;
 
     if (!draft.trim()) {
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
-      });
+      clearTypingTimeout();
+      void notifyStoppedTyping();
       return;
     }
 
@@ -177,23 +192,14 @@ export function useReservaChat({
       isTyping: true
     });
 
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-    }
+    clearTypingTimeout();
     typingTimeoutRef.current = window.setTimeout(() => {
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
-      });
+      typingTimeoutRef.current = null;
+      void notifyStoppedTyping();
     }, 1800);
 
     return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      clearTypingTimeout();
     };
   }, [currentUserId, currentUserName, currentUserRole, draft, isOpen, reservaId]);
 
@@ -246,13 +252,8 @@ export function useReservaChat({
       );
     } finally {
       setIsSending(false);
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
-      });
+      clearTypingTimeout();
+      void notifyStoppedTyping();
     }
   }
 
@@ -290,4 +291,3 @@ export function useReservaChat({
     clearSendError
   };
 }
-

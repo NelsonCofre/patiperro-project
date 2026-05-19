@@ -260,6 +260,7 @@ export function subscribeReservaChat(
     handlers.onError?.("No se pudo conectar al chat en tiempo real.");
   });
 
+  let closed = false;
   return () => {
     reservaHandlers.get(reservaId)?.delete(handlers);
     if (reservaHandlers.get(reservaId)?.size === 0) {
