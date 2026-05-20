@@ -9,12 +9,42 @@ import {
 import { resolveChatSenderName } from "../../utils/chatDisplayNames";
 import styles from "./ChatWindow.module.css";
 
+const CHAT_VISIBILITY_EVENT = "chat-visibility";
+
 function getConnectionLabel(value: string): string {
   if (value === "loading-history") return "Cargando historial";
   if (value === "connecting") return "Conectando";
   if (value === "connected") return "Conectado";
   if (value === "error") return "Sin conexion";
   return "Inactivo";
+}
+
+type ChatVisibilityPayload = {
+  type: typeof CHAT_VISIBILITY_EVENT;
+  idReserva: number;
+  isChatOpen: boolean;
+  visibilityState: DocumentVisibilityState;
+  focused: boolean;
+};
+
+function postChatVisibilityToServiceWorker(payload: ChatVisibilityPayload): void {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+    return;
+  }
+
+  const controller = navigator.serviceWorker.controller;
+  if (controller) {
+    controller.postMessage(payload);
+    return;
+  }
+
+  void navigator.serviceWorker.ready
+    .then((registration) => {
+      registration.active?.postMessage(payload);
+    })
+    .catch(() => {
+      // Si el SW aun no esta listo, simplemente omitimos esta señal.
+    });
 }
 
 export default function ChatWindow({
@@ -70,6 +100,39 @@ export default function ChatWindow({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const emitPresence = (isChatOpen: boolean) => {
+      postChatVisibilityToServiceWorker({
+        type: CHAT_VISIBILITY_EVENT,
+        idReserva: reservaId,
+        isChatOpen,
+        visibilityState: document.visibilityState,
+        focused: document.hasFocus()
+      });
+    };
+
+    const handlePresenceChange = () => {
+      emitPresence(true);
+    };
+
+    emitPresence(true);
+
+    document.addEventListener("visibilitychange", handlePresenceChange);
+    window.addEventListener("focus", handlePresenceChange);
+    window.addEventListener("blur", handlePresenceChange);
+
+    return () => {
+      emitPresence(false);
+      document.removeEventListener("visibilitychange", handlePresenceChange);
+      window.removeEventListener("focus", handlePresenceChange);
+      window.removeEventListener("blur", handlePresenceChange);
+    };
+  }, [isOpen, reservaId]);
 
   useEffect(() => {
     if (!isOpen) return;

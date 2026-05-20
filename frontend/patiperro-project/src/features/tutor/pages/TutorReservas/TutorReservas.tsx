@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TUTOR_ID_SESSION_KEY } from "../../../../config/api";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import { subscribeChatMessages } from "../../../chat/services/chatWs";
 import type { ChatToastPayload } from "../../../chat/types/chat.types";
 import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
@@ -73,6 +74,7 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
 }
 
 export default function TutorReservas() {
+  const { requestPermission } = usePushNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
@@ -108,6 +110,11 @@ export default function TutorReservas() {
   const currentTutorId = tutorIdRaw ? Number(tutorIdRaw) : 0;
   const currentTutorName =
     sessionStorage.getItem("patiperro_nombre_usuario")?.trim() || "Tutor";
+
+  function handleOpenChat(reservaId: number): void {
+    void requestPermission("chat-entry");
+    setActiveChatReservaId(reservaId);
+  }
 
   useEffect(() => {
     if (!reservas.length) {
@@ -188,7 +195,7 @@ export default function TutorReservas() {
           className={styles.chatToast}
           onClick={() => {
             setSelectedReservaId(chatToast.reservaId);
-            setActiveChatReservaId(chatToast.reservaId);
+            handleOpenChat(chatToast.reservaId);
             setChatToast(null);
           }}
         >
@@ -294,7 +301,7 @@ export default function TutorReservas() {
                 mascotaNombre={selectedReserva.mascotaNombre}
                 horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
                 chatLabel="Abrir chat del paseo"
-                onOpenChat={() => setActiveChatReservaId(selectedReserva.idReserva)}
+                onOpenChat={() => handleOpenChat(selectedReserva.idReserva)}
               />
             ) : null}
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import { subscribeChatMessages } from "../../../chat/services/chatWs";
 import type { ChatToastPayload } from "../../../chat/types/chat.types";
 import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
@@ -33,7 +34,7 @@ import styles from "./PaseadorSolicitudes.module.css";
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -144,6 +145,7 @@ function getActiveView(pathname: string): ViewConfig {
 }
 
 export default function PaseadorSolicitudes() {
+  const { requestPermission } = usePushNotifications();
   const location = useLocation();
   const activeView = useMemo(() => getActiveView(location.pathname), [location.pathname]);
 
@@ -324,6 +326,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
     } else {
       throw new Error("No se pudo encontrar la ubicación exacta en el mapa.");
     }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     setFeedback({
       type: "error",
@@ -469,6 +472,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           type="button"
           className={styles.chatToast}
           onClick={() => {
+            void requestPermission("chat-entry");
             setActiveChatReservaId(chatToast.reservaId);
             setChatToast(null);
           }}

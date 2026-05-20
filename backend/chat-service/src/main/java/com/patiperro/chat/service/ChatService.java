@@ -11,6 +11,7 @@ import com.patiperro.chat.dto.EstadoCatalogoDTO;
 import com.patiperro.chat.dto.MensajeCreateRequest;
 import com.patiperro.chat.dto.MensajeResponseDTO;
 import com.patiperro.chat.dto.MensajeUpdateRequest;
+import com.patiperro.chat.event.ChatMensajePersistidoEvent;
 import com.patiperro.chat.model.Conversacion;
 import com.patiperro.chat.model.EstadoChat;
 import com.patiperro.chat.model.EstadoMensaje;
@@ -22,6 +23,7 @@ import com.patiperro.chat.repository.MensajeRepository;
 import com.patiperro.chat.support.ReservaChatIntegracionClient;
 import com.patiperro.chat.support.ReservaParticipantesDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class ChatService {
 	private final EstadoChatRepository estadoChatRepository;
 	private final EstadoMensajeRepository estadoMensajeRepository;
 	private final ReservaChatIntegracionClient reservaChatIntegracionClient;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Transactional(readOnly = true)
 	public List<EstadoCatalogoDTO> listarEstadosChat() {
@@ -198,7 +201,9 @@ public class ChatService {
 		mensaje.setEstadoMensaje(estadoMensaje);
 		mensaje = mensajeRepository.save(mensaje);
 
-		return toChatMessageOutbound(mensaje, request.getSender().trim());
+		ChatMessageOutbound outbound = toChatMessageOutbound(mensaje, request.getSender().trim());
+		applicationEventPublisher.publishEvent(new ChatMensajePersistidoEvent(outbound));
+		return outbound;
 	}
 
 	/**
