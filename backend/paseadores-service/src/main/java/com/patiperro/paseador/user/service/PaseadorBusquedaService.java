@@ -159,7 +159,8 @@ public class PaseadorBusquedaService {
         return PaseadorPerfilDTO.builder()
                 .idUsuario(usuario.getId())
                 .nombre(usuario.getPrimerNombre())
-                .correo(usuario.getCorreo()) // Asegúrate de usar tu getter real (getCorreo o getEmail)
+                .correo(usuario.getCorreo())
+                .verificado(PaseadorVerificacionService.esVerificadoPublicamente(usuario))
                 .build();
     }
 
@@ -246,6 +247,7 @@ public class PaseadorBusquedaService {
                     .longitud(cg.longitud())
                     // NUEVO: Lo agregamos al builder
                     .tarifaDesde(tarifaMinima != null ? tarifaMinima : 0)
+                    .verificado(PaseadorVerificacionService.esVerificadoPublicamente(p))
                     .build());
         }
 
@@ -327,6 +329,7 @@ public class PaseadorBusquedaService {
                     .longitud(cg.longitud())
                     // NUEVO: Lo agregamos al builder
                     .tarifaDesde(tarifaMinima != null ? tarifaMinima : 0)
+                    .verificado(PaseadorVerificacionService.esVerificadoPublicamente(p))
                     .build());
         }
         

@@ -24,4 +24,6 @@ public class PaseadorCercanoResponseDTO {
     private Double latitud;
     private Double longitud;
     private Integer tarifaDesde;
+    /** true si la verificación de identidad (cédula) fue aprobada. */
+    private boolean verificado;
 }

@@ -1,5 +1,6 @@
 package com.patiperro.paseador.user.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,10 +19,19 @@ public class PaseadorPerfilFotoStorageService {
     private static final Set<String> ALLOWED_EXT = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
     private final Path uploadDir = Paths.get("uploads/paseador-perfil").toAbsolutePath().normalize();
+    private final long maxFileSizeBytes;
+
+    public PaseadorPerfilFotoStorageService(
+            @Value("${patiperro.paseadores.perfil-foto.max-file-size-bytes:10485760}") long maxFileSizeBytes) {
+        this.maxFileSizeBytes = maxFileSizeBytes;
+    }
 
     public String save(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Archivo vacío");
+        }
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new IllegalArgumentException("La foto supera el tamaño máximo permitido (10 MB)");
         }
         String ext = extensionOf(file.getOriginalFilename());
         if (ext == null || !ALLOWED_EXT.contains(ext.toLowerCase(Locale.ROOT))) {

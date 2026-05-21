@@ -42,7 +42,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/paseadores/auth/logout").permitAll()
                         .requestMatchers("/api/paseadores/auth/upload-foto-perfil").permitAll()
                         .requestMatchers("/api/paseadores/public/**").permitAll()
+                        // Interno: sin JWT; protegido por X-Patiperro-Interno-Secret en el controller.
+                        // El api-gateway deniega /api/paseadores/interno/** en el borde público.
                         .requestMatchers("/api/paseadores/interno/**").permitAll()
+                        .requestMatchers("/api/paseadores/me/**").authenticated()
                         // 👇 AGREGA ESTA LÍNEA 👇
                         .requestMatchers(HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .anyRequest().authenticated())

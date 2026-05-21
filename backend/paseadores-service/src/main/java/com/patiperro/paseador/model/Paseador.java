@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,6 +53,33 @@ public class Paseador {
 
     @Column(name = "biografia", length = 250)
     private String biografia;
+
+    /** Verificación de identidad (cédula); distinto del ciclo de verificación de saldo en pagos. */
+    @JsonIgnore
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_verificacion_identidad", length = 20, nullable = false)
+    @Builder.Default
+    private EstadoVerificacionIdentidad estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
+
+    @JsonIgnore
+    @Column(name = "archivo_cedula_frontal", length = 255)
+    private String archivoCedulaFrontal;
+
+    @JsonIgnore
+    @Column(name = "archivo_cedula_reverso", length = 255)
+    private String archivoCedulaReverso;
+
+    @JsonIgnore
+    @Column(name = "verificacion_identidad_enviada_en")
+    private LocalDateTime verificacionIdentidadEnviadaEn;
+
+    @JsonIgnore
+    @Column(name = "verificacion_identidad_revisada_en")
+    private LocalDateTime verificacionIdentidadRevisadaEn;
+
+    @JsonIgnore
+    @Column(name = "motivo_rechazo_verificacion_identidad", length = 500)
+    private String motivoRechazoVerificacionIdentidad;
 
     @JsonIgnore
     @Column(name = "contrasena", length = 60, nullable = false)
