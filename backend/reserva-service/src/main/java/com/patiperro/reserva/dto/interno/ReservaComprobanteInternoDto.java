@@ -5,8 +5,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Datos internos mínimos para generar un resumen de transacción post-pago.
- * Se expone solo vía rutas /api/reserva/interno/** (secreto interno).
+ * Datos internos mínimos para generar un resumen de transacción post-pago y validaciones
+ * servidor-a-servidor (p. ej. fotos del paseo en chat-service).
+ * Se expone solo vía rutas {@code /api/reserva/interno/**} (cabecera secreta interna).
+ * <p>
+ * Consumidores: pagos-service (comprobante), chat-service ({@code idEstadoReserva},
+ * {@code nombreEstadoReserva} para validar paseo EN CURSO). Campos nuevos al final del JSON
+ * son ignorados por clientes que no los declaran.
  */
 public record ReservaComprobanteInternoDto(
         Integer idReserva,
@@ -21,6 +26,8 @@ public record ReservaComprobanteInternoDto(
         LocalDateTime horaInicio,
         LocalDateTime horaFinal,
         BigDecimal montoTotal,
-        Long idTransaccionPagos) {
+        Long idTransaccionPagos,
+        Integer idEstadoReserva,
+        String nombreEstadoReserva) {
 }
 

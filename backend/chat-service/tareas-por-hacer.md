@@ -63,3 +63,26 @@ En `.env.local` del front (como el resto del proyecto):
 El WebSocket usa el host de Cloudflare (`wss://…/ws/chat`). Vite reenvía `/ws/chat` **directo** a `http://127.0.0.1:8089` (chat-service en la misma PC que `npm run dev`). El REST `/api/chat` sigue por gateway/ngrok.
 
 Override opcional en `.env.local`: `VITE_CHAT_WS_PROXY_TARGET=http://127.0.0.1:8089`
+
+---
+
+## Historia: Como Paseador, quiero enviar fotos del perro durante el paseo
+
+**Revisión backend (2026-05-20)** — Contrato: `CHAT_API_FOTOS.md`.
+
+| Escenario | Backend (`chat-service`) |
+|-----------|--------------------------|
+| Subir JPG/PNG ≤ 10 MB (paseador, paseo EN CURSO) | [x] `POST /api/chat/reservas/{id}/mensajes/imagen` + `ChatMediaStorageService` |
+| Validación integración reserva | [x] `ReservaChatIntegracionClient` → comprobante interno |
+| Media pública por UUID | [x] `GET /api/chat/media/{filename}` |
+| Galería tutor (paseo FINALIZADA) | [x] `GET /api/chat/reservas/{id}/galeria-paseo?idUsuario=` |
+| STOMP tras subida | [x] `/topic/reserva.{id}` |
+| Push preview foto | [x] `ChatNuevoMensajePushIntegracionRequest` (flag notification off por defecto) |
+| Errores JSON `{ message }` | [x] `GlobalExceptionHandler` |
+| JWT en chat/media | [ ] pendiente (cambio transversal; requiere decisión explícita) |
+
+### Despliegue manual
+
+1. SQL: `db/chat_db-mensaje-imagen-migration.sql` en `chat_db`.
+2. Reiniciar **reserva-service** y **chat-service** (`RESERVA_INTERNO_SECRET` = `patiperro.reserva.interno.secret`).
+3. Prod: volumen en `CHAT_MEDIA_UPLOAD_DIR`.

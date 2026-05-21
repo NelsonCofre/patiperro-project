@@ -2,10 +2,12 @@ package com.patiperro.chat.support;
 
 /**
  * Subconjunto de {@code com.patiperro.reserva.dto.interno.ReservaComprobanteInternoDto}
- * para resolver el destinatario del push (campos {@code idTutorUsuario}, {@code idPaseadorUsuario}).
- * Campos adicionales del JSON de comprobante se ignoran en la deserialización.
+ * (mismo {@code GET /api/reserva/interno/{id}/comprobante}).
+ * Usado para push (participantes) y validación de fotos ({@code nombreEstadoReserva} = EN CURSO).
  */
 public record ReservaParticipantesDto(
         Integer idTutorUsuario,
-        Integer idPaseadorUsuario) {
+        Integer idPaseadorUsuario,
+        Integer idEstadoReserva,
+        String nombreEstadoReserva) {
 }

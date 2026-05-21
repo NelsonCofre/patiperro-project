@@ -21,6 +21,7 @@ public class SecurityConfig {
 				.cors(Customizer.withDefaults())
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/ws/chat/**").permitAll()
+						.requestMatchers("/api/chat/media/**").permitAll()
 						.requestMatchers("/api/chat/**").permitAll()
 						.anyRequest().authenticated());
 		return http.build();

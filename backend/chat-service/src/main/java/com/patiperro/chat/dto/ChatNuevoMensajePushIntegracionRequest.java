@@ -46,7 +46,7 @@ public record ChatNuevoMensajePushIntegracionRequest(
         if (remitente.isEmpty()) {
             return null;
         }
-        String preview = truncarPreview(outbound.getContent());
+        String preview = previewDesdeOutbound(outbound);
         if (preview.isEmpty()) {
             return null;
         }
@@ -58,6 +58,14 @@ public record ChatNuevoMensajePushIntegracionRequest(
                 remitente,
                 preview,
                 DEEP_LINK_PREFIX + outbound.getIdReserva());
+    }
+
+    private static String previewDesdeOutbound(ChatMessageOutbound outbound) {
+        if ("IMAGEN".equalsIgnoreCase(outbound.getTipo())) {
+            String comentario = truncarPreview(outbound.getContent());
+            return comentario.isEmpty() ? "📷 Foto del paseo" : comentario;
+        }
+        return truncarPreview(outbound.getContent());
     }
 
     private static String truncarPreview(String content) {
