@@ -26,7 +26,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Búsqueda geográfica de paseadores. Si se envían los cuatro parámetros de agenda,
+ * Búsqueda geográfica de paseadores y perfiles públicos para tutores.
+ * El campo {@code verificado} en los DTOs públicos indica identidad aprobada ({@code APROBADO});
+ * no expone estado del flujo ni documentos de cédula.
+ * <p>
+ * Si se envían los cuatro parámetros de agenda,
  * el filtro de disponibilidad lo resuelve agenda-service (incluye exclusión de días
  * bloqueados por motivos personales cuando así esté implementado allí).
  * Opcionalmente ({@code patiperro.paseadores.cercanos.filtrar-disponible-desde-hoy})

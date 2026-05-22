@@ -8,7 +8,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +23,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 
 /** Lecturas internas para otros microservicios (cabecera secreta, sin JWT). */
@@ -51,6 +58,26 @@ public class PaseadorInternoController {
                     return ResponseEntity.ok(new PaseadorCorreoResponse(c != null ? c.trim() : null));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/verificacion-identidad/documentos/{lado}")
+    public ResponseEntity<Resource> descargarDocumentoVerificacion(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @PathVariable Long id,
+            @PathVariable String lado) throws IOException {
+        ResponseEntity<Void> forbidden = validarSecreto(secretoHeader);
+        if (forbidden != null) {
+            return ResponseEntity.status(forbidden.getStatusCode()).build();
+        }
+        Path path = verificacionService.resolverDocumentoPorPaseadorId(id, lado);
+        Resource resource = new UrlResource(path.toUri());
+        String contentType = Files.probeContentType(path);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE,
+                        contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .body(resource);
     }
 
     @PutMapping("/{id}/verificacion-identidad")

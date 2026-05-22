@@ -21,6 +21,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Verificación de identidad del paseador autenticado ({@code /api/paseadores/me/verificacion}).
+ * Requiere JWT (misma convención que {@link com.patiperro.paseador.user.controller.PaseadorConfiguracionController}).
+ * <p>
+ * Subida multipart según instrucción de producto: {@code cedulaFrontal} y {@code cedulaReverso}.
+ * La validación de formato/tamaño ocurre en {@link com.patiperro.paseador.user.service.PaseadorVerificacionDocumentoStorageService}.
+ */
 @RestController
 @RequestMapping("/api/paseadores/me/verificacion")
 @RequiredArgsConstructor
@@ -37,6 +44,8 @@ public class PaseadorVerificacionController {
     public ResponseEntity<VerificacionIdentidadResponseDTO> subirDocumentos(
             @RequestParam("cedulaFrontal") MultipartFile cedulaFrontal,
             @RequestParam("cedulaReverso") MultipartFile cedulaReverso) {
+        requireMultipartPresente(cedulaFrontal, "cedulaFrontal");
+        requireMultipartPresente(cedulaReverso, "cedulaReverso");
         VerificacionIdentidadResponseDTO body = verificacionService.subirDocumentos(cedulaFrontal, cedulaReverso);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
@@ -52,5 +61,11 @@ public class PaseadorVerificacionController {
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .body(resource);
+    }
+
+    private static void requireMultipartPresente(MultipartFile file, String nombreParametro) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Archivo requerido: " + nombreParametro);
+        }
     }
 }
