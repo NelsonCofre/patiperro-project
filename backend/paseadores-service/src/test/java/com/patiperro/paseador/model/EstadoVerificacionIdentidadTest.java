@@ -2,6 +2,10 @@ package com.patiperro.paseador.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,5 +47,22 @@ class EstadoVerificacionIdentidadTest {
             assertEquals(estado.name(), estado.name().toUpperCase());
             assertTrue(estado.name().length() <= 20);
         }
+    }
+
+    /** Mismos literales que {@code chk_paseador_estado_verificacion_identidad} en V1/V2 Flyway. */
+    @Test
+    void valoresEnum_coincidenConCheckFlyway() {
+        Set<String> enEnum = Stream.of(EstadoVerificacionIdentidad.values())
+                .map(Enum::name)
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("SIN_ENVIAR", "EN_PROCESO", "APROBADO", "RECHAZADO"), enEnum);
+    }
+
+    @Test
+    void mensajeBloqueoSubida_soloEnProcesoYAprobado() {
+        assertTrue(EstadoVerificacionIdentidad.EN_PROCESO.mensajeBloqueoSubida().isPresent());
+        assertTrue(EstadoVerificacionIdentidad.APROBADO.mensajeBloqueoSubida().isPresent());
+        assertTrue(EstadoVerificacionIdentidad.SIN_ENVIAR.mensajeBloqueoSubida().isEmpty());
+        assertTrue(EstadoVerificacionIdentidad.RECHAZADO.mensajeBloqueoSubida().isEmpty());
     }
 }

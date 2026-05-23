@@ -49,6 +49,13 @@ class PaseadorVerificacionServiceTest {
     }
 
     @Test
+    void obtenerEstadoAutenticado_sinSesion_lanza401() {
+        assertThrows(
+                ResponseStatusException.class,
+                () -> verificacionService.obtenerEstadoAutenticado());
+    }
+
+    @Test
     void subirDocumentos_rechazaSiVerificacionEnProceso() throws Exception {
         initStorage();
         Paseador paseador = paseadorEnProceso();
@@ -63,6 +70,29 @@ class PaseadorVerificacionServiceTest {
                 () -> verificacionService.subirDocumentos(frontal, reverso));
 
         assertEquals(409, ex.getStatusCode().value());
+    }
+
+    @Test
+    void subirDocumentos_rechazaSiYaAprobado() throws Exception {
+        initStorage();
+        Paseador paseador = Paseador.builder()
+                .id(4L)
+                .correo("aprobado@test.cl")
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.APROBADO)
+                .archivoCedulaFrontal("f.jpg")
+                .archivoCedulaReverso("r.jpg")
+                .build();
+        autenticar(paseador.getCorreo());
+        when(paseadorRepository.findByCorreo(paseador.getCorreo())).thenReturn(Optional.of(paseador));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> verificacionService.subirDocumentos(
+                        jpegFile("cedulaFrontal", "frontal.jpg"),
+                        jpegFile("cedulaReverso", "reverso.jpg")));
+
+        assertEquals(409, ex.getStatusCode().value());
+        verify(paseadorRepository, never()).save(any());
     }
 
     @Test
@@ -87,6 +117,41 @@ class PaseadorVerificacionServiceTest {
         assertTrue(response.isTieneFrontal());
         assertTrue(response.isTieneReverso());
         verify(paseadorRepository).save(any(Paseador.class));
+    }
+
+    @Test
+    void revisarVerificacionInterna_rechazado_conMotivo_guardaMotivo() {
+        Paseador paseador = paseadorEnProceso();
+        when(paseadorRepository.findById(2L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        VerificacionIdentidadResponseDTO response = verificacionService.revisarVerificacionInterna(
+                2L,
+                EstadoVerificacionIdentidad.RECHAZADO,
+                "Documento ilegible");
+
+        assertEquals(EstadoVerificacionIdentidad.RECHAZADO, response.getEstado());
+        assertEquals("Documento ilegible", response.getMotivoRechazo());
+        assertTrue(response.isPuedeSubir());
+    }
+
+    @Test
+    void revisarVerificacionInterna_sinDocumentos_lanza409() {
+        Paseador paseador = Paseador.builder()
+                .id(5L)
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.EN_PROCESO)
+                .build();
+        when(paseadorRepository.findById(5L)).thenReturn(Optional.of(paseador));
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> verificacionService.revisarVerificacionInterna(
+                        5L,
+                        EstadoVerificacionIdentidad.APROBADO,
+                        null));
+
+        assertEquals(409, ex.getStatusCode().value());
+        verify(paseadorRepository, never()).save(any());
     }
 
     @Test
@@ -136,6 +201,18 @@ class PaseadorVerificacionServiceTest {
 
         assertEquals(409, ex.getStatusCode().value());
         verify(paseadorRepository, never()).save(any());
+    }
+
+    @Test
+    void resolverDocumentoAutenticado_ladoInvalido_lanza400() throws Exception {
+        initStorage();
+        Paseador paseador = paseadorEnProceso();
+        autenticar(paseador.getCorreo());
+        when(paseadorRepository.findByCorreo(paseador.getCorreo())).thenReturn(Optional.of(paseador));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> verificacionService.resolverDocumentoAutenticado("trasero"));
     }
 
     @Test

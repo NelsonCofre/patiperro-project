@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaseadorVerificacionDocumentoStorageServiceTest {
 
@@ -101,5 +102,34 @@ class PaseadorVerificacionDocumentoStorageServiceTest {
         byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
         MockMultipartFile file = new MockMultipartFile("f", "a.jpg", "image/jpeg", jpeg);
         assertNotNull(conDefault.save(file));
+    }
+
+    @Test
+    void save_devuelveNombreUuidConExtensionPermitida() throws Exception {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+        MockMultipartFile file = new MockMultipartFile("cedulaFrontal", "doc.JPG", "image/jpeg", jpeg);
+        String filename = storageService.save(file);
+        assertTrue(filename.matches("^[a-fA-F0-9\\-]{36}\\.jpg$"));
+    }
+
+    @Test
+    void save_rechazaContentTypeInvalidoSiVieneInformado() {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+        MockMultipartFile file = new MockMultipartFile(
+                "cedulaFrontal",
+                "cedula.jpg",
+                "application/octet-stream",
+                jpeg);
+        assertThrows(IllegalArgumentException.class, () -> storageService.save(file));
+    }
+
+    @Test
+    void deleteQuietly_eliminaArchivoGuardado() throws Exception {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+        MockMultipartFile file = new MockMultipartFile("cedulaFrontal", "cedula.jpg", "image/jpeg", jpeg);
+        String filename = storageService.save(file);
+        assertNotNull(storageService.resolveExisting(filename));
+        storageService.deleteQuietly(filename);
+        assertNull(storageService.resolveExisting(filename));
     }
 }

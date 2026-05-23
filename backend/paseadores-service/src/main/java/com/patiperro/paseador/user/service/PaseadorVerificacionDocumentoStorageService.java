@@ -16,7 +16,7 @@ import java.util.UUID;
 
 /**
  * Almacenamiento local de documentos de verificación de identidad (cédula).
- * Mismo enfoque que {@link ChatMediaStorageService} y {@link PaseadorPerfilFotoStorageService}:
+ * Mismo enfoque que {@link PaseadorPerfilFotoStorageService} y el media storage de chat-service:
  * UUID en disco, validación de extensión/MIME/magic bytes y resolución segura por regex.
  */
 @Service

@@ -1,6 +1,5 @@
--- Normaliza estado_verificacion_identidad si Hibernate creó la columna sin DEFAULT/CHECK
--- (V1 usa ADD COLUMN IF NOT EXISTS y puede omitir columnas ya existentes).
--- Idempotente: seguro en BD nueva (post-V1) y en BD migrada solo con Hibernate.
+-- Reparación idempotente si V1 se aplicó en una versión anterior sin normalización previa al CHECK,
+-- o si Hibernate volvió a dejar NULL/valores fuera del enum. Seguro re-ejecutar (no-op si ya está bien).
 
 UPDATE paseador
 SET estado_verificacion_identidad = 'SIN_ENVIAR'

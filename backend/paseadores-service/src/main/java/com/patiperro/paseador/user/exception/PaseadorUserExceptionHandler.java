@@ -8,6 +8,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -38,6 +39,14 @@ public class PaseadorUserExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "Bad Request",
                 "Parámetro multipart requerido: " + ex.getParameterName());
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingMultipartPart(MissingServletRequestPartException ex) {
+        return errorBody(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                "Parámetro multipart requerido: " + ex.getRequestPartName());
     }
 
     @ExceptionHandler(ResponseStatusException.class)
