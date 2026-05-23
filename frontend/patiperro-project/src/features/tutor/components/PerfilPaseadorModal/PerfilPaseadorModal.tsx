@@ -205,8 +205,10 @@ export default function PerfilPaseadorModal({
         <div className={styles.header}>
           <img src={paseador.fotoUrl} alt={paseador.nombre} className={styles.photo} />
           <div className={styles.headerInfo}>
-            <span className={paseador.perfilCompleto ? styles.verifiedBadge : styles.unverifiedBadge}>
-              {paseador.perfilCompleto ? "Perfil completo" : "Perfil en progreso"}
+            <span
+              className={paseador.verificado ? styles.verifiedBadge : styles.unverifiedBadge}
+            >
+              {paseador.verificado ? "✓ Identidad verificada" : "Identidad no verificada"}
             </span>
             <h2>{paseador.nombre}</h2>
             <p>{paseador.bio}</p>

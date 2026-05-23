@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TUTOR_ID_SESSION_KEY } from "../../../../config/api";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import PaseoGaleria from "../../../chat/components/PaseoGaleria/PaseoGaleria";
 import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import { subscribeChatMessages } from "../../../chat/services/chatWs";
 import type { ChatToastPayload } from "../../../chat/types/chat.types";
-import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
+import { buildChatMessageSnippet } from "../../../chat/utils/chatFormatters";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
 import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
@@ -165,7 +166,7 @@ export default function TutorReservas() {
       setChatToast({
         reservaId: message.idReserva,
         senderName: message.senderName,
-        snippet: buildMessageSnippet(message.content)
+        snippet: buildChatMessageSnippet(message)
       });
     });
   }, [activeChatReservaId, currentTutorId, reservas]);
@@ -307,6 +308,13 @@ export default function TutorReservas() {
 
             {selectedEstado?.key === "aceptada" ? (
               <CodigoEncuentro codigo={selectedReserva.codigoEncuentro} />
+            ) : null}
+
+            {selectedEstado?.key === "finalizada" ? (
+              <PaseoGaleria
+                reservaId={selectedReserva.idReserva}
+                idUsuario={currentTutorId > 0 ? currentTutorId : selectedReserva.idTutorUsuario}
+              />
             ) : null}
 
             <ReservaStepper reserva={selectedReserva} />

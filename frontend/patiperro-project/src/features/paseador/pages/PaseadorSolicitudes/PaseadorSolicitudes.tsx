@@ -4,7 +4,7 @@ import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
 import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import { subscribeChatMessages } from "../../../chat/services/chatWs";
 import type { ChatToastPayload } from "../../../chat/types/chat.types";
-import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
+import { buildChatMessageSnippet } from "../../../chat/utils/chatFormatters";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -249,7 +249,7 @@ export default function PaseadorSolicitudes() {
       setChatToast({
         reservaId: message.idReserva,
         senderName: message.senderName,
-        snippet: buildMessageSnippet(message.content)
+        snippet: buildChatMessageSnippet(message)
       });
     });
   }, [activeChatReservaId, currentPaseadorId, solicitudes]);
@@ -641,6 +641,10 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           mascotaNombre={
             solicitudes.find((item) => item.idReserva === activeChatReservaId)?.mascotaNombre ||
             "Mascota"
+          }
+          canSendPhotos={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.estado ===
+            "En Curso"
           }
           onClose={() => setActiveChatReservaId(null)}
         />

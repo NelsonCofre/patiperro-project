@@ -16,6 +16,18 @@ export function buildMessageSnippet(content: string, limit = 72): string {
   return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}...`;
 }
 
+export function buildChatMessageSnippet(
+  message: { tipo?: string; content: string },
+  limit = 72
+): string {
+  const tipo = String(message.tipo ?? "TEXTO").toUpperCase();
+  if (tipo === "IMAGEN") {
+    const cap = message.content.replace(/\s+/g, " ").trim();
+    return cap ? `📷 ${buildMessageSnippet(cap, limit - 2)}` : "📷 Foto del paseo";
+  }
+  return buildMessageSnippet(message.content, limit);
+}
+
 export function isNearBottom(
   element: HTMLElement,
   thresholdPx = 120

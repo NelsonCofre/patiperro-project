@@ -36,7 +36,8 @@ export type PaseadorCercanoApi = {
   latitud: number;
   longitud: number;
   calificacionPromedio?: number;
-  tarifaDesde?: number; // <--- AÑADES ESTO
+  tarifaDesde?: number;
+  verificado?: boolean;
 };
 
 export async function fetchTutorPorId(idTutor: number): Promise<TutorPerfilResponse> {

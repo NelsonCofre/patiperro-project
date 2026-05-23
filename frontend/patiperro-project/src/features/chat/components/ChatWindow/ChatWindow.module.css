@@ -172,6 +172,124 @@
   font-weight: 700;
 }
 
+.imageButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+  background: transparent;
+}
+
+.messageImage {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.imageCaption {
+  margin: 8px 0 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.imagePreviewPanel {
+  padding: 0 22px 12px;
+  border-top: 1px solid #eef2f7;
+  background: #ffffff;
+}
+
+.imagePreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.imagePreviewHeader strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.imagePreviewHeader button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #fff1f2;
+}
+
+.imagePreviewBody {
+  display: grid;
+  gap: 10px;
+}
+
+.imagePreviewBody img {
+  width: min(220px, 100%);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #dbe4ee;
+}
+
+.imageCommentLabel {
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.imageCommentInput {
+  min-height: 72px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  font: inherit;
+  line-height: 1.5;
+  background: #ffffff;
+}
+
+.composerTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.cameraButton {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #115e59;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f0fdfa;
+}
+
+.cameraButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
 .stateCard {
   padding: 18px;
   border: 1px dashed #cbd5e1;
@@ -340,7 +458,8 @@
   .messagesViewport,
   .statusRow,
   .jumpRow,
-  .composer {
+  .composer,
+  .imagePreviewPanel {
     padding-left: 16px;
     padding-right: 16px;
   }

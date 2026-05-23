@@ -2,13 +2,17 @@ export type ChatRole = "tutor" | "paseador";
 
 export type ChatMessageEstado = "pendiente" | "enviado" | "error";
 
+export type ChatMessageTipo = "TEXTO" | "IMAGEN";
+
 export type ChatMessage = {
   id: string;
   idReserva: number;
   senderUserId: number;
   senderRole: ChatRole;
   senderName: string;
+  tipo: ChatMessageTipo;
   content: string;
+  imageUrl?: string;
   timestamp: string;
   estado?: ChatMessageEstado;
 };
@@ -38,6 +42,8 @@ export type ChatWindowProps = {
   counterpartUserId?: number;
   counterpartName: string;
   mascotaNombre: string;
+  /** Solo paseador en paseo EN CURSO puede subir fotos. */
+  canSendPhotos?: boolean;
   onClose: () => void;
 };
 

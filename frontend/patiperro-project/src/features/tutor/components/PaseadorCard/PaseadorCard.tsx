@@ -51,6 +51,27 @@ export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProp
             </div>
           </div>
           <p className={styles.distance}>{formatDistanceFromKm(paseador.distanciaKm)} de ti</p>
+          <span
+            className={
+              paseador.verificado ? styles.verificadoBadge : styles.noVerificadoBadge
+            }
+            aria-label={
+              paseador.verificado
+                ? "Paseador con identidad verificada"
+                : "Paseador sin verificación de identidad"
+            }
+          >
+            {paseador.verificado ? (
+              <>
+                <span className={styles.verificadoIcon} aria-hidden="true">
+                  ✓
+                </span>
+                Verificado
+              </>
+            ) : (
+              "No verificado"
+            )}
+          </span>
         </div>
 
         <p className={styles.bio}>{paseador.bio}</p>

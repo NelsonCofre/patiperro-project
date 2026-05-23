@@ -1,0 +1,70 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+  width: min(960px, 100%);
+  max-height: min(92vh, 920px);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar button,
+.toolbar a {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.toolbar a {
+  display: inline-flex;
+  align-items: center;
+}
+
+.figure {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.figure img {
+  width: 100%;
+  max-height: min(72vh, 760px);
+  object-fit: contain;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.caption {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}

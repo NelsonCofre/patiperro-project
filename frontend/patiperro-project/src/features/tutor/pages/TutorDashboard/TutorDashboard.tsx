@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import PerfilPaseadorModal from "../../components/PerfilPaseadorModal/PerfilPaseadorModal";
 import PaseadoresFilterBar from "../../components/PaseadoresFilterBar/PaseadoresFilterBar";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
@@ -7,8 +7,6 @@ import { usePaseadoresHome } from "../../hooks/usePaseadoresHome";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
 import styles from "./TutorDashboard.module.css";
 import PaseadoresMap from '../../components/PaseadoresMap/PaseadoresMap';
-import { buildPaseadorPerfilMock } from "../../utils/paseadorPerfilMock";
-
 const SKELETON_CARDS = ["skeleton-1", "skeleton-2", "skeleton-3"];
 
 export default function TutorDashboard() {
@@ -52,15 +50,12 @@ export default function TutorDashboard() {
     minRating,
     setMinRating,
     maxPriceFilter,
-    setMaxPriceFilter
+    setMaxPriceFilter,
+    soloVerificados,
+    setSoloVerificados
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
-
-  const selectedPaseadorPerfil = useMemo(
-    () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
-    [selectedPaseador]
-  );
 
   // --- LÓGICA DE MENSAJES CONTEXTUALES CORREGIDA ---
   const noFilterMatches = !isLoading && !needsReferencePoint && hasActiveFilters && filteredCount === 0;
@@ -86,6 +81,13 @@ export default function TutorDashboard() {
     return {
       title: "Sin coincidencias de calificación",
       message: "No se encontraron paseadores con esta calificación en tu zona. Intenta ajustar tus criterios de búsqueda."
+    };
+  }
+
+  if (soloVerificados) {
+    return {
+      title: "Sin paseadores verificados",
+      message: "No hay paseadores con identidad verificada en esta zona. Prueba ampliar el radio o desactiva el filtro."
     };
   }
 
@@ -200,6 +202,8 @@ export default function TutorDashboard() {
             onMinRatingChange={setMinRating}
             maxPrice={maxPriceFilter}
             onMaxPriceChange={setMaxPriceFilter}
+            soloVerificados={soloVerificados}
+            onSoloVerificadosChange={setSoloVerificados}
           />
         )}
 
@@ -251,9 +255,9 @@ export default function TutorDashboard() {
       </section>
 
       {/* MODAL DE PERFIL */}
-      {selectedPaseadorPerfil && (
+      {selectedPaseador && (
         <PerfilPaseadorModal
-          paseador={selectedPaseadorPerfil}
+          paseador={selectedPaseador}
           onClose={() => setSelectedPaseador(null)}
         />
       )}

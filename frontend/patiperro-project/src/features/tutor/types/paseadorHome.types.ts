@@ -18,6 +18,8 @@ export type PaseadorHome = {
   bio: string;
   latitud: number;
   longitud: number;
+  /** Identidad verificada (cédula aprobada en paseadores-service). */
+  verificado: boolean;
 };
 
 export type TamanoPerro = "Pequeno" | "Mediano" | "Grande";

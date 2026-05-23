@@ -26,8 +26,10 @@ type Props = {
   onResetFilters: () => void;
   minRating: number;
   onMinRatingChange: (rating: number) => void;
-  maxPrice: string; 
+  maxPrice: string;
   onMaxPriceChange: (value: string) => void;
+  soloVerificados: boolean;
+  onSoloVerificadosChange: (value: boolean) => void;
 };
 
 const SORT_OPTIONS: { value: PaseadoresSortMode; label: string }[] = [
@@ -61,7 +63,9 @@ export default function PaseadoresFilterBar({
   minRating,
   onMinRatingChange,
   maxPrice,
-  onMaxPriceChange
+  onMaxPriceChange,
+  soloVerificados,
+  onSoloVerificadosChange
 }: Props) {
   const [radiusDraft, setRadiusDraft] = useState(() => String(searchRadiusKm));
 
@@ -326,7 +330,15 @@ export default function PaseadoresFilterBar({
           </div>
         </div>
 
-        {/* NUEVO FILTRO DE CALIFICACIÓN POR ESTRELLAS */}
+        <label className={styles.verifyToggle}>
+          <input
+            type="checkbox"
+            checked={soloVerificados}
+            onChange={(e) => onSoloVerificadosChange(e.target.checked)}
+          />
+          <span>Solo paseadores verificados</span>
+        </label>
+
         <div className={styles.fieldGrow}>
           <span className={styles.label}>Calificación mínima</span>
           <div className={styles.starRatingRow}>

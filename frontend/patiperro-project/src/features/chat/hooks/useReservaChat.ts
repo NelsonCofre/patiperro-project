@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchChatHistory } from "../services/chatApi";
+import { fetchChatHistory, uploadChatImage } from "../services/chatApi";
 import {
   sendReservaChatMessage,
   sendTypingSignal,
@@ -40,8 +40,12 @@ function dropOwnOptimisticEcho(
     (item) =>
       !(
         item.senderUserId === currentUserId &&
-        item.content === incoming.content &&
-        (item.estado === "pendiente" || isLocalOptimisticId(item.id))
+        (item.estado === "pendiente" || isLocalOptimisticId(item.id)) &&
+        (item.tipo === "IMAGEN"
+          ? incoming.tipo === "IMAGEN" &&
+            (isLocalOptimisticId(item.id) ||
+              (item.imageUrl && item.imageUrl === incoming.imageUrl))
+          : item.content === incoming.content)
       )
   );
 }
@@ -226,6 +230,7 @@ export function useReservaChat({
       senderUserId: currentUserId,
       senderRole: currentUserRole,
       senderName: currentUserName,
+      tipo: "TEXTO",
       content,
       timestamp: new Date().toISOString(),
       estado: "pendiente"
@@ -254,6 +259,59 @@ export function useReservaChat({
       setIsSending(false);
       clearTypingTimeout();
       void notifyStoppedTyping();
+    }
+  }
+
+  async function sendImage(file: File, comentario?: string): Promise<void> {
+    if (isSending) return;
+
+    setIsSending(true);
+    setSendError(null);
+
+    const previewUrl = URL.createObjectURL(file);
+    const optimisticId = `local-img-${reservaId}-${Date.now()}`;
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      idReserva: reservaId,
+      senderUserId: currentUserId,
+      senderRole: currentUserRole,
+      senderName: currentUserName,
+      tipo: "IMAGEN",
+      content: comentario?.trim() ?? "",
+      imageUrl: previewUrl,
+      timestamp: new Date().toISOString(),
+      estado: "pendiente"
+    };
+
+    setMessages((prev) => mergeMessages(prev, optimisticMessage));
+
+    try {
+      const saved = await uploadChatImage(
+        reservaId,
+        currentUserId,
+        currentUserName,
+        file,
+        comentario
+      );
+      setMessages((prev) => {
+        const withoutLocal = prev.filter((item) => item.id !== optimisticId);
+        return mergeMessages(
+          dropOwnOptimisticEcho(withoutLocal, enrichMessage(saved), currentUserId),
+          enrichMessage(saved)
+        );
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo enviar la foto.";
+      setSendError(message);
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === optimisticId ? { ...item, estado: "error" } : item
+        )
+      );
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setIsSending(false);
     }
   }
 
@@ -287,6 +345,7 @@ export function useReservaChat({
     historyError,
     sendError,
     sendMessage,
+    sendImage,
     retryHistory,
     clearSendError
   };

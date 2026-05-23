@@ -63,6 +63,50 @@
   font-size: 0.9rem;
 }
 
+.distance {
+  margin: 6px 0 0;
+  color: #657386;
+  font-size: 0.9rem;
+}
+
+.verificadoBadge,
+.noVerificadoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.verificadoBadge {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.verificadoIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.noVerificadoBadge {
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
 .bio {
   margin: 0;
   color: #586673;

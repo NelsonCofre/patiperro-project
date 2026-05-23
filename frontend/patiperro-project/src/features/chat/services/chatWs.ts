@@ -1,5 +1,6 @@
 import { Client } from "@stomp/stompjs";
 import { CHAT_WS_BROKER_URL } from "../../../config/api";
+import { mapApiMessage } from "./chatApi";
 import type { ChatConnectionState, ChatMessage, TypingEvent } from "../types/chat.types";
 
 type ChatMessageOutboundApi = {
@@ -7,7 +8,11 @@ type ChatMessageOutboundApi = {
   idReserva?: number | null;
   idUsuario?: number | null;
   sender?: string | null;
+  tipo?: string | null;
   content?: string | null;
+  contenido?: string | null;
+  imageUrl?: string | null;
+  urlMedia?: string | null;
   timestamp?: string | null;
   estadoMensaje?: string | null;
 };
@@ -45,23 +50,22 @@ const reservaInterest = new Map<number, number>();
 
 function mapOutboundMessage(row: ChatMessageOutboundApi): ChatMessage | null {
   const idReserva = Number(row.idReserva ?? 0);
-  const senderUserId = Number(row.idUsuario ?? 0);
-  const content = String(row.content ?? "").trim();
-  const timestamp = String(row.timestamp ?? "").trim();
-  if (!idReserva || !senderUserId || !content || !timestamp) {
+  if (!idReserva) {
     return null;
   }
-  const idMensaje = row.idMensaje != null ? String(row.idMensaje) : "";
-  return {
-    id: idMensaje || `${idReserva}-${timestamp}-${senderUserId}`,
-    idReserva,
-    senderUserId,
-    senderRole: "tutor",
-    senderName: String(row.sender ?? "Usuario").trim() || "Usuario",
-    content,
-    timestamp,
-    estado: "enviado"
-  };
+  return mapApiMessage(idReserva, {
+    idMensaje: row.idMensaje,
+    idReserva: row.idReserva,
+    idUsuario: row.idUsuario,
+    sender: row.sender,
+    tipo: row.tipo,
+    content: row.content,
+    contenido: row.contenido,
+    imageUrl: row.imageUrl,
+    urlMedia: row.urlMedia,
+    timestamp: row.timestamp,
+    estadoMensaje: row.estadoMensaje
+  });
 }
 
 function mapTypingEvent(row: ChatTypingEventApi): TypingEvent | null {
