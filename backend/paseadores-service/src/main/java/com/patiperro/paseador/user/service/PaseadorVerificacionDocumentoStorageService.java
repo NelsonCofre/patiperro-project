@@ -2,10 +2,10 @@ package com.patiperro.paseador.user.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,11 +14,19 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Almacenamiento local de documentos de verificación de identidad (cédula).
+ */
 @Service
 public class PaseadorVerificacionDocumentoStorageService {
 
+    public static final String MSG_VALIDACION_DOCUMENTO =
+            "Formato no permitido o archivo inválido (usa JPG, PNG o PDF de hasta 5 MB)";
+
+    private static final long DEFAULT_MAX_BYTES = 5L * 1024 * 1024;
+
     private static final Set<String> ALLOWED_EXT = Set.of(".jpg", ".jpeg", ".png", ".pdf");
-    private static final Set<String> ALLOWED_MIME = Set.of(
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg",
             "image/png",
             "application/pdf");
@@ -31,8 +39,11 @@ public class PaseadorVerificacionDocumentoStorageService {
     public PaseadorVerificacionDocumentoStorageService(
             @Value("${patiperro.paseadores.verificacion-identidad.upload-dir:uploads/paseador-verificacion}") String uploadDirProperty,
             @Value("${patiperro.paseadores.verificacion-identidad.max-file-size-bytes:5242880}") long maxFileSizeBytes) {
-        this.uploadDir = Paths.get(uploadDirProperty).toAbsolutePath().normalize();
-        this.maxFileSizeBytes = maxFileSizeBytes;
+        String dir = StringUtils.hasText(uploadDirProperty)
+                ? uploadDirProperty
+                : "uploads/paseador-verificacion";
+        this.uploadDir = Paths.get(dir).toAbsolutePath().normalize();
+        this.maxFileSizeBytes = maxFileSizeBytes > 0 ? maxFileSizeBytes : DEFAULT_MAX_BYTES;
     }
 
     /** Guarda un único PDF de verificación de identidad. */
@@ -42,19 +53,22 @@ public class PaseadorVerificacionDocumentoStorageService {
     }
 
     public String save(MultipartFile file) throws IOException {
-        validateUpload(file);
+        validarArchivo(file);
         return persistFile(file);
     }
 
     private String persistFile(MultipartFile file) throws IOException {
         Files.createDirectories(uploadDir);
         String ext = extensionOf(file.getOriginalFilename());
+        byte[] header = leerCabecera(file);
+        validarMagicBytes(ext, header);
+
         String filename = UUID.randomUUID() + ext.toLowerCase(Locale.ROOT);
         Path target = uploadDir.resolve(filename).normalize();
         if (!target.startsWith(uploadDir)) {
-            throw new IllegalArgumentException("Nombre de archivo inválido");
+            throw new IllegalArgumentException(MSG_VALIDACION_DOCUMENTO);
         }
-        try (InputStream in = file.getInputStream()) {
+        try (var in = file.getInputStream()) {
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         }
         return filename;
@@ -78,8 +92,8 @@ public class PaseadorVerificacionDocumentoStorageService {
                 throw new IllegalArgumentException("Tipo de contenido no permitido (solo PDF)");
             }
         }
-        byte[] header = readHeader(file, 8);
-        if (!matchesMagic(header, ".pdf")) {
+        byte[] header = leerCabecera(file);
+        if (!esPdf(header)) {
             throw new IllegalArgumentException("El contenido del archivo no coincide con un PDF válido");
         }
     }
@@ -96,9 +110,6 @@ public class PaseadorVerificacionDocumentoStorageService {
     }
 
     public void deleteQuietly(String filename) {
-        if (filename == null || filename.isBlank()) {
-            return;
-        }
         Path path = resolveExisting(filename);
         if (path == null) {
             return;
@@ -106,11 +117,11 @@ public class PaseadorVerificacionDocumentoStorageService {
         try {
             Files.deleteIfExists(path);
         } catch (IOException ignored) {
-            // Limpieza best-effort tras rollback o reemplazo.
+            // best-effort
         }
     }
 
-    private void validateUpload(MultipartFile file) throws IOException {
+    private void validarArchivo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Archivo vacío");
         }
@@ -124,50 +135,78 @@ public class PaseadorVerificacionDocumentoStorageService {
         String contentType = file.getContentType();
         if (contentType != null && !contentType.isBlank()) {
             String normalized = contentType.toLowerCase(Locale.ROOT).split(";")[0].trim();
-            if (!ALLOWED_MIME.contains(normalized)) {
+            if (!ALLOWED_CONTENT_TYPES.contains(normalized)) {
                 throw new IllegalArgumentException("Tipo de contenido no permitido");
             }
         }
-        byte[] header = readHeader(file, 8);
-        if (!matchesMagic(header, ext.toLowerCase(Locale.ROOT))) {
+    }
+
+    private static byte[] leerCabecera(MultipartFile file) throws IOException {
+        try (var in = file.getInputStream()) {
+            return in.readNBytes(12);
+        }
+    }
+
+    private static void validarMagicBytes(String ext, byte[] header) {
+        if (ext == null) {
+            throw new IllegalArgumentException(MSG_VALIDACION_DOCUMENTO);
+        }
+        String extLower = ext.toLowerCase(Locale.ROOT);
+        boolean jpeg = esJpeg(header);
+        boolean png = esPng(header);
+        boolean pdf = esPdf(header);
+
+        if (!matchesMagic(extLower, jpeg, png, pdf)) {
             throw new IllegalArgumentException("El contenido del archivo no coincide con el formato declarado");
         }
+        if (extLower.equals(".png") && !png) {
+            throw new IllegalArgumentException(MSG_VALIDACION_DOCUMENTO);
+        }
+        if ((extLower.equals(".jpg") || extLower.equals(".jpeg")) && !jpeg) {
+            throw new IllegalArgumentException(MSG_VALIDACION_DOCUMENTO);
+        }
+        if (extLower.equals(".pdf") && !pdf) {
+            throw new IllegalArgumentException(MSG_VALIDACION_DOCUMENTO);
+        }
     }
 
-    private static byte[] readHeader(MultipartFile file, int len) throws IOException {
-        byte[] buf = new byte[len];
-        try (InputStream in = file.getInputStream()) {
-            int read = in.read(buf);
-            if (read <= 0) {
-                return new byte[0];
-            }
-            if (read < len) {
-                byte[] trimmed = new byte[read];
-                System.arraycopy(buf, 0, trimmed, 0, read);
-                return trimmed;
-            }
-        }
-        return buf;
-    }
-
-    private static boolean matchesMagic(byte[] header, String ext) {
-        if (header == null || header.length < 3) {
-            return false;
-        }
-        return switch (ext) {
-            case ".jpg", ".jpeg" -> (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF;
-            case ".png" -> header.length >= 4
-                    && header[0] == (byte) 0x89
-                    && header[1] == 0x50
-                    && header[2] == 0x4E
-                    && header[3] == 0x47;
-            case ".pdf" -> header.length >= 4
-                    && header[0] == '%'
-                    && header[1] == 'P'
-                    && header[2] == 'D'
-                    && header[3] == 'F';
+    private static boolean matchesMagic(String extLower, boolean jpeg, boolean png, boolean pdf) {
+        return switch (extLower) {
+            case ".jpg", ".jpeg" -> jpeg;
+            case ".png" -> png;
+            case ".pdf" -> pdf;
             default -> false;
         };
+    }
+
+    private static boolean esJpeg(byte[] header) {
+        return header != null
+                && header.length >= 3
+                && (header[0] & 0xFF) == 0xFF
+                && (header[1] & 0xFF) == 0xD8
+                && (header[2] & 0xFF) == 0xFF;
+    }
+
+    private static boolean esPng(byte[] header) {
+        return header != null
+                && header.length >= 8
+                && header[0] == (byte) 0x89
+                && header[1] == 0x50
+                && header[2] == 0x4E
+                && header[3] == 0x47
+                && header[4] == 0x0D
+                && header[5] == 0x0A
+                && header[6] == 0x1A
+                && header[7] == 0x0A;
+    }
+
+    private static boolean esPdf(byte[] header) {
+        return header != null
+                && header.length >= 4
+                && header[0] == '%'
+                && header[1] == 'P'
+                && header[2] == 'D'
+                && header[3] == 'F';
     }
 
     private static String extensionOf(String originalName) {

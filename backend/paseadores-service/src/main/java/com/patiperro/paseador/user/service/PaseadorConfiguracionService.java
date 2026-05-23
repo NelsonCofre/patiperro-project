@@ -59,11 +59,13 @@ public class PaseadorConfiguracionService {
     public PaseadorResumenResponseDTO getResumenPublicoByPaseadorId(Long paseadorId) {
         Paseador paseador = paseadorRepository.findById(paseadorId)
                 .orElseThrow(() -> new IllegalArgumentException("Paseador no encontrado"));
-        return new PaseadorResumenResponseDTO(
-                paseador.getId(),
-                nombrePublico(paseador),
-                paseador.getFotoPerfil(),
-                paseador.getCorreo());
+        return PaseadorResumenResponseDTO.builder()
+                .idPaseador(paseador.getId())
+                .nombreCompleto(nombrePublico(paseador))
+                .fotoPerfil(paseador.getFotoPerfil())
+                .correo(paseador.getCorreo())
+                .verificado(PaseadorVerificacionService.esVerificadoPublicamente(paseador))
+                .build();
     }
 
     @Transactional

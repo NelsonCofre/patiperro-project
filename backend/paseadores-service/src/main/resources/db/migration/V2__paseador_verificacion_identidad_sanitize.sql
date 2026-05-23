@@ -1,13 +1,5 @@
--- Verificación de identidad del paseador (cédula). Idempotente para BD ya migrada por Hibernate ddl-auto=update.
--- Orden seguro: columnas → normalizar datos → NOT NULL/DEFAULT → CHECK (evita fallo si Hibernate dejó NULL/valores inválidos).
-
-ALTER TABLE paseador
-    ADD COLUMN IF NOT EXISTS estado_verificacion_identidad VARCHAR(20),
-    ADD COLUMN IF NOT EXISTS archivo_cedula_frontal VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS archivo_cedula_reverso VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS verificacion_identidad_enviada_en TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS verificacion_identidad_revisada_en TIMESTAMP,
-    ADD COLUMN IF NOT EXISTS motivo_rechazo_verificacion_identidad VARCHAR(500);
+-- Reparación idempotente si V1 se aplicó en una versión anterior sin normalización previa al CHECK,
+-- o si Hibernate volvió a dejar NULL/valores fuera del enum. Seguro re-ejecutar (no-op si ya está bien).
 
 UPDATE paseador
 SET estado_verificacion_identidad = 'SIN_ENVIAR'

@@ -6,6 +6,7 @@ import com.patiperro.paseador.auth.dto.RegisterRequestDTO;
 import com.patiperro.paseador.auth.exception.InvalidCredentialsException;
 import com.patiperro.paseador.geo.NominatimGeocodingService;
 import com.patiperro.paseador.model.Direccion;
+import com.patiperro.paseador.model.EstadoVerificacionIdentidad;
 import com.patiperro.paseador.model.Foto;
 import com.patiperro.paseador.model.Paseador;
 import com.patiperro.paseador.repository.DireccionRepository;
@@ -85,6 +86,7 @@ public class AuthService {
                 .fotoPerfil(request.getFotoPerfil())
                 .biografia(request.getBiografia())
                 .direccion(direccion)
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.SIN_ENVIAR)
                 .build();
         
         if (paseador.getFotos() == null) {

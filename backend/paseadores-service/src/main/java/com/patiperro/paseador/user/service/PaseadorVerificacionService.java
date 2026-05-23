@@ -19,18 +19,23 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Reglas de negocio de verificación de identidad (cédula) del paseador autenticado.
+ * Flujo MVP: un único PDF → {@link EstadoVerificacionIdentidad#APROBADO} automático.
+ */
 @Service
 @RequiredArgsConstructor
 public class PaseadorVerificacionService {
 
-    private static final Set<String> LADOS = Set.of("frontal", "reverso", "documento");
+    private static final Set<String> LADOS = Set.of("documento", "frontal", "reverso");
+    private static final int MOTIVO_RECHAZO_MAX_LENGTH = 500;
 
     private final PaseadorRepository paseadorRepository;
     private final PaseadorVerificacionDocumentoStorageService storageService;
 
     @Transactional(readOnly = true)
     public VerificacionIdentidadResponseDTO obtenerEstadoAutenticado() {
-        return toResponse(findAuthenticatedPaseador());
+        return VerificacionIdentidadResponseDTO.from(findAuthenticatedPaseador());
     }
 
     /**
@@ -41,22 +46,29 @@ public class PaseadorVerificacionService {
         Paseador paseador = findAuthenticatedPaseador();
         validarPuedeSubir(paseador.getEstadoVerificacionIdentidad());
 
-        String anterior = paseador.getArchivoCedulaFrontal();
+        Long idPaseador = paseador.getId();
+        String anteriorFrontal = paseador.getArchivoCedulaFrontal();
         String anteriorReverso = paseador.getArchivoCedulaReverso();
         String nuevo = null;
         try {
             nuevo = storageService.savePdf(documento);
             LocalDateTime ahora = LocalDateTime.now();
-            paseador.setArchivoCedulaFrontal(nuevo);
-            paseador.setArchivoCedulaReverso(null);
-            paseador.setEstadoVerificacionIdentidad(EstadoVerificacionIdentidad.APROBADO);
-            paseador.setVerificacionIdentidadEnviadaEn(ahora);
-            paseador.setVerificacionIdentidadRevisadaEn(ahora);
-            paseador.setMotivoRechazoVerificacionIdentidad(null);
-            Paseador guardado = paseadorRepository.save(paseador);
-            storageService.deleteQuietly(anterior);
+
+            Paseador actual = paseadorRepository.findByIdForUpdate(idPaseador)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.UNAUTHORIZED, "Paseador autenticado no encontrado"));
+            validarPuedeSubir(actual.getEstadoVerificacionIdentidad());
+
+            actual.setArchivoCedulaFrontal(nuevo);
+            actual.setArchivoCedulaReverso(null);
+            actual.setEstadoVerificacionIdentidad(EstadoVerificacionIdentidad.APROBADO);
+            actual.setVerificacionIdentidadEnviadaEn(ahora);
+            actual.setVerificacionIdentidadRevisadaEn(ahora);
+            actual.setMotivoRechazoVerificacionIdentidad(null);
+            Paseador guardado = paseadorRepository.save(actual);
+            storageService.deleteQuietly(anteriorFrontal);
             storageService.deleteQuietly(anteriorReverso);
-            return toResponse(guardado);
+            return VerificacionIdentidadResponseDTO.from(guardado);
         } catch (IOException ex) {
             storageService.deleteQuietly(nuevo);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar el documento");
@@ -68,17 +80,23 @@ public class PaseadorVerificacionService {
 
     @Transactional(readOnly = true)
     public Path resolverDocumentoAutenticado() {
-        return resolverArchivoDocumento(findAuthenticatedPaseador());
+        return resolverDocumento(findAuthenticatedPaseador(), "documento");
     }
 
     @Transactional(readOnly = true)
     public Path resolverDocumentoAutenticado(String lado) {
-        String ladoNorm = normalizarLado(lado);
-        Paseador paseador = findAuthenticatedPaseador();
-        if ("documento".equals(ladoNorm) || "frontal".equals(ladoNorm)) {
-            return resolverArchivoDocumento(paseador);
-        }
-        String filename = paseador.getArchivoCedulaReverso();
+        return resolverDocumento(findAuthenticatedPaseador(), normalizarLado(lado));
+    }
+
+    @Transactional(readOnly = true)
+    public Path resolverDocumentoPorPaseadorId(Long idPaseador, String lado) {
+        Paseador paseador = paseadorRepository.findById(idPaseador)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paseador no encontrado"));
+        return resolverDocumento(paseador, normalizarLado(lado));
+    }
+
+    private Path resolverDocumento(Paseador paseador, String ladoNorm) {
+        String filename = filenameParaLado(paseador, ladoNorm);
         if (filename == null || filename.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Documento no disponible");
         }
@@ -94,15 +112,13 @@ public class PaseadorVerificacionService {
             Long idPaseador,
             EstadoVerificacionIdentidad nuevoEstado,
             String motivo) {
-        if (nuevoEstado != EstadoVerificacionIdentidad.APROBADO
-                && nuevoEstado != EstadoVerificacionIdentidad.RECHAZADO) {
+        if (!nuevoEstado.esDecisionRevisionAdmin()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Estado de revisión inválido (use APROBADO o RECHAZADO)");
         }
-        if (nuevoEstado == EstadoVerificacionIdentidad.RECHAZADO
-                && (motivo == null || motivo.isBlank())) {
-            throw new IllegalArgumentException("El motivo de rechazo es obligatorio");
+        if (nuevoEstado == EstadoVerificacionIdentidad.RECHAZADO) {
+            validarMotivoRechazo(motivo);
         }
         Paseador paseador = paseadorRepository.findById(idPaseador)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paseador no encontrado"));
@@ -111,8 +127,7 @@ public class PaseadorVerificacionService {
                     HttpStatus.CONFLICT,
                     "Solo se puede revisar un paseador en estado EN_PROCESO");
         }
-        if (paseador.getArchivoCedulaFrontal() == null
-                || paseador.getArchivoCedulaFrontal().isBlank()) {
+        if (!tieneDocumentoRegistrado(paseador)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "No hay documento de identidad registrado para este paseador");
@@ -121,32 +136,46 @@ public class PaseadorVerificacionService {
         paseador.setVerificacionIdentidadRevisadaEn(LocalDateTime.now());
         paseador.setMotivoRechazoVerificacionIdentidad(
                 nuevoEstado == EstadoVerificacionIdentidad.RECHAZADO ? motivo.trim() : null);
-        return toResponse(paseadorRepository.save(paseador));
+        return VerificacionIdentidadResponseDTO.from(paseadorRepository.save(paseador));
     }
 
+    /** Badge público de confianza (búsqueda / perfil tutor). */
     public static boolean esVerificadoPublicamente(Paseador paseador) {
         return paseador != null
-                && paseador.getEstadoVerificacionIdentidad() == EstadoVerificacionIdentidad.APROBADO;
+                && paseador.getEstadoVerificacionIdentidad() != null
+                && paseador.getEstadoVerificacionIdentidad().esAprobado();
     }
 
     private static void validarPuedeSubir(EstadoVerificacionIdentidad estado) {
-        if (estado == EstadoVerificacionIdentidad.APROBADO) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Tu identidad ya está verificada");
+        EstadoVerificacionIdentidad efectivo = estado != null
+                ? estado
+                : EstadoVerificacionIdentidad.SIN_ENVIAR;
+        efectivo.mensajeBloqueoSubida().ifPresent(msg -> {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, msg);
+        });
+    }
+
+    private static void validarMotivoRechazo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("El motivo de rechazo es obligatorio");
+        }
+        if (motivo.trim().length() > MOTIVO_RECHAZO_MAX_LENGTH) {
+            throw new IllegalArgumentException(
+                    "El motivo de rechazo no puede superar " + MOTIVO_RECHAZO_MAX_LENGTH + " caracteres");
         }
     }
 
-    private Path resolverArchivoDocumento(Paseador paseador) {
-        String filename = paseador.getArchivoCedulaFrontal();
-        if (filename == null || filename.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Documento no disponible");
-        }
-        Path path = storageService.resolveExisting(filename);
-        if (path == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Documento no encontrado");
-        }
-        return path;
+    private static boolean tieneDocumentoRegistrado(Paseador paseador) {
+        return paseador.getArchivoCedulaFrontal() != null
+                && !paseador.getArchivoCedulaFrontal().isBlank();
+    }
+
+    private static String filenameParaLado(Paseador paseador, String ladoNorm) {
+        return switch (ladoNorm) {
+            case "documento", "frontal" -> paseador.getArchivoCedulaFrontal();
+            case "reverso" -> paseador.getArchivoCedulaReverso();
+            default -> throw new IllegalArgumentException("Lado de documento inválido (use documento, frontal o reverso)");
+        };
     }
 
     private static String normalizarLado(String lado) {
@@ -171,34 +200,5 @@ public class PaseadorVerificacionService {
         }
         return paseadorRepository.findByCorreo(correo)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Paseador autenticado no encontrado"));
-    }
-
-    static VerificacionIdentidadResponseDTO toResponse(Paseador paseador) {
-        EstadoVerificacionIdentidad estado = paseador.getEstadoVerificacionIdentidad() != null
-                ? paseador.getEstadoVerificacionIdentidad()
-                : EstadoVerificacionIdentidad.SIN_ENVIAR;
-        boolean tieneDocumento = paseador.getArchivoCedulaFrontal() != null
-                && !paseador.getArchivoCedulaFrontal().isBlank();
-        return VerificacionIdentidadResponseDTO.builder()
-                .estado(estado)
-                .estadoEtiqueta(etiquetaEstado(estado))
-                .puedeSubir(estado != EstadoVerificacionIdentidad.APROBADO)
-                .enviadoEn(paseador.getVerificacionIdentidadEnviadaEn())
-                .revisadoEn(paseador.getVerificacionIdentidadRevisadaEn())
-                .motivoRechazo(paseador.getMotivoRechazoVerificacionIdentidad())
-                .tieneDocumento(tieneDocumento)
-                .tieneFrontal(tieneDocumento)
-                .tieneReverso(paseador.getArchivoCedulaReverso() != null
-                        && !paseador.getArchivoCedulaReverso().isBlank())
-                .build();
-    }
-
-    private static String etiquetaEstado(EstadoVerificacionIdentidad estado) {
-        return switch (estado) {
-            case SIN_ENVIAR -> "Sin enviar";
-            case EN_PROCESO -> "Verificación en proceso";
-            case APROBADO -> "Identidad verificada";
-            case RECHAZADO -> "Rechazado";
-        };
     }
 }

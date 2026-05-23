@@ -54,13 +54,15 @@ public class Paseador {
     @Column(name = "biografia", length = 250)
     private String biografia;
 
-    /** Verificación de identidad (cédula); distinto del ciclo de verificación de saldo en pagos. */
+    // Verificacion de identidad (cedula). Distinto de saldo_verificacion en pagos-service.
+    // No se serializa a JSON; el cliente usa VerificacionIdentidadResponseDTO.
     @JsonIgnore
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_verificacion_identidad", length = 20, nullable = false)
     @Builder.Default
     private EstadoVerificacionIdentidad estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
 
+    // Nombre de archivo en disco (UUID.ext), no ruta publica.
     @JsonIgnore
     @Column(name = "archivo_cedula_frontal", length = 255)
     private String archivoCedulaFrontal;
@@ -81,6 +83,7 @@ public class Paseador {
     @Column(name = "motivo_rechazo_verificacion_identidad", length = 500)
     private String motivoRechazoVerificacionIdentidad;
 
+    // Contrasena hash; nunca en respuestas JSON.
     @JsonIgnore
     @Column(name = "contrasena", length = 60, nullable = false)
     private String contrasena;
@@ -98,4 +101,12 @@ public class Paseador {
     @OneToMany(mappedBy = "paseador", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Foto> fotos = new ArrayList<>();
+
+    @PrePersist
+    @PreUpdate
+    private void normalizarVerificacionIdentidad() {
+        if (estadoVerificacionIdentidad == null) {
+            estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
+        }
+    }
 }
