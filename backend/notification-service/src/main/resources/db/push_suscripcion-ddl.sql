@@ -6,7 +6,7 @@
 --   • Prod: ejecutar este script en patiperro_notifications ANTES del primer arranque con perfil prod
 --     (ddl-auto=validate). Idempotente: CREATE IF NOT EXISTS.
 --
--- Alineado con entidad PushSuscripcion (Instant → TIMESTAMPTZ, como chat_db-init.sql).
+-- Alineado con entidad PushSuscripcion (InstaWnt → TIMESTAMPTZ, como chat_db-init.sql).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS push_suscripcion (

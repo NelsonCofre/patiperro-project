@@ -25,6 +25,29 @@ class PaseadorVerificacionDocumentoStorageServiceTest {
     }
 
     @Test
+    void savePdf_aceptaPdfConMagicBytes() throws Exception {
+        byte[] pdf = new byte[]{'%', 'P', 'D', 'F', '-', '1', '.', '4'};
+        MockMultipartFile file = new MockMultipartFile(
+                "documento",
+                "cedula.pdf",
+                "application/pdf",
+                pdf);
+        String filename = storageService.savePdf(file);
+        assertNotNull(storageService.resolveExisting(filename));
+    }
+
+    @Test
+    void savePdf_rechazaJpeg() {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x01, 0x02};
+        MockMultipartFile file = new MockMultipartFile(
+                "documento",
+                "cedula.jpg",
+                "image/jpeg",
+                jpeg);
+        assertThrows(IllegalArgumentException.class, () -> storageService.savePdf(file));
+    }
+
+    @Test
     void save_aceptaJpegConMagicBytes() throws Exception {
         byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00, 0x01, 0x02};
         MockMultipartFile file = new MockMultipartFile(

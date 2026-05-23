@@ -20,6 +20,8 @@ public class VerificacionIdentidadResponseDTO {
     private LocalDateTime enviadoEn;
     private LocalDateTime revisadoEn;
     private String motivoRechazo;
+    private boolean tieneDocumento;
+    /** Compatibilidad: mismo valor que {@code tieneDocumento}. */
     private boolean tieneFrontal;
     private boolean tieneReverso;
 }

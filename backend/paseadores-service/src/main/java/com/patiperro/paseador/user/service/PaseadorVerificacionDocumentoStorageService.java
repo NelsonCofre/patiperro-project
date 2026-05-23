@@ -35,8 +35,18 @@ public class PaseadorVerificacionDocumentoStorageService {
         this.maxFileSizeBytes = maxFileSizeBytes;
     }
 
+    /** Guarda un único PDF de verificación de identidad. */
+    public String savePdf(MultipartFile file) throws IOException {
+        validatePdfUpload(file);
+        return persistFile(file);
+    }
+
     public String save(MultipartFile file) throws IOException {
         validateUpload(file);
+        return persistFile(file);
+    }
+
+    private String persistFile(MultipartFile file) throws IOException {
         Files.createDirectories(uploadDir);
         String ext = extensionOf(file.getOriginalFilename());
         String filename = UUID.randomUUID() + ext.toLowerCase(Locale.ROOT);
@@ -48,6 +58,30 @@ public class PaseadorVerificacionDocumentoStorageService {
             Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         }
         return filename;
+    }
+
+    private void validatePdfUpload(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Archivo vacío");
+        }
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new IllegalArgumentException("El archivo supera el tamaño máximo permitido (5 MB)");
+        }
+        String ext = extensionOf(file.getOriginalFilename());
+        if (ext == null || !".pdf".equals(ext.toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Formato no permitido (solo PDF)");
+        }
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.isBlank()) {
+            String normalized = contentType.toLowerCase(Locale.ROOT).split(";")[0].trim();
+            if (!"application/pdf".equals(normalized)) {
+                throw new IllegalArgumentException("Tipo de contenido no permitido (solo PDF)");
+            }
+        }
+        byte[] header = readHeader(file, 8);
+        if (!matchesMagic(header, ".pdf")) {
+            throw new IllegalArgumentException("El contenido del archivo no coincide con un PDF válido");
+        }
     }
 
     public Path resolveExisting(String filename) {

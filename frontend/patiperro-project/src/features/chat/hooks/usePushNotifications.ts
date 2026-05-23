@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { ACCESS_TOKEN_SESSION_KEY } from "../../../config/api";
+import {
+  isPushSubscriptionSupported,
+  syncPushSubscriptionWithBackend
+} from "../services/pushApi";
 
 type PushPromptTrigger = "login" | "chat-entry";
 
@@ -31,8 +36,25 @@ function markPromptedThisSession(trigger: PushPromptTrigger): void {
   window.sessionStorage.setItem(buildPromptSessionKey(trigger), "1");
 }
 
+function hasAuthSession(): boolean {
+  return Boolean(sessionStorage.getItem(ACCESS_TOKEN_SESSION_KEY)?.trim());
+}
+
 export function usePushNotifications() {
   const [permission, setPermission] = useState<PushPermissionState>(() => readPermission());
+  const [isSyncingSubscription, setIsSyncingSubscription] = useState(false);
+
+  const syncSubscriptionIfGranted = useCallback(async (): Promise<boolean> => {
+    if (!isPushSubscriptionSupported() || readPermission() !== "granted" || !hasAuthSession()) {
+      return false;
+    }
+    setIsSyncingSubscription(true);
+    try {
+      return await syncPushSubscriptionWithBackend();
+    } finally {
+      setIsSyncingSubscription(false);
+    }
+  }, []);
 
   useEffect(() => {
     const syncPermission = () => setPermission(readPermission());
@@ -56,37 +78,53 @@ export function usePushNotifications() {
     };
   }, []);
 
+  useEffect(() => {
+    if (readPermission() !== "granted" || !hasAuthSession()) {
+      return;
+    }
+    void syncSubscriptionIfGranted();
+  }, [syncSubscriptionIfGranted]);
+
   const requestPermission = useCallback(
     async (trigger: PushPromptTrigger): Promise<PushPermissionState> => {
-      const currentPermission = readPermission();
+      let currentPermission = readPermission();
       setPermission(currentPermission);
 
-      if (currentPermission === "unsupported" || currentPermission !== "default") {
+      if (currentPermission === "unsupported") {
         return currentPermission;
       }
 
-      if (wasPromptedThisSession(trigger)) {
-        return currentPermission;
+      if (currentPermission === "default") {
+        if (wasPromptedThisSession(trigger)) {
+          return currentPermission;
+        }
+
+        markPromptedThisSession(trigger);
+
+        try {
+          currentPermission = await Notification.requestPermission();
+          setPermission(currentPermission);
+        } catch (error) {
+          console.warn("No se pudo solicitar el permiso de notificaciones.", error);
+          return currentPermission;
+        }
       }
 
-      markPromptedThisSession(trigger);
-
-      try {
-        const nextPermission = await Notification.requestPermission();
-        setPermission(nextPermission);
-        return nextPermission;
-      } catch (error) {
-        console.warn("No se pudo solicitar el permiso de notificaciones.", error);
-        return currentPermission;
+      if (currentPermission === "granted") {
+        await syncSubscriptionIfGranted();
       }
+
+      return currentPermission;
     },
-    []
+    [syncSubscriptionIfGranted]
   );
 
   return {
     permission,
-    isSupported: permission !== "unsupported",
+    isSupported: permission !== "unsupported" && isPushSubscriptionSupported(),
     canRequestPermission: permission === "default",
-    requestPermission
+    isSyncingSubscription,
+    requestPermission,
+    syncSubscriptionIfGranted
   };
-}
+};

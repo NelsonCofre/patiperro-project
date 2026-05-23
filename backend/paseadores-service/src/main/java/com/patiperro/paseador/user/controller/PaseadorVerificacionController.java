@@ -33,17 +33,24 @@ public class PaseadorVerificacionController {
         return verificacionService.obtenerEstadoAutenticado();
     }
 
-    @PostMapping(value = "/documentos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<VerificacionIdentidadResponseDTO> subirDocumentos(
-            @RequestParam("cedulaFrontal") MultipartFile cedulaFrontal,
-            @RequestParam("cedulaReverso") MultipartFile cedulaReverso) {
-        VerificacionIdentidadResponseDTO body = verificacionService.subirDocumentos(cedulaFrontal, cedulaReverso);
+    @PostMapping(value = "/documento", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<VerificacionIdentidadResponseDTO> subirDocumento(
+            @RequestParam("documento") MultipartFile documento) {
+        VerificacionIdentidadResponseDTO body = verificacionService.subirDocumento(documento);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
+    @GetMapping("/documento")
+    public ResponseEntity<Resource> descargarDocumento() throws IOException {
+        return buildDocumentoResponse(verificacionService.resolverDocumentoAutenticado());
+    }
+
     @GetMapping("/documentos/{lado}")
-    public ResponseEntity<Resource> descargarDocumento(@PathVariable String lado) throws IOException {
-        Path path = verificacionService.resolverDocumentoAutenticado(lado);
+    public ResponseEntity<Resource> descargarDocumentoLegacy(@PathVariable String lado) throws IOException {
+        return buildDocumentoResponse(verificacionService.resolverDocumentoAutenticado(lado));
+    }
+
+    private static ResponseEntity<Resource> buildDocumentoResponse(Path path) throws IOException {
         Resource resource = new UrlResource(path.toUri());
         String contentType = Files.probeContentType(path);
         return ResponseEntity.ok()

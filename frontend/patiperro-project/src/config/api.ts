@@ -118,6 +118,9 @@ export const API_ENDPOINTS = {
       publicTamanos: `${API_BASE_URL}/api/paseadores/public/tamanos`,
       /** Configuración del paseador autenticado (JWT en cookie vía gateway). */
       meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`,
+      /** Verificación de identidad del paseador autenticado. */
+      meVerificacion: `${API_BASE_URL}/api/paseadores/me/verificacion`,
+      meVerificacionDocumento: `${API_BASE_URL}/api/paseadores/me/verificacion/documento`,
       /**
        * Búsqueda pública por proximidad (Haversine + radio de cobertura). Query params obligatorios:
        * latitudReferencia, longitudReferencia; opcionales: radioBusquedaMaxKm, limite, y filtro agenda
@@ -193,6 +196,13 @@ export const API_ENDPOINTS = {
     catalogoRegistroCuentaPaseador: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/paseador/billetera/catalogo/registro-cuenta`,
     /** Sandbox MVP: crea preferencia Checkout Pro en pagos-service (endpoint interno con secret). */
     checkoutProPreferencias: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/interno/mercadopago/checkout/preferencia`
+  },
+  /** Web Push del chat (notification-service vía gateway). */
+  notificaciones: {
+    push: {
+      vapidPublicKey: `${API_BASE_URL}/api/notificaciones/push/vapid-public-key`,
+      suscripciones: `${API_BASE_URL}/api/notificaciones/push/suscripciones`
+    }
   },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,

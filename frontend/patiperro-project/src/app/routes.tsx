@@ -12,6 +12,7 @@ import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
+import PaseadorVerificacion from "../features/paseador/pages/PaseadorVerificacion/PaseadorVerificacion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
@@ -60,6 +61,10 @@ export default function AppRoutes() {
       <Route
         path="/paseador/dashboard/configuracion"
         element={<PaseadorConfiguracion />}
+      />
+      <Route
+        path="/paseador/dashboard/verificacion"
+        element={<PaseadorVerificacion />}
       />
       <Route path="/paseador/dashboard/solicitudes" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/aceptadas" element={<PaseadorSolicitudes />} />
