@@ -105,8 +105,10 @@ class PaseadorInternoControllerTest {
             mockMvc.perform(get("/api/paseadores/interno/3/verificacion-identidad/documentos/frontal")
                             .header(PaseadorInternoController.HEADER_INTERNO, SECRETO_VALIDO))
                     .andExpect(status().isOk())
-                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
-                    .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"));
+                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate"))
+                    .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
+                    .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                    .andExpect(header().string("X-Frame-Options", "DENY"));
         } finally {
             Files.deleteIfExists(temp);
         }

@@ -1,5 +1,6 @@
 package com.patiperro.paseador.user.exception;
 
+import com.patiperro.paseador.controller.PaseadorInternoController;
 import com.patiperro.paseador.user.controller.PaseadorConfiguracionController;
 import com.patiperro.paseador.user.controller.PaseadorVerificacionController;
 import org.springframework.http.HttpStatus;
@@ -16,7 +17,8 @@ import java.util.Map;
 
 @RestControllerAdvice(assignableTypes = {
         PaseadorVerificacionController.class,
-        PaseadorConfiguracionController.class
+        PaseadorConfiguracionController.class,
+        PaseadorInternoController.class
 })
 public class PaseadorUserExceptionHandler {
 

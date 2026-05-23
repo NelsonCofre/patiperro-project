@@ -65,8 +65,9 @@ class PaseadorVerificacionControllerTest {
 
             mockMvc.perform(get("/api/paseadores/me/verificacion/documentos/frontal"))
                     .andExpect(status().isOk())
-                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
-                    .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"));
+                    .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate"))
+                    .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
+                    .andExpect(header().string("X-Content-Type-Options", "nosniff"));
         } finally {
             Files.deleteIfExists(temp);
         }

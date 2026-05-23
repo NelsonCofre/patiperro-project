@@ -4,15 +4,14 @@ import com.patiperro.paseador.model.EstadoVerificacionIdentidad;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.user.dto.VerificacionIdentidadResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorVerificacionService;
+import com.patiperro.paseador.user.util.VerificacionDocumentoHttpSupport;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -72,12 +71,7 @@ public class PaseadorInternoController {
         Path path = verificacionService.resolverDocumentoPorPaseadorId(id, lado);
         Resource resource = new UrlResource(path.toUri());
         String contentType = Files.probeContentType(path);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE,
-                        contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .header(HttpHeaders.PRAGMA, "no-cache")
-                .body(resource);
+        return VerificacionDocumentoHttpSupport.okDocumento(contentType).body(resource);
     }
 
     @PutMapping("/{id}/verificacion-identidad")

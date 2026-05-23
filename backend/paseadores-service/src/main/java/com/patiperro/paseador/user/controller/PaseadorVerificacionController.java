@@ -2,10 +2,10 @@ package com.patiperro.paseador.user.controller;
 
 import com.patiperro.paseador.user.dto.VerificacionIdentidadResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorVerificacionService;
+import com.patiperro.paseador.user.util.VerificacionDocumentoHttpSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,12 +55,7 @@ public class PaseadorVerificacionController {
         Path path = verificacionService.resolverDocumentoAutenticado(lado);
         Resource resource = new UrlResource(path.toUri());
         String contentType = Files.probeContentType(path);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE,
-                        contentType != null ? contentType : MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .header(HttpHeaders.PRAGMA, "no-cache")
-                .body(resource);
+        return VerificacionDocumentoHttpSupport.okDocumento(contentType).body(resource);
     }
 
     private static void requireMultipartPresente(MultipartFile file, String nombreParametro) {

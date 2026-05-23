@@ -105,7 +105,7 @@ class PaseadorVerificacionServiceTest {
                 .build();
         autenticar(paseador.getCorreo());
         when(paseadorRepository.findByCorreo(paseador.getCorreo())).thenReturn(Optional.of(paseador));
-        when(paseadorRepository.findById(1L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(paseador));
         when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
 
         VerificacionIdentidadResponseDTO response = verificacionService.subirDocumentos(

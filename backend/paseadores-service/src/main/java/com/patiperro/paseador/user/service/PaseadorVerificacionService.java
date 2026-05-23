@@ -52,7 +52,7 @@ public class PaseadorVerificacionService {
             nuevoFrontal = storageService.save(cedulaFrontal);
             nuevoReverso = storageService.save(cedulaReverso);
 
-            Paseador actual = paseadorRepository.findById(idPaseador)
+            Paseador actual = paseadorRepository.findByIdForUpdate(idPaseador)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.UNAUTHORIZED, "Paseador autenticado no encontrado"));
             validarPuedeSubir(actual.getEstadoVerificacionIdentidad());
