@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PaseadorVerificacionCamposTest {
@@ -17,6 +18,7 @@ class PaseadorVerificacionCamposTest {
                 .build();
 
         assertEquals(EstadoVerificacionIdentidad.SIN_ENVIAR, p.getEstadoVerificacionIdentidad());
+        assertFalse(p.isEsVerificado());
         assertNull(p.getArchivoCedulaFrontal());
         assertNull(p.getArchivoCedulaReverso());
         assertNull(p.getVerificacionIdentidadEnviadaEn());
@@ -41,6 +43,7 @@ class PaseadorVerificacionCamposTest {
                 .build();
 
         assertEquals(EstadoVerificacionIdentidad.EN_PROCESO, p.getEstadoVerificacionIdentidad());
+        assertFalse(p.isEsVerificado());
         assertEquals("a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg", p.getArchivoCedulaFrontal());
         assertEquals("b2c3d4e5-f6a7-8901-bcde-f12345678901.png", p.getArchivoCedulaReverso());
         assertEquals(enviado, p.getVerificacionIdentidadEnviadaEn());

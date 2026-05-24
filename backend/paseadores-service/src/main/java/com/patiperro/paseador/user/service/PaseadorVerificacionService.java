@@ -21,7 +21,8 @@ import java.util.Set;
 
 /**
  * Reglas de negocio de verificación de identidad (cédula) del paseador autenticado.
- * Flujo MVP: un único PDF → {@link EstadoVerificacionIdentidad#APROBADO} automático.
+ * Flujo MVP: un único PDF → {@link EstadoVerificacionIdentidad#APROBADO} automático
+ * (sincroniza {@code es_verificado} en BD para el badge público del tutor).
  */
 @Service
 @RequiredArgsConstructor
@@ -61,7 +62,7 @@ public class PaseadorVerificacionService {
 
             actual.setArchivoCedulaFrontal(nuevo);
             actual.setArchivoCedulaReverso(null);
-            actual.setEstadoVerificacionIdentidad(EstadoVerificacionIdentidad.APROBADO);
+            aplicarEstadoVerificacion(actual, EstadoVerificacionIdentidad.APROBADO);
             actual.setVerificacionIdentidadEnviadaEn(ahora);
             actual.setVerificacionIdentidadRevisadaEn(ahora);
             actual.setMotivoRechazoVerificacionIdentidad(null);
@@ -120,7 +121,7 @@ public class PaseadorVerificacionService {
         if (nuevoEstado == EstadoVerificacionIdentidad.RECHAZADO) {
             validarMotivoRechazo(motivo);
         }
-        Paseador paseador = paseadorRepository.findById(idPaseador)
+        Paseador paseador = paseadorRepository.findByIdForUpdate(idPaseador)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paseador no encontrado"));
         if (paseador.getEstadoVerificacionIdentidad() != EstadoVerificacionIdentidad.EN_PROCESO) {
             throw new ResponseStatusException(
@@ -132,7 +133,7 @@ public class PaseadorVerificacionService {
                     HttpStatus.CONFLICT,
                     "No hay documento de identidad registrado para este paseador");
         }
-        paseador.setEstadoVerificacionIdentidad(nuevoEstado);
+        aplicarEstadoVerificacion(paseador, nuevoEstado);
         paseador.setVerificacionIdentidadRevisadaEn(LocalDateTime.now());
         paseador.setMotivoRechazoVerificacionIdentidad(
                 nuevoEstado == EstadoVerificacionIdentidad.RECHAZADO ? motivo.trim() : null);
@@ -141,9 +142,20 @@ public class PaseadorVerificacionService {
 
     /** Badge público de confianza (búsqueda / perfil tutor). */
     public static boolean esVerificadoPublicamente(Paseador paseador) {
-        return paseador != null
-                && paseador.getEstadoVerificacionIdentidad() != null
-                && paseador.getEstadoVerificacionIdentidad().esAprobado();
+        if (paseador == null) {
+            return false;
+        }
+        if (paseador.isEsVerificado()) {
+            return true;
+        }
+        EstadoVerificacionIdentidad estado = paseador.getEstadoVerificacionIdentidad();
+        return estado != null && estado.esAprobado();
+    }
+
+    /** Mantiene alineados el enum del flujo y el boolean público {@code es_verificado}. */
+    static void aplicarEstadoVerificacion(Paseador paseador, EstadoVerificacionIdentidad estado) {
+        paseador.setEstadoVerificacionIdentidad(estado);
+        paseador.setEsVerificado(estado != null && estado.esAprobado());
     }
 
     private static void validarPuedeSubir(EstadoVerificacionIdentidad estado) {

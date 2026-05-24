@@ -83,6 +83,12 @@ public class Paseador {
     @Column(name = "motivo_rechazo_verificacion_identidad", length = 500)
     private String motivoRechazoVerificacionIdentidad;
 
+    /** Badge público para tutores (lista, perfil, filtros). Sincronizado con {@link #estadoVerificacionIdentidad}. */
+    @JsonIgnore
+    @Column(name = "es_verificado", nullable = false)
+    @Builder.Default
+    private boolean esVerificado = false;
+
     // Contrasena hash; nunca en respuestas JSON.
     @JsonIgnore
     @Column(name = "contrasena", length = 60, nullable = false)
@@ -105,8 +111,21 @@ public class Paseador {
     @PrePersist
     @PreUpdate
     private void normalizarVerificacionIdentidad() {
+        sincronizarEsVerificadoConEstado();
+    }
+
+    /** Repara lecturas si enum y boolean llegaron desalineados (p. ej. SQL manual o dev/prod distintos). */
+    @PostLoad
+    private void alinearEsVerificadoTrasCarga() {
+        if (estadoVerificacionIdentidad != null) {
+            esVerificado = estadoVerificacionIdentidad.esAprobado();
+        }
+    }
+
+    private void sincronizarEsVerificadoConEstado() {
         if (estadoVerificacionIdentidad == null) {
             estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
         }
+        esVerificado = estadoVerificacionIdentidad.esAprobado();
     }
 }

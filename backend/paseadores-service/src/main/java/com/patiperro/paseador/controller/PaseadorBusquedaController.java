@@ -6,7 +6,6 @@ import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorBusquedaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,7 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/paseadores/public")
 @RequiredArgsConstructor
-public class PaseadorBusquedaController {   
+public class PaseadorBusquedaController {
 
     private final PaseadorBusquedaService paseadorBusquedaService;
 
@@ -31,6 +30,7 @@ public class PaseadorBusquedaController {
      * - Solo geográfico: latitudReferencia, longitudReferencia, radioBusquedaMaxKm (opcional), limite (opcional).
      * - Geográfico + disponibilidad (agenda-service): se deben indicar los 4 parámetros de agenda
      *   (fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible).
+     * - Filtro opcional {@code soloVerificados=true}: solo paseadores con identidad verificada ({@code es_verificado}).
      *
      * El radio efectivo es {@code LEAST(radio_cobertura_del_paseador, radioBusquedaMaxKm)}.
      */
@@ -43,7 +43,8 @@ public class PaseadorBusquedaController {
             @RequestParam(required = false) LocalDate fechaDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaInicioDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaFinDisponibilidad,
-            @RequestParam(required = false) Integer idEstadoBloqueDisponible) {
+            @RequestParam(required = false) Integer idEstadoBloqueDisponible,
+            @RequestParam(defaultValue = "false") boolean soloVerificados) {
         return paseadorBusquedaService.buscarCercanos(
                 latitudReferencia,
                 longitudReferencia,
@@ -52,12 +53,13 @@ public class PaseadorBusquedaController {
                 fechaDisponibilidad,
                 horaInicioDisponibilidad,
                 horaFinDisponibilidad,
-                idEstadoBloqueDisponible);
+                idEstadoBloqueDisponible,
+                soloVerificados);
     }
 
     /**
      * Variante con conteo real + paginación por offset/limit.
-     * Mantiene el endpoint /cercanos intacto para compatibilidad con el frontend actual.
+     * Acepta los mismos filtros que {@link #listarCercanos}, incluido {@code soloVerificados}.
      */
     @GetMapping("/cercanos-con-conteo")
     public PaseadorCercanosConConteoResponseDTO listarCercanosConConteo(
@@ -70,7 +72,8 @@ public class PaseadorBusquedaController {
             @RequestParam(required = false) LocalDate fechaDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaInicioDisponibilidad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime horaFinDisponibilidad,
-            @RequestParam(required = false) Integer idEstadoBloqueDisponible) {
+            @RequestParam(required = false) Integer idEstadoBloqueDisponible,
+            @RequestParam(defaultValue = "false") boolean soloVerificados) {
         int limitEfectivo = limite != null ? limite : limit;
         return paseadorBusquedaService.buscarCercanosConConteo(
                 latitudReferencia,
@@ -81,14 +84,13 @@ public class PaseadorBusquedaController {
                 fechaDisponibilidad,
                 horaInicioDisponibilidad,
                 horaFinDisponibilidad,
-                idEstadoBloqueDisponible);
+                idEstadoBloqueDisponible,
+                soloVerificados);
     }
 
-    // En algún controlador con @RequestMapping("/api/paseadores/public")
-
-/**
+    /**
      * Búsqueda pública del perfil básico de un paseador por su ID.
-     * Esto es usado por el Tutor para obtener el correo y enviar notificaciones.
+     * Incluye {@code verificado} para el sello de identidad en la UI del tutor.
      */
     @GetMapping("/{id}")
     public PaseadorPerfilDTO obtenerPerfilPaseador(@PathVariable Long id) {
