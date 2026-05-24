@@ -16,5 +16,10 @@ public class NotificationServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(NotificationServiceApplication.class, args);
+
+        System.out.println("----------------------------------------------");
+        System.out.println("¡Microservicio de NOTIFICATION iniciado con éxito!");
+        System.out.println("Puerto: 8086");
+        System.out.println("----------------------------------------------");
     }
 }

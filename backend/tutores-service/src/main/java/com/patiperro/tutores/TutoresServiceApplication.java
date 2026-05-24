@@ -10,5 +10,10 @@ public class TutoresServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(TutoresServiceApplication.class, args);
+
+        System.out.println("----------------------------------------------");
+        System.out.println("¡Microservicio de TUTORES iniciado con éxito!");
+        System.out.println("Puerto: 8081");
+        System.out.println("----------------------------------------------");
     }
 }
