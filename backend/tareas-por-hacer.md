@@ -35,7 +35,6 @@ Tareas por hacer:
 
 - Validación de archivos: Implementar lógica en el cliente para validar el tipo de MIME (image/jpeg, application/pdf) y el tamaño del archivo antes de la subida.
 
-
 2. Como Paseador, quiero enviar fotos del perro durante el paseo para dar tranquilidad al dueño.
 
 Criterios de Aceptación
@@ -113,4 +112,3 @@ Entonces el sello de verificación debe aparecer de forma automática e inmediat
 Tareas por hacer:
 
 - Lógica de Negocio: Crear el servicio que cambie este estado a true cuando el flujo de aprobación de documentos finalice con éxito.
-

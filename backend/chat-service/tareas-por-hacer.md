@@ -83,6 +83,6 @@ Override opcional en `.env.local`: `VITE_CHAT_WS_PROXY_TARGET=http://127.0.0.1:8
 
 ### Despliegue manual
 
-1. SQL: `db/chat_db-mensaje-imagen-migration.sql` en `chat_db`.
+1. Reiniciar **chat-service** (Flyway aplica `db/migration/V1__mensaje_tipo_url_media.sql` en `chat_db`).
 2. Reiniciar **reserva-service** y **chat-service** (`RESERVA_INTERNO_SECRET` = `patiperro.reserva.interno.secret`).
 3. Prod: volumen en `CHAT_MEDIA_UPLOAD_DIR`.

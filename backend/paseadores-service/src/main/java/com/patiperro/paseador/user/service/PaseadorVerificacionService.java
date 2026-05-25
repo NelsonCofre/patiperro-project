@@ -20,8 +20,10 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Reglas de negocio de verificación de identidad (cédula) del paseador autenticado.
- * Flujo MVP: un único PDF → {@link EstadoVerificacionIdentidad#APROBADO} automático.
+ * Reglas de negocio de verificación de identidad (cédula) del paseador
+ * autenticado.
+ * Flujo MVP: un único PDF → {@link EstadoVerificacionIdentidad#APROBADO}
+ * automático.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,7 +41,8 @@ public class PaseadorVerificacionService {
     }
 
     /**
-     * Sube un único PDF y aprueba la identidad automáticamente (sin revisión manual).
+     * Sube un único PDF y aprueba la identidad automáticamente (sin revisión
+     * manual).
      */
     @Transactional
     public VerificacionIdentidadResponseDTO subirDocumento(MultipartFile documento) {
@@ -174,7 +177,8 @@ public class PaseadorVerificacionService {
         return switch (ladoNorm) {
             case "documento", "frontal" -> paseador.getArchivoCedulaFrontal();
             case "reverso" -> paseador.getArchivoCedulaReverso();
-            default -> throw new IllegalArgumentException("Lado de documento inválido (use documento, frontal o reverso)");
+            default ->
+                throw new IllegalArgumentException("Lado de documento inválido (use documento, frontal o reverso)");
         };
     }
 
@@ -199,6 +203,7 @@ public class PaseadorVerificacionService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No hay sesión autenticada");
         }
         return paseadorRepository.findByCorreo(correo)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Paseador autenticado no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Paseador autenticado no encontrado"));
     }
 }
