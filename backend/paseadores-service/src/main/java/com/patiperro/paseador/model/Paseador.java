@@ -117,9 +117,11 @@ public class Paseador {
     /** Repara lecturas si enum y boolean llegaron desalineados (p. ej. SQL manual o dev/prod distintos). */
     @PostLoad
     private void alinearEsVerificadoTrasCarga() {
-        if (estadoVerificacionIdentidad != null) {
-            esVerificado = estadoVerificacionIdentidad.esAprobado();
+        if (estadoVerificacionIdentidad == null) {
+            esVerificado = false;
+            return;
         }
+        esVerificado = estadoVerificacionIdentidad.esAprobado();
     }
 
     private void sincronizarEsVerificadoConEstado() {

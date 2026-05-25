@@ -106,6 +106,7 @@ class PaseadorVerificacionServiceTest {
                 pdfFile("documento", "cedula.pdf"));
 
         assertEquals(EstadoVerificacionIdentidad.APROBADO, response.getEstado());
+        assertTrue(response.isEsVerificado());
         assertFalse(response.isPuedeSubir());
         assertTrue(response.isTieneDocumento());
         assertTrue(response.isTieneFrontal());
@@ -144,6 +145,7 @@ class PaseadorVerificacionServiceTest {
 
         assertEquals(EstadoVerificacionIdentidad.RECHAZADO, response.getEstado());
         assertEquals("Documento ilegible", response.getMotivoRechazo());
+        assertFalse(response.isEsVerificado());
         assertTrue(response.isPuedeSubir());
         assertFalse(paseador.isEsVerificado());
     }
@@ -179,6 +181,7 @@ class PaseadorVerificacionServiceTest {
                 null);
 
         assertEquals(EstadoVerificacionIdentidad.APROBADO, response.getEstado());
+        assertTrue(response.isEsVerificado());
         assertFalse(response.isPuedeSubir());
         assertNull(response.getMotivoRechazo());
         assertTrue(paseador.isEsVerificado());

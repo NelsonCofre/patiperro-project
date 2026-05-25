@@ -36,6 +36,17 @@ class PaseadorVerificacionBadgePublicoTest {
         assertTrue(PaseadorVerificacionService.esVerificadoPublicamente(paseador));
     }
 
+    @Test
+    void esVerificadoPublicamente_booleanTrueSinAprobado_retornaFalse() {
+        Paseador paseador = Paseador.builder()
+                .correo("desalineado@test.cl")
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.EN_PROCESO)
+                .esVerificado(true)
+                .build();
+
+        assertFalse(PaseadorVerificacionService.esVerificadoPublicamente(paseador));
+    }
+
     private static boolean esVerificado(EstadoVerificacionIdentidad estado) {
         return PaseadorVerificacionService.esVerificadoPublicamente(
                 Paseador.builder()

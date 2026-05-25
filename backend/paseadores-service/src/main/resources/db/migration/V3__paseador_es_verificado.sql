@@ -5,7 +5,7 @@ ALTER TABLE paseador
     ADD COLUMN IF NOT EXISTS es_verificado BOOLEAN;
 
 UPDATE paseador
-SET es_verificado = (estado_verificacion_identidad = 'APROBADO');
+SET es_verificado = COALESCE(estado_verificacion_identidad = 'APROBADO', false);
 
 ALTER TABLE paseador
     ALTER COLUMN es_verificado SET DEFAULT false;

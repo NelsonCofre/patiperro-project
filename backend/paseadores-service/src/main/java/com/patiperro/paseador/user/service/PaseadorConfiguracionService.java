@@ -16,10 +16,12 @@ import com.patiperro.paseador.user.dto.TarifaConfiguracionResponseDTO;
 import com.patiperro.paseador.user.dto.TarifaInputDTO;
 import com.patiperro.paseador.user.dto.UpsertConfiguracionRequestDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,13 +60,13 @@ public class PaseadorConfiguracionService {
     @Transactional(readOnly = true)
     public PaseadorResumenResponseDTO getResumenPublicoByPaseadorId(Long paseadorId) {
         Paseador paseador = paseadorRepository.findById(paseadorId)
-                .orElseThrow(() -> new IllegalArgumentException("Paseador no encontrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paseador no encontrado"));
         return PaseadorResumenResponseDTO.builder()
                 .idPaseador(paseador.getId())
                 .nombreCompleto(nombrePublico(paseador))
                 .fotoPerfil(paseador.getFotoPerfil())
                 .correo(paseador.getCorreo())
-                .verificado(PaseadorVerificacionService.esVerificadoPublicamente(paseador))
+                .esVerificado(PaseadorVerificacionService.esVerificadoPublicamente(paseador))
                 .build();
     }
 
