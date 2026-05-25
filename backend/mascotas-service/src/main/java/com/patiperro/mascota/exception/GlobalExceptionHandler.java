@@ -6,6 +6,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
+import com.patiperro.mascota.service.MascotaFotoStorageService;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -26,6 +29,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Object> handleForbidden(ForbiddenOperationException ex) {
         String msg = ex.getMessage() != null ? ex.getMessage() : "No autorizado";
         return buildErrorResponse(HttpStatus.FORBIDDEN, msg, null);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Object> handleMaxUpload(MaxUploadSizeExceededException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, MascotaFotoStorageService.MSG_PESO, null);
     }
 
     // 3. VIGILANCIA DE VALIDACIONES (Mantiene tu captura de errores de @Valid en Mascota) //
