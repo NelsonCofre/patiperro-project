@@ -138,6 +138,7 @@ export const API_ENDPOINTS = {
   mascotas: {
     base: `${API_BASE_URL}/api/mascotas`,
     mias: `${API_BASE_URL}/api/mascotas/mias`,
+    byId: (idMascota: number) => `${API_BASE_URL}/api/mascotas/${idMascota}`,
     especies: `${API_BASE_URL}/api/mascotas/especies`,
     razas: (especieId?: number) =>
       especieId != null

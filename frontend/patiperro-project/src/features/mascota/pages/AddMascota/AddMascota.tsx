@@ -1,12 +1,11 @@
-// Formulario principal para registrar una mascota en el espacio del tutor.
-// Usa un hook por pasos para separar datos basicos, perfil y foto.
 import type {
   ChangeEvent,
   FocusEvent,
   FormEvent
 } from "react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { resolveApiUrl } from "../../../../config/api";
 import { uploadTutorProfilePhoto } from "../../../auth/services/authServices";
 import TutorNavbar from "../../../tutor/components/TutorNavbar/TutorNavbar";
 import { useMascotaForm } from "../../hooks/useMascotaForm";
@@ -14,8 +13,10 @@ import {
   buildCreateMascotaPayload,
   createMascota,
   fetchEspecies,
+  fetchMascotaById,
   fetchRazas,
   fetchTamanos,
+  updateMascota,
   type EspecieDTO,
   type RazaDTO,
   type TamanoDTO
@@ -54,14 +55,29 @@ const INITIAL_FORM: MascotaForm = {
 const SEXOS = ["Macho", "Hembra"];
 const ESTERILIZADO_OPTIONS = ["Si", "No"];
 
+type SuccessState = {
+  eyebrow: string;
+  title: string;
+  message: string;
+  buttonLabel: string;
+  redirectTo: string;
+};
+
 export default function AddMascota() {
   const navigate = useNavigate();
-  const [successMessage, setSuccessMessage] = useState("");
+  const { idMascota: idMascotaParam } = useParams();
+  const mascotaId = Number.parseInt(idMascotaParam ?? "", 10);
+  const isEditMode = Number.isFinite(mascotaId) && mascotaId > 0;
+
+  const [successState, setSuccessState] = useState<SuccessState | null>(null);
   const [especies, setEspecies] = useState<EspecieDTO[]>([]);
   const [razas, setRazas] = useState<RazaDTO[]>([]);
   const [tamanos, setTamanos] = useState<TamanoDTO[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [mascotaLoading, setMascotaLoading] = useState(isEditMode);
+  const [fotoActualPath, setFotoActualPath] = useState("");
+  const [fotoActualUrl, setFotoActualUrl] = useState("");
 
   const {
     currentStep,
@@ -74,6 +90,7 @@ export default function AddMascota() {
     setIsSubmitting,
     setErrors,
     setFieldValue,
+    hydrateForm,
     handleBlur,
     handlePhotoChange,
     validateEntireForm,
@@ -82,13 +99,15 @@ export default function AddMascota() {
     resetForm,
     isCurrentStepDisabled
   } = useMascotaForm({
-    initialForm: INITIAL_FORM
+    initialForm: INITIAL_FORM,
+    requirePhoto: !isEditMode || !fotoActualPath
   });
 
   useEffect(() => {
     let cancelled = false;
     setCatalogLoading(true);
     setCatalogError("");
+
     Promise.all([fetchEspecies(), fetchTamanos()])
       .then(([esp, tam]) => {
         if (!cancelled) {
@@ -96,18 +115,58 @@ export default function AddMascota() {
           setTamanos(tam);
         }
       })
-      .catch((e: unknown) => {
+      .catch((error: unknown) => {
         if (!cancelled) {
-          setCatalogError(e instanceof Error ? e.message : "No se pudieron cargar los catálogos.");
+          setCatalogError(
+            error instanceof Error ? error.message : "No se pudieron cargar los catalogos."
+          );
         }
       })
       .finally(() => {
-        if (!cancelled) setCatalogLoading(false);
+        if (!cancelled) {
+          setCatalogLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setMascotaLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMascotaLoading(true);
+    setSubmitError("");
+
+    fetchMascotaById(mascotaId)
+      .then((mascota) => {
+        if (cancelled) return;
+        hydrateForm(mascota.form);
+        setFotoActualPath(mascota.fotoPerfilPath);
+        setFotoActualUrl(mascota.fotoPerfilUrl);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setSubmitError(
+            error instanceof Error ? error.message : "No se pudo cargar la ficha de la mascota."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMascotaLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateForm, isEditMode, mascotaId, setSubmitError]);
 
   useEffect(() => {
     const id = Number(form.especie);
@@ -115,20 +174,44 @@ export default function AddMascota() {
       setRazas([]);
       return;
     }
+
     let cancelled = false;
     fetchRazas(id)
       .then((list) => {
-        if (!cancelled) setRazas(list);
+        if (!cancelled) {
+          setRazas(list);
+        }
       })
       .catch(() => {
-        if (!cancelled) setRazas([]);
+        if (!cancelled) {
+          setRazas([]);
+        }
       });
+
     return () => {
       cancelled = true;
     };
   }, [form.especie]);
 
   const mascotaAge = getMascotaAgeLabel(form.fecha_nacimiento);
+  const displayedPhotoUrl = photoPreview || fotoActualUrl;
+  const pageEyebrow = isEditMode ? "Editar mascota" : "Nueva mascota";
+  const pageTitle = isEditMode
+    ? "Actualiza la ficha de tu mascota"
+    : "Crea la ficha de tu mascota";
+  const pageDescription = isEditMode
+    ? "Puedes reemplazar la foto principal o ajustar sus datos sin perder la informacion actual."
+    : "Este formulario esta organizado por pasos para que puedas registrar la informacion importante sin sentir el proceso pesado.";
+
+  const fileMessage = useMemo(() => {
+    if (form.foto) {
+      return form.foto.name;
+    }
+    if (fotoActualPath) {
+      return "Mantendras la foto actual hasta guardar una nueva.";
+    }
+    return "Aun no has seleccionado una foto";
+  }, [form.foto, fotoActualPath]);
 
   const handleChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -161,7 +244,7 @@ export default function AddMascota() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSuccessMessage("");
+    setSuccessState(null);
 
     const validationErrors = validateEntireForm();
     if (Object.keys(validationErrors).length > 0) {
@@ -174,18 +257,45 @@ export default function AddMascota() {
     setIsSubmitting(true);
 
     try {
-      let fotoPerfilPath: string | undefined;
+      let fotoPerfilPath = fotoActualPath || undefined;
+      const isReplacingPhoto = Boolean(form.foto);
+
       if (form.foto) {
         fotoPerfilPath = await uploadTutorProfilePhoto(form.foto);
       }
+
       const payload = buildCreateMascotaPayload(form, fotoPerfilPath);
-      await createMascota(payload);
-      resetForm();
-      setSuccessMessage("Tu mascota quedó registrada en el sistema.");
+
+      if (isEditMode) {
+        await updateMascota(mascotaId, payload);
+        setFotoActualPath(fotoPerfilPath ?? "");
+        setFotoActualUrl(fotoPerfilPath ? resolveApiUrl(fotoPerfilPath) : "");
+        setSuccessState({
+          eyebrow: isReplacingPhoto ? "Foto actualizada" : "Cambios guardados",
+          title: isReplacingPhoto ? "Foto de mascota actualizada" : "Mascota actualizada",
+          message: isReplacingPhoto
+            ? "La nueva foto quedo guardada y ya reemplaza la anterior en la ficha de tu mascota."
+            : "La informacion de tu mascota quedo actualizada correctamente.",
+          buttonLabel: "Ver mis mascotas",
+          redirectTo: "/tutor/mascotas"
+        });
+      } else {
+        await createMascota(payload);
+        resetForm();
+        setFotoActualPath("");
+        setFotoActualUrl("");
+        setSuccessState({
+          eyebrow: "Registro exitoso",
+          title: "Mascota registrada exitosamente",
+          message: "Tu mascota quedo registrada en el sistema y su foto principal ya esta lista para futuras reservas.",
+          buttonLabel: "Ver mis mascotas",
+          redirectTo: "/tutor/mascotas"
+        });
+      }
     } catch (err) {
       let msg = err instanceof Error ? err.message : "No se pudo guardar la mascota.";
       if (err instanceof Error && /401|403|sesi|autentic/i.test(msg)) {
-        msg += " Si perdiste la sesión, vuelve a iniciar sesión como tutor.";
+        msg += " Si perdiste la sesion, vuelve a iniciar sesion como tutor.";
       }
       setSubmitError(msg);
     } finally {
@@ -195,21 +305,22 @@ export default function AddMascota() {
 
   return (
     <main className={styles.page}>
-      {successMessage ? (
+      {successState ? (
         <div className={styles.toastOverlay}>
           <div className={styles.toastCard} role="dialog" aria-modal="true">
-            <span className={styles.toastEyebrow}>Registro exitoso</span>
-            <h2 className={styles.toastTitle}>Mascota registrada exitosamente</h2>
-            <p className={styles.toastText}>{successMessage}</p>
+            <span className={styles.toastEyebrow}>{successState.eyebrow}</span>
+            <h2 className={styles.toastTitle}>{successState.title}</h2>
+            <p className={styles.toastText}>{successState.message}</p>
             <button
               type="button"
               className={styles.toastCloseButton}
               onClick={() => {
-                setSuccessMessage("");
-                navigate("/tutor/dashboard", { replace: true });
+                const nextRoute = successState.redirectTo;
+                setSuccessState(null);
+                navigate(nextRoute, { replace: true });
               }}
             >
-              Ir al panel
+              {successState.buttonLabel}
             </button>
           </div>
         </div>
@@ -219,12 +330,9 @@ export default function AddMascota() {
 
       <section className={styles.shell}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>Nueva mascota</p>
-          <h1 className={styles.title}>Crea la ficha de tu mascota</h1>
-          <p className={styles.description}>
-            Este formulario esta organizado por pasos para que puedas registrar
-            la informacion importante sin sentir el proceso pesado.
-          </p>
+          <p className={styles.eyebrow}>{pageEyebrow}</p>
+          <h1 className={styles.title}>{pageTitle}</h1>
+          <p className={styles.description}>{pageDescription}</p>
         </header>
 
         <div className={styles.stepper}>
@@ -248,13 +356,17 @@ export default function AddMascota() {
 
         {catalogError ? (
           <p className={styles.submitError} role="alert">
-            {catalogError} Asegúrate de estar logueado como tutor y de que el servicio de mascotas
-            esté disponible.
+            {catalogError} Asegurate de estar logueado como tutor y de que el servicio de
+            mascotas este disponible.
           </p>
         ) : null}
 
         <form className={styles.formShell} onSubmit={handleSubmit}>
-          {currentStep === 0 ? (
+          {mascotaLoading ? (
+            <p className={styles.fieldHint}>Cargando la ficha actual de tu mascota...</p>
+          ) : null}
+
+          {!mascotaLoading && currentStep === 0 ? (
             <>
               <h2 className={styles.sectionTitle}>Datos basicos</h2>
 
@@ -283,9 +395,9 @@ export default function AddMascota() {
                     <option value="">
                       {catalogLoading ? "Cargando..." : "Selecciona la especie"}
                     </option>
-                    {especies.map((e) => (
-                      <option key={e.idEspecie} value={String(e.idEspecie)}>
-                        {e.nombre}
+                    {especies.map((especie) => (
+                      <option key={especie.idEspecie} value={String(especie.idEspecie)}>
+                        {especie.nombre}
                       </option>
                     ))}
                   </select>
@@ -300,10 +412,7 @@ export default function AddMascota() {
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
                     disabled={
-                      catalogLoading ||
-                      !!catalogError ||
-                      !form.especie ||
-                      razas.length === 0
+                      catalogLoading || !!catalogError || !form.especie || razas.length === 0
                     }
                   >
                     <option value="">
@@ -313,9 +422,9 @@ export default function AddMascota() {
                           ? "Sin razas para esta especie"
                           : "Selecciona la raza"}
                     </option>
-                    {razas.map((r) => (
-                      <option key={r.idRaza} value={String(r.idRaza)}>
-                        {r.nombre}
+                    {razas.map((raza) => (
+                      <option key={raza.idRaza} value={String(raza.idRaza)}>
+                        {raza.nombre}
                       </option>
                     ))}
                   </select>
@@ -361,7 +470,7 @@ export default function AddMascota() {
             </>
           ) : null}
 
-          {currentStep === 1 ? (
+          {!mascotaLoading && currentStep === 1 ? (
             <>
               <h2 className={styles.sectionTitle}>Perfil y cuidados</h2>
 
@@ -392,12 +501,12 @@ export default function AddMascota() {
                     disabled={catalogLoading || !!catalogError}
                   >
                     <option value="">
-                      {catalogLoading ? "Cargando..." : "Selecciona el tamaño"}
+                      {catalogLoading ? "Cargando..." : "Selecciona el tamano"}
                     </option>
-                    {tamanos.map((t) => (
-                      <option key={t.idTamano} value={String(t.idTamano)}>
-                        {t.nombre}
-                        {t.descripcion ? ` — ${t.descripcion}` : ""}
+                    {tamanos.map((tamano) => (
+                      <option key={tamano.idTamano} value={String(tamano.idTamano)}>
+                        {tamano.nombre}
+                        {tamano.descripcion ? ` - ${tamano.descripcion}` : ""}
                       </option>
                     ))}
                   </select>
@@ -413,9 +522,7 @@ export default function AddMascota() {
                     onBlur={handleFieldBlur}
                     placeholder="Ej: Jugueton, tranquilo, sociable"
                   />
-                  {errors.comportamiento ? (
-                    <small>{errors.comportamiento}</small>
-                  ) : null}
+                  {errors.comportamiento ? <small>{errors.comportamiento}</small> : null}
                 </label>
 
                 <label className={`${styles.field} ${styles.fullWidth}`}>
@@ -486,15 +593,15 @@ export default function AddMascota() {
             </>
           ) : null}
 
-          {currentStep === 2 ? (
+          {!mascotaLoading && currentStep === 2 ? (
             <>
               <h2 className={styles.sectionTitle}>Foto principal</h2>
 
               <div className={styles.photoUpload}>
-                {photoPreview ? (
+                {displayedPhotoUrl ? (
                   <img
                     className={styles.preview}
-                    src={photoPreview}
+                    src={displayedPhotoUrl}
                     alt="Vista previa de la mascota"
                   />
                 ) : (
@@ -504,26 +611,23 @@ export default function AddMascota() {
                 )}
 
                 <p className={styles.photoText}>
-                  Sube una foto clara de tu mascota para completar su ficha.
+                  Sube una foto clara en JPG, JPEG o PNG para que el paseador pueda reconocer
+                  facilmente a tu mascota.
                 </p>
 
                 <label className={styles.uploadButton} htmlFor="mascota-foto">
-                  Seleccionar foto
+                  {fotoActualPath ? "Reemplazar foto" : "Seleccionar foto"}
                 </label>
 
                 <input
                   id="mascota-foto"
                   className={styles.hiddenInput}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  accept="image/png,image/jpeg,.jpg,.jpeg,.png"
                   onChange={handlePhotoChange}
                 />
 
-                {form.foto ? (
-                  <p className={styles.fileName}>{form.foto.name}</p>
-                ) : (
-                  <p className={styles.fileName}>Aun no has seleccionado una foto</p>
-                )}
+                <p className={styles.fileName}>{fileMessage}</p>
 
                 {errors.foto ? <small className={styles.photoError}>{errors.foto}</small> : null}
               </div>
@@ -531,12 +635,14 @@ export default function AddMascota() {
           ) : null}
 
           {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
+
           <div className={styles.actions}>
             {currentStep > 0 ? (
               <button
                 type="button"
                 className={styles.secondaryButton}
                 onClick={handlePrevStep}
+                disabled={mascotaLoading}
               >
                 Volver
               </button>
@@ -547,7 +653,7 @@ export default function AddMascota() {
                 type="button"
                 className={styles.primaryButton}
                 onClick={handleNextStep}
-                disabled={isCurrentStepDisabled}
+                disabled={isCurrentStepDisabled || mascotaLoading}
               >
                 Continuar
               </button>
@@ -555,9 +661,13 @@ export default function AddMascota() {
               <button
                 type="submit"
                 className={styles.primaryButton}
-                disabled={isCurrentStepDisabled || isSubmitting}
+                disabled={isCurrentStepDisabled || isSubmitting || mascotaLoading}
               >
-                {isSubmitting ? "Guardando..." : "Guardar mascota"}
+                {isSubmitting
+                  ? "Guardando..."
+                  : isEditMode
+                    ? "Guardar cambios"
+                    : "Guardar mascota"}
               </button>
             )}
           </div>

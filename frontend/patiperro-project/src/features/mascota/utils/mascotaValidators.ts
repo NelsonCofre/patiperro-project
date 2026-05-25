@@ -2,7 +2,7 @@
 // Mantienen separadas las reglas de negocio del componente visual.
 import type { MascotaForm } from "../types/mascota.types";
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 export function keepOnlyDigits(value: string): string {
@@ -57,15 +57,24 @@ export function getMascotaAgeLabel(birthDate: string): string {
   return `${years} ${years === 1 ? "año" : "años"}`;
 }
 
-export function validateMascotaPhoto(file: File | null): string | undefined {
-  if (!file) return "Debes subir una foto de tu mascota";
+type ValidateMascotaPhotoOptions = {
+  required?: boolean;
+};
+
+export function validateMascotaPhoto(
+  file: File | null,
+  options: ValidateMascotaPhotoOptions = {}
+): string | undefined {
+  const { required = true } = options;
+
+  if (!file) return required ? "Debes subir una foto de tu mascota" : undefined;
 
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return "La foto debe ser un archivo JPG, PNG o WEBP";
+    return "El archivo seleccionado no es valido. Por favor, sube una imagen en formato JPG, JPEG o PNG.";
   }
 
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return "La foto no puede superar los 5 MB";
+    return "La imagen es demasiado pesada. El tamano maximo permitido es 5MB.";
   }
 
   return undefined;
@@ -74,7 +83,8 @@ export function validateMascotaPhoto(file: File | null): string | undefined {
 export function validateMascotaField(
   name: keyof MascotaForm,
   value: string | File | null,
-  form: MascotaForm
+  form: MascotaForm,
+  options: ValidateMascotaPhotoOptions = {}
 ): string | undefined {
   const stringValue = typeof value === "string" ? value.trim() : "";
 
@@ -122,7 +132,7 @@ export function validateMascotaField(
     }
   }
 
-  if (name === "foto") return validateMascotaPhoto(form.foto);
+  if (name === "foto") return validateMascotaPhoto(form.foto, options);
 
   return undefined;
 }

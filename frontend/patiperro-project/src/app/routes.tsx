@@ -9,6 +9,7 @@ import ChatReservaPage from "../features/chat/pages/ChatReservaPage/ChatReservaP
 import LandingHome from "../features/home/pages/LandingHome/LandingHome";
 import CheckoutProSandboxPage from "../features/labs/pages/CheckoutProSandboxPage/CheckoutProSandboxPage";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
+import MisMascotas from "../features/mascota/pages/MisMascotas/MisMascotas";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
@@ -82,7 +83,23 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/tutor/mascotas"
+        element={
+          <RequireTutorAuth>
+            <MisMascotas />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
         path="/tutor/mascota/nueva"
+        element={
+          <RequireTutorAuth>
+            <AddMascota />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/mascotas/:idMascota/editar"
         element={
           <RequireTutorAuth>
             <AddMascota />

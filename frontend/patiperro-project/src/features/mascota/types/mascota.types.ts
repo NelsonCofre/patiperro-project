@@ -17,3 +17,26 @@ export type MascotaForm = {
 };
 
 export type MascotaFormErrors = Partial<Record<keyof MascotaForm, string>>;
+
+export type MascotaListItem = {
+  idMascota: number;
+  nombre: string;
+  especieNombre: string;
+  razaNombre: string;
+  tamanoNombre: string;
+  sexo: string;
+  edadFormateada: string;
+  fotoPerfilPath: string;
+  fotoPerfilUrl: string;
+};
+
+export type MascotaEditorData = {
+  idMascota: number;
+  form: MascotaForm;
+  especieNombre: string;
+  razaNombre: string;
+  tamanoNombre: string;
+  edadFormateada: string;
+  fotoPerfilPath: string;
+  fotoPerfilUrl: string;
+};

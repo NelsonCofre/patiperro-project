@@ -9,9 +9,13 @@ import { validateMascotaField, validateMascotaPhoto } from "../utils/mascotaVali
 
 type UseMascotaFormParams = {
   initialForm: MascotaForm;
+  requirePhoto?: boolean;
 };
 
-export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
+export function useMascotaForm({
+  initialForm,
+  requirePhoto = true
+}: UseMascotaFormParams) {
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<MascotaForm>(initialForm);
   const [errors, setErrors] = useState<MascotaFormErrors>({});
@@ -49,8 +53,9 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    setForm((prev) => ({ ...prev, foto: file }));
-    setErrors((prev) => ({ ...prev, foto: validateMascotaPhoto(file) }));
+    const photoError = validateMascotaPhoto(file, { required: requirePhoto });
+    setForm((prev) => ({ ...prev, foto: photoError ? null : file }));
+    setErrors((prev) => ({ ...prev, foto: photoError }));
   };
 
   const validateStep = useCallback(
@@ -100,7 +105,9 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
       }
 
       if (step === 2) {
-        nextErrors.foto = validateMascotaField("foto", form.foto, form);
+        nextErrors.foto = validateMascotaField("foto", form.foto, form, {
+          required: requirePhoto
+        });
       }
 
       return Object.fromEntries(
@@ -146,6 +153,13 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
     setSubmitError("");
   }, [initialForm]);
 
+  const hydrateForm = useCallback((nextForm: MascotaForm) => {
+    setForm(nextForm);
+    setCurrentStep(0);
+    setErrors({});
+    setSubmitError("");
+  }, []);
+
   return {
     currentStep,
     form,
@@ -157,6 +171,7 @@ export function useMascotaForm({ initialForm }: UseMascotaFormParams) {
     setIsSubmitting,
     setErrors,
     setFieldValue,
+    hydrateForm,
     handleBlur,
     handlePhotoChange,
     validateStep,
