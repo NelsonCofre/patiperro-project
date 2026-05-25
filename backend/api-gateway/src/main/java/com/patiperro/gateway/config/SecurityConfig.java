@@ -137,6 +137,8 @@ public class SecurityConfig {
                                                                                 .pathPattern("/api/tutores/public/**"),
                                                                 PathPatternRequestMatcher.pathPattern(
                                                                                 "/api/paseadores/public/**"),
+                                                                PathPatternRequestMatcher.pathPattern(
+                                                                                "/api/mascotas/public/**"),
                                                                 PathPatternRequestMatcher.pathPattern("/api/resenas"), // <---
                                                                                                                        // LA
                                                                                                                        // RAÍZ
