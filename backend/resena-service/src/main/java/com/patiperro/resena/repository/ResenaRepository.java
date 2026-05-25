@@ -10,4 +10,6 @@ public interface ResenaRepository extends JpaRepository<Resena, Integer> {
     
     // Para calcular el promedio del paseador
     java.util.List<Resena> findByIdPaseador(Integer idPaseador);
+
+    java.util.List<Resena> findByIdTutor(Long idTutor);
 }

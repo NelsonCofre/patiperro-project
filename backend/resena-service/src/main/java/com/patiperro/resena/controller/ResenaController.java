@@ -62,6 +62,14 @@ public class ResenaController {
     }
 
     /**
+     * Reservas que el tutor ya calificó (evita re-calificar tras refrescar la página).
+     */
+    @GetMapping("/tutor/{idTutor}/reservas-calificadas")
+    public ResponseEntity<List<Integer>> listarReservasCalificadasPorTutor(@PathVariable Long idTutor) {
+        return ResponseEntity.ok(resenaService.listarIdsReservaCalificadasPorTutor(idTutor));
+    }
+
+    /**
      * Obtiene el historial de reseñas de un paseador específico.
      */
     @GetMapping("/paseador/{idPaseador}")
