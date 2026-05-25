@@ -14,5 +14,10 @@ import org.springframework.cloud.client.discovery.simple.SimpleDiscoveryClientAu
 public class ResenaServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(ResenaServiceApplication.class, args);
+
+        System.out.println("----------------------------------------------");
+        System.out.println("¡Microservicio de RESENA iniciado con éxito!");
+        System.out.println("Puerto: 8088");
+        System.out.println("----------------------------------------------");
     }
 }

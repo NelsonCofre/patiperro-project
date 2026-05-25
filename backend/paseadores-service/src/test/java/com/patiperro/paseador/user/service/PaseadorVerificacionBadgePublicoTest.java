@@ -25,11 +25,23 @@ class PaseadorVerificacionBadgePublicoTest {
         assertFalse(PaseadorVerificacionService.esVerificadoPublicamente(sinEstado));
     }
 
+    @Test
+    void esVerificadoPublicamente_enumAprobadoSinBoolean_retornaTrue() {
+        Paseador paseador = Paseador.builder()
+                .correo("legacy@test.cl")
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.APROBADO)
+                .esVerificado(false)
+                .build();
+
+        assertTrue(PaseadorVerificacionService.esVerificadoPublicamente(paseador));
+    }
+
     private static boolean esVerificado(EstadoVerificacionIdentidad estado) {
         return PaseadorVerificacionService.esVerificadoPublicamente(
                 Paseador.builder()
                         .correo("paseador@test.com")
                         .estadoVerificacionIdentidad(estado)
+                        .esVerificado(estado != null && estado.esAprobado())
                         .build());
     }
 }

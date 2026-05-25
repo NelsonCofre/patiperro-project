@@ -114,9 +114,27 @@ class PaseadorVerificacionServiceTest {
     }
 
     @Test
+    void subirDocumento_pasaAAprobadoCuandoPuedeSubir_sincronizaEsVerificado() throws Exception {
+        initStorage();
+        Paseador paseador = Paseador.builder()
+                .id(1L)
+                .correo("paseador@test.cl")
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.SIN_ENVIAR)
+                .build();
+        autenticar(paseador.getCorreo());
+        when(paseadorRepository.findByCorreo(paseador.getCorreo())).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        verificacionService.subirDocumento(pdfFile("documento", "cedula.pdf"));
+
+        assertTrue(paseador.isEsVerificado());
+    }
+
+    @Test
     void revisarVerificacionInterna_rechazado_conMotivo_guardaMotivo() {
         Paseador paseador = paseadorEnProceso();
-        when(paseadorRepository.findById(2L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(paseador));
         when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
 
         VerificacionIdentidadResponseDTO response = verificacionService.revisarVerificacionInterna(
@@ -127,6 +145,7 @@ class PaseadorVerificacionServiceTest {
         assertEquals(EstadoVerificacionIdentidad.RECHAZADO, response.getEstado());
         assertEquals("Documento ilegible", response.getMotivoRechazo());
         assertTrue(response.isPuedeSubir());
+        assertFalse(paseador.isEsVerificado());
     }
 
     @Test
@@ -135,7 +154,7 @@ class PaseadorVerificacionServiceTest {
                 .id(5L)
                 .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.EN_PROCESO)
                 .build();
-        when(paseadorRepository.findById(5L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(paseador));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -151,7 +170,7 @@ class PaseadorVerificacionServiceTest {
     @Test
     void revisarVerificacionInterna_aprobado_actualizaEstado() {
         Paseador paseador = paseadorEnProceso();
-        when(paseadorRepository.findById(2L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(paseador));
         when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
 
         VerificacionIdentidadResponseDTO response = verificacionService.revisarVerificacionInterna(
@@ -162,6 +181,7 @@ class PaseadorVerificacionServiceTest {
         assertEquals(EstadoVerificacionIdentidad.APROBADO, response.getEstado());
         assertFalse(response.isPuedeSubir());
         assertNull(response.getMotivoRechazo());
+        assertTrue(paseador.isEsVerificado());
         verify(paseadorRepository).save(any(Paseador.class));
     }
 
@@ -183,7 +203,7 @@ class PaseadorVerificacionServiceTest {
                 .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.SIN_ENVIAR)
                 .archivoCedulaFrontal("a.pdf")
                 .build();
-        when(paseadorRepository.findById(3L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(paseador));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -219,6 +239,20 @@ class PaseadorVerificacionServiceTest {
 
         assertTrue(response.isPuedeSubir());
         assertEquals("Rechazado", response.getEstadoEtiqueta());
+    }
+
+    @Test
+    void aplicarEstadoVerificacion_rechazado_dejaEsVerificadoFalse() {
+        Paseador paseador = Paseador.builder()
+                .correo("rechazo@test.cl")
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.EN_PROCESO)
+                .esVerificado(true)
+                .build();
+
+        PaseadorVerificacionService.aplicarEstadoVerificacion(paseador, EstadoVerificacionIdentidad.RECHAZADO);
+
+        assertEquals(EstadoVerificacionIdentidad.RECHAZADO, paseador.getEstadoVerificacionIdentidad());
+        assertFalse(paseador.isEsVerificado());
     }
 
     private void initStorage() {

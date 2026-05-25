@@ -12,6 +12,11 @@ public class PaseadorServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PaseadorServiceApplication.class, args);
+
+        System.out.println("----------------------------------------------");
+        System.out.println("¡Microservicio de PASEADORES iniciado con éxito!");
+        System.out.println("Puerto: 8082");
+        System.out.println("----------------------------------------------");
 	}
 
 }
