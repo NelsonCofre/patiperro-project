@@ -142,19 +142,22 @@ public class PaseadorVerificacionService {
         return VerificacionIdentidadResponseDTO.from(paseadorRepository.save(paseador));
     }
 
-    /** Badge público de confianza (búsqueda / perfil tutor). */
+    /**
+     * Badge público de confianza (búsqueda / perfil tutor).
+     * Fuente de verdad: {@link EstadoVerificacionIdentidad#APROBADO}; {@code es_verificado} es derivado en BD.
+     */
     public static boolean esVerificadoPublicamente(Paseador paseador) {
         if (paseador == null) {
             return false;
-        }
-        if (paseador.isEsVerificado()) {
-            return true;
         }
         EstadoVerificacionIdentidad estado = paseador.getEstadoVerificacionIdentidad();
         return estado != null && estado.esAprobado();
     }
 
-    /** Mantiene alineados el enum del flujo y el boolean público {@code es_verificado}. */
+    /**
+     * Único punto de escritura de estado + {@code es_verificado} en este servicio.
+     * Usar en {@link #subirDocumento} y {@link #revisarVerificacionInterna}; {@link Paseador} refuerza en JPA.
+     */
     static void aplicarEstadoVerificacion(Paseador paseador, EstadoVerificacionIdentidad estado) {
         paseador.setEstadoVerificacionIdentidad(estado);
         paseador.setEsVerificado(estado != null && estado.esAprobado());

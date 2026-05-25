@@ -53,9 +53,12 @@ export type MascotaTutorDTO = {
 export type PaseadorPerfilDTO = {
   idUsuario: number;
   nombre: string;
-  correo: string; // ¡El campo estrella que necesitamos!
+  correo: string;
+  /** Badge de identidad aprobada (GET /api/paseadores/public/{id}). */
+  esVerificado?: boolean;
+  /** @deprecated usar esVerificado */
+  verificado?: boolean;
   telefono?: string;
-  // ... puedes agregar otros campos que devuelva tu backend si los necesitas
 };
 
 export type EstadoReservaDTO = {

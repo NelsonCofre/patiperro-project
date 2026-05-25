@@ -1,6 +1,7 @@
-// Verificación de identidad: subida de un PDF (máx. 5 MB) con aprobación automática.
-import { useCallback, useEffect, useRef, useState } from "react";
+// Verificacion de identidad: subida de un PDF (max. 5 MB) con aprobacion automatica.
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import FileUploader from "../../components/FileUploader/FileUploader";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import {
   descargarDocumentoVerificacion,
@@ -12,9 +13,9 @@ import {
 import styles from "./PaseadorVerificacion.module.css";
 
 function formatFecha(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString("es-CL", {
     dateStyle: "medium",
     timeStyle: "short"
@@ -35,7 +36,6 @@ function estadoBadgeClass(estado: VerificacionIdentidadDTO["estado"]): string {
 }
 
 export default function PaseadorVerificacion() {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [estado, setEstado] = useState<VerificacionIdentidadDTO | null>(null);
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "error">("idle");
   const [loadError, setLoadError] = useState("");
@@ -45,6 +45,7 @@ export default function PaseadorVerificacion() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const cargarEstado = useCallback(async () => {
     setLoadStatus("loading");
@@ -63,18 +64,18 @@ export default function PaseadorVerificacion() {
     void cargarEstado();
   }, [cargarEstado]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
+  const handleFileChange = (file: File | null) => {
     setSelectedFile(file);
     setFileError("");
     setSubmitError("");
     setSuccessMessage("");
+    setUploadProgress(0);
     if (!file) return;
+
     const err = validarPdfVerificacion(file);
     if (err) {
       setFileError(err);
       setSelectedFile(null);
-      event.target.value = "";
     }
   };
 
@@ -83,16 +84,22 @@ export default function PaseadorVerificacion() {
       setFileError("Selecciona un archivo PDF antes de enviar.");
       return;
     }
+
     setIsSubmitting(true);
     setSubmitError("");
     setSuccessMessage("");
+    setUploadProgress(0);
+
     try {
-      const data = await subirDocumentoVerificacion(selectedFile);
+      const data = await subirDocumentoVerificacion(selectedFile, {
+        onProgress: (percent) => setUploadProgress(percent)
+      });
       setEstado(data);
       setSelectedFile(null);
-      if (inputRef.current) inputRef.current.value = "";
-      setSuccessMessage("Documento recibido. Tu identidad quedó verificada.");
+      setUploadProgress(100);
+      setSuccessMessage("Documento recibido. Tu identidad quedo verificada.");
     } catch (err) {
+      setUploadProgress(0);
       setSubmitError(err instanceof Error ? err.message : "No se pudo subir el documento.");
     } finally {
       setIsSubmitting(false);
@@ -125,7 +132,7 @@ export default function PaseadorVerificacion() {
       {successMessage ? (
         <div className={styles.toastOverlay}>
           <div className={styles.toastCard} role="dialog" aria-modal="true">
-            <span className={styles.toastEyebrow}>Verificación</span>
+            <span className={styles.toastEyebrow}>Verificacion</span>
             <h2 className={styles.toastTitle}>Documento enviado</h2>
             <p className={styles.toastText}>{successMessage}</p>
             <button
@@ -143,10 +150,10 @@ export default function PaseadorVerificacion() {
 
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Verificación de identidad</p>
+          <p className={styles.eyebrow}>Verificacion de identidad</p>
           <h1 className={styles.title}>Confirma tu identidad con un documento</h1>
           <p className={styles.description}>
-            Sube un PDF con tu cédula de identidad (máximo 5 MB). Al enviarlo, tu cuenta se
+            Sube un PDF con tu cedula de identidad (maximo 5 MB). Al enviarlo, tu cuenta se
             marca como verificada de inmediato para generar confianza con los tutores.
           </p>
         </div>
@@ -154,13 +161,13 @@ export default function PaseadorVerificacion() {
         <div className={styles.infoCard}>
           <span className={styles.infoLabel}>Estado actual</span>
           {isLoading ? (
-            <strong>Cargando…</strong>
+            <strong>Cargando...</strong>
           ) : estado ? (
             <span className={`${styles.badge} ${estadoBadgeClass(estado.estado)}`}>
               {estado.estadoEtiqueta}
             </span>
           ) : (
-            <strong>—</strong>
+            <strong>-</strong>
           )}
         </div>
       </section>
@@ -169,7 +176,7 @@ export default function PaseadorVerificacion() {
         <div className={styles.bannerError} role="alert">
           <p>{loadError}</p>
           <p className={styles.bannerHint}>
-            Si no has iniciado sesión, ve a <Link to="/login/paseador">iniciar sesión</Link>.
+            Si no has iniciado sesion, ve a <Link to="/login/paseador">iniciar sesion</Link>.
           </p>
         </div>
       ) : null}
@@ -193,7 +200,7 @@ export default function PaseadorVerificacion() {
             </div>
             <div>
               <span className={styles.metaLabel}>Documento en servidor</span>
-              <strong>{estado.tieneDocumento ? "Sí" : "No"}</strong>
+              <strong>{estado.tieneDocumento ? "Si" : "No"}</strong>
             </div>
           </div>
 
@@ -212,7 +219,7 @@ export default function PaseadorVerificacion() {
                 onClick={() => void handleDownload()}
                 disabled={isDownloading}
               >
-                {isDownloading ? "Descargando…" : "Descargar mi documento"}
+                {isDownloading ? "Descargando..." : "Descargar mi documento"}
               </button>
             </div>
           ) : null}
@@ -222,33 +229,39 @@ export default function PaseadorVerificacion() {
               <div className={styles.sectionHeader}>
                 <div>
                   <p className={styles.cardEyebrow}>Documento</p>
-                  <h2>Sube tu cédula en PDF</h2>
+                  <h2>Sube tu cedula en PDF</h2>
                 </div>
               </div>
 
-              <label className={styles.uploadZone}>
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={handleFileChange}
-                  disabled={isSubmitting}
-                />
-                <span className={styles.uploadIcon} aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-                  </svg>
-                </span>
-                <span className={styles.uploadTitle}>
-                  {selectedFile ? selectedFile.name : "Seleccionar PDF (máx. 5 MB)"}
-                </span>
-                <span className={styles.uploadHint}>
-                  Solo formato PDF. Vista previa: nombre del archivo e icono.
-                </span>
-              </label>
+              <FileUploader
+                accept="application/pdf,.pdf"
+                disabled={isSubmitting}
+                error={fileError}
+                helperText="Arrastra tu PDF aqui o haz clic para seleccionarlo. Maximo 5 MB."
+                selectedFile={selectedFile}
+                title="Seleccionar PDF de verificacion"
+                onFileSelect={handleFileChange}
+              />
 
-              {fileError ? <p className={styles.errorText}>{fileError}</p> : null}
+              {isSubmitting ? (
+                <div
+                  className={styles.progressCard}
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Subida en progreso ${uploadProgress}%`}
+                >
+                  <div className={styles.progressHeader}>
+                    <strong>Subiendo documento</strong>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className={styles.progressTrack} aria-hidden="true">
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div className={styles.actions}>
                 <button
@@ -257,13 +270,13 @@ export default function PaseadorVerificacion() {
                   onClick={() => void handleSubmit()}
                   disabled={isSubmitting || !selectedFile || Boolean(fileError)}
                 >
-                  {isSubmitting ? "Enviando…" : "Enviar y verificar"}
+                  {isSubmitting ? "Enviando..." : "Enviar y verificar"}
                 </button>
               </div>
             </>
           ) : (
             <p className={styles.verifiedNote}>
-              Tu identidad ya está verificada. No necesitas subir otro documento.
+              Tu identidad ya esta verificada. No necesitas subir otro documento.
             </p>
           )}
         </section>

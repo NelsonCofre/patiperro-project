@@ -37,6 +37,9 @@ export type PaseadorCercanoApi = {
   longitud: number;
   calificacionPromedio?: number;
   tarifaDesde?: number;
+  /** Badge de identidad aprobada (API paseadores-service). */
+  esVerificado?: boolean;
+  /** @deprecated usar esVerificado; se acepta por compatibilidad temporal */
   verificado?: boolean;
 };
 
@@ -70,6 +73,7 @@ export async function fetchPaseadoresCercanos(params: {
   horaInicioDisponibilidad?: string;
   horaFinDisponibilidad?: string;
   idEstadoBloqueDisponible?: number;
+  soloVerificados?: boolean;
 }): Promise<PaseadorCercanoApi[]> {
   const limite = params.limite ?? 50;
   const qs = new URLSearchParams({
@@ -90,6 +94,9 @@ export async function fetchPaseadoresCercanos(params: {
   }
   if (params.idEstadoBloqueDisponible != null) {
     qs.set("idEstadoBloqueDisponible", String(params.idEstadoBloqueDisponible));
+  }
+  if (params.soloVerificados) {
+    qs.set("soloVerificados", "true");
   }
 
   const response = await fetch(`${API_ENDPOINTS.auth.paseadores.publicCercanos}?${qs.toString()}`, {

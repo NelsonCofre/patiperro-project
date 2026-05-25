@@ -27,6 +27,11 @@ public class VerificacionIdentidadResponseDTO {
     private String estadoEtiqueta;
     /** false si el paseador debe esperar revisión admin o ya está aprobado. */
     private boolean puedeSubir;
+    /**
+     * Misma regla que el badge del tutor ({@code esVerificado} en APIs públicas):
+     * {@code true} solo si {@code estado == APROBADO}.
+     */
+    private boolean esVerificado;
     private LocalDateTime enviadoEn;
     private LocalDateTime revisadoEn;
     /** Solo se envía si {@code estado == RECHAZADO}. */
@@ -47,6 +52,7 @@ public class VerificacionIdentidadResponseDTO {
         return VerificacionIdentidadResponseDTO.builder()
                 .estado(estado)
                 .estadoEtiqueta(estado.getEtiqueta())
+                .esVerificado(estado.esAprobado())
                 .puedeSubir(estado.puedeSubirDocumentos())
                 .enviadoEn(paseador.getVerificacionIdentidadEnviadaEn())
                 .revisadoEn(paseador.getVerificacionIdentidadRevisadaEn())

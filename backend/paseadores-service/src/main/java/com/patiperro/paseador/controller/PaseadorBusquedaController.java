@@ -30,7 +30,8 @@ public class PaseadorBusquedaController {
      * - Solo geográfico: latitudReferencia, longitudReferencia, radioBusquedaMaxKm (opcional), limite (opcional).
      * - Geográfico + disponibilidad (agenda-service): se deben indicar los 4 parámetros de agenda
      *   (fechaDisponibilidad, horaInicioDisponibilidad, horaFinDisponibilidad, idEstadoBloqueDisponible).
-     * - Filtro opcional {@code soloVerificados=true}: solo paseadores con identidad verificada ({@code es_verificado}).
+     * - Filtro opcional {@code soloVerificados=true}: solo paseadores con identidad verificada.
+     *   Cada ítem incluye {@code esVerificado} en JSON (sello para el tutor, AC1).
      *
      * El radio efectivo es {@code LEAST(radio_cobertura_del_paseador, radioBusquedaMaxKm)}.
      */
@@ -60,6 +61,7 @@ public class PaseadorBusquedaController {
     /**
      * Variante con conteo real + paginación por offset/limit.
      * Acepta los mismos filtros que {@link #listarCercanos}, incluido {@code soloVerificados}.
+     * Los elementos en {@code resultados} incluyen {@code esVerificado}.
      */
     @GetMapping("/cercanos-con-conteo")
     public PaseadorCercanosConConteoResponseDTO listarCercanosConConteo(
@@ -90,7 +92,7 @@ public class PaseadorBusquedaController {
 
     /**
      * Búsqueda pública del perfil básico de un paseador por su ID.
-     * Incluye {@code verificado} para el sello de identidad en la UI del tutor.
+     * Incluye {@code esVerificado} para el sello de identidad en la UI del tutor.
      */
     @GetMapping("/{id}")
     public PaseadorPerfilDTO obtenerPerfilPaseador(@PathVariable Long id) {

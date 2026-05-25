@@ -64,7 +64,7 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora.",
     latitud: dto.latitud,
     longitud: dto.longitud,
-    verificado: Boolean(dto.verificado),
+    verificado: Boolean(dto.esVerificado ?? dto.verificado),
   };
 }
 
@@ -224,6 +224,7 @@ export function usePaseadoresHome() {
       longitudReferencia: refLon,
       radioBusquedaMaxKm: searchRadiusKm,
       limite: CERCANOS_LIMITE,
+      soloVerificados: soloVerificados || undefined,
       ...(scheduleFilterState.params ?? {})
     })
       .then((rows) => {
@@ -247,7 +248,7 @@ export function usePaseadoresHome() {
     return () => {
       cancelled = true;
     };
-  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState]);
+  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState, soloVerificados]);
 
   // NUEVO: EFECTO PARA SINCRONIZAR CALIFICACIONES REALES
   useEffect(() => {

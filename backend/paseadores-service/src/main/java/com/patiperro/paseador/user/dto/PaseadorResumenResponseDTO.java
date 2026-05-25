@@ -1,5 +1,6 @@
 package com.patiperro.paseador.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ public class PaseadorResumenResponseDTO {
     private String fotoPerfil;
     /** Correo de contacto del paseador (para notificaciones servidor-servidor). */
     private String correo;
-    /** true si la verificación de identidad (cédula) fue aprobada por un administrador. */
-    private boolean verificado;
+    /** true si la verificación de identidad (cédula) fue aprobada (JSON: {@code esVerificado}). */
+    @JsonAlias("verificado")
+    private boolean esVerificado;
 }

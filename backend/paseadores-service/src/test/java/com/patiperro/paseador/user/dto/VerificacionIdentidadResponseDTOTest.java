@@ -91,7 +91,21 @@ class VerificacionIdentidadResponseDTOTest {
 
         VerificacionIdentidadResponseDTO dto = VerificacionIdentidadResponseDTO.from(p);
 
+        assertTrue(dto.isEsVerificado());
         assertFalse(dto.isPuedeSubir());
         assertNull(dto.getMotivoRechazo());
+    }
+
+    @Test
+    void from_enProceso_esVerificadoFalse() {
+        Paseador p = Paseador.builder()
+                .estadoVerificacionIdentidad(EstadoVerificacionIdentidad.EN_PROCESO)
+                .esVerificado(true)
+                .archivoCedulaFrontal("doc.pdf")
+                .build();
+
+        VerificacionIdentidadResponseDTO dto = VerificacionIdentidadResponseDTO.from(p);
+
+        assertFalse(dto.isEsVerificado());
     }
 }

@@ -1,6 +1,8 @@
-import type { ChangeEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import ChatInput from "../ChatInput/ChatInput";
 import ChatImageLightbox from "../ChatImageLightbox/ChatImageLightbox";
+import ImageMessage from "../ImageMessage/ImageMessage";
 import { useReservaChat } from "../../hooks/useReservaChat";
 import type { ChatMessage, ChatWindowProps } from "../../types/chat.types";
 import {
@@ -8,9 +10,6 @@ import {
   isNearBottom
 } from "../../utils/chatFormatters";
 import {
-  CHAT_IMAGE_VALIDATION_MESSAGE,
-  resolveChatImageSrc,
-  validarImagenChat
 } from "../../utils/chatImageUtils";
 import { resolveChatSenderName } from "../../utils/chatDisplayNames";
 import styles from "./ChatWindow.module.css";
@@ -73,7 +72,6 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -104,7 +102,6 @@ export default function ChatWindow({
     counterpartName
   });
 
-  const canSendText = draft.trim().length > 0 && !isSending && !pendingImage;
   const canSendPendingImage = Boolean(pendingImage) && !isSending;
 
   const lastMessage = messages[messages.length - 1] ?? null;
@@ -244,6 +241,7 @@ export default function ChatWindow({
 
   async function handleSubmit(event?: FormEvent): Promise<void> {
     event?.preventDefault();
+    const canSendText = draft.trim().length > 0 && !isSending && !pendingImage;
     if (pendingImage) {
       if (!canSendPendingImage) return;
       await sendImage(pendingImage.file, pendingImage.comentario);
@@ -252,37 +250,6 @@ export default function ChatWindow({
     }
     if (!canSendText) return;
     await sendMessage();
-  }
-
-  function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void handleSubmit();
-    }
-  }
-
-  function handlePickImageClick(): void {
-    setImageValidationError(null);
-    fileInputRef.current?.click();
-  }
-
-  function handleImageSelected(event: ChangeEvent<HTMLInputElement>): void {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    const validationError = validarImagenChat(file);
-    if (validationError) {
-      setImageValidationError(validationError);
-      return;
-    }
-
-    clearPendingImage();
-    setPendingImage({
-      file,
-      previewUrl: URL.createObjectURL(file),
-      comentario: ""
-    });
   }
 
   function renderMessage(message: ChatMessage) {
@@ -309,24 +276,13 @@ export default function ChatWindow({
           </header>
 
           {isImage ? (
-            <button
-              type="button"
-              className={styles.imageButton}
-              onClick={() => setLightboxMessage(message)}
-            >
-              <img
-                src={resolveChatImageSrc(message.imageUrl)}
-                alt={message.content.trim() || "Foto del paseo"}
-                className={styles.messageImage}
-              />
-            </button>
+            <ImageMessage
+              message={message}
+              onOpen={setLightboxMessage}
+            />
           ) : (
             <p>{message.content}</p>
           )}
-
-          {isImage && message.content.trim() ? (
-            <p className={styles.imageCaption}>{message.content.trim()}</p>
-          ) : null}
 
           {message.estado === "error" ? (
             <small className={styles.messageError}>No se pudo entregar.</small>
@@ -448,89 +404,19 @@ export default function ChatWindow({
             </div>
           ) : null}
 
-          {pendingImage ? (
-            <div className={styles.imagePreviewPanel}>
-              <div className={styles.imagePreviewHeader}>
-                <strong>Vista previa de la foto</strong>
-                <button type="button" onClick={clearPendingImage} aria-label="Quitar foto">
-                  Quitar
-                </button>
-              </div>
-              <div className={styles.imagePreviewBody}>
-                <img src={pendingImage.previewUrl} alt="Vista previa" />
-                <label className={styles.imageCommentLabel} htmlFor={`chat-image-comment-${reservaId}`}>
-                  Comentario opcional
-                </label>
-                <textarea
-                  id={`chat-image-comment-${reservaId}`}
-                  className={styles.imageCommentInput}
-                  rows={2}
-                  value={pendingImage.comentario}
-                  onChange={(event) =>
-                    setPendingImage((current) =>
-                      current ? { ...current, comentario: event.target.value } : current
-                    )
-                  }
-                  placeholder="Ej: Jugando en el parque"
-                />
-              </div>
-            </div>
-          ) : null}
-
-          <form className={styles.composer} onSubmit={(event) => void handleSubmit(event)}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-              className={styles.hiddenFileInput}
-              onChange={handleImageSelected}
-            />
-
-            <div className={styles.composerTopRow}>
-              <label htmlFor={`chat-draft-${reservaId}`} className={styles.composerLabel}>
-                {pendingImage ? "Enviar foto con comentario opcional" : "Escribe un mensaje"}
-              </label>
-              {canSendPhotos ? (
-                <button
-                  type="button"
-                  className={styles.cameraButton}
-                  onClick={handlePickImageClick}
-                  disabled={isSending || Boolean(pendingImage)}
-                  title={CHAT_IMAGE_VALIDATION_MESSAGE}
-                >
-                  Subir foto
-                </button>
-              ) : null}
-            </div>
-
-            {!pendingImage ? (
-              <textarea
-                id={`chat-draft-${reservaId}`}
-                ref={inputRef}
-                className={styles.textarea}
-                rows={3}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleComposerKeyDown}
-                placeholder="Escribe para coordinar el encuentro..."
-              />
-            ) : null}
-
-            <div className={styles.composerFooter}>
-              <span className={styles.helperText}>
-                {pendingImage
-                  ? "La foto se enviara al tutor en tiempo real."
-                  : "Enter envia el mensaje. Shift + Enter agrega un salto de linea."}
-              </span>
-              <button
-                type="submit"
-                className={styles.sendButton}
-                disabled={pendingImage ? !canSendPendingImage : !canSendText}
-              >
-                {isSending ? "Enviando..." : pendingImage ? "Enviar foto" : "Enviar"}
-              </button>
-            </div>
-          </form>
+          <ChatInput
+            reservaId={reservaId}
+            canSendPhotos={canSendPhotos}
+            draft={draft}
+            isSending={isSending}
+            pendingImage={pendingImage}
+            textareaRef={inputRef}
+            setDraft={setDraft}
+            setPendingImage={setPendingImage}
+            setImageValidationError={setImageValidationError}
+            clearPendingImage={clearPendingImage}
+            onSubmit={handleSubmit}
+          />
         </section>
       </div>
 

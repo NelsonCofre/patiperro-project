@@ -18,3 +18,15 @@ backend/paseadores-service/src/main/resources/application.properties
 backend/resena-service/src/main/resources/application.properties
 backend/reserva-service/src/main/resources/application.properties
 backend/tutores-service/src/main/resources/application.properties
+backend/api-gateway/.env.local.example
+backend/chat-service/src/main/resources/application.properties
+backend/mascotas-service/src/main/resources/application.properties
+backend/mascotas-service/target/classes/application.properties
+backend/notification-service/src/main/resources/application.properties
+backend/pagos-service/src/main/resources/application-dev.properties
+backend/pagos-service/src/main/resources/application.properties
+backend/paseadores-service/src/main/resources/application.properties
+backend/resena-service/src/main/resources/application.properties
+backend/reserva-service/src/main/resources/application.properties
+backend/tutores-service/src/main/resources/application.properties
+backend/tutores-service/target/classes/com/patiperro/tutores/TutoresServiceApplication.class

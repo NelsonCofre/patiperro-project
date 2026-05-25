@@ -1,6 +1,7 @@
 package com.patiperro.paseador.controller;
 
 import com.patiperro.paseador.auth.service.JwtService;
+import com.patiperro.paseador.dto.user.PaseadorPerfilDTO;
 import com.patiperro.paseador.user.dto.PaseadorCercanoResponseDTO;
 import com.patiperro.paseador.user.dto.PaseadorCercanosConConteoResponseDTO;
 import com.patiperro.paseador.user.service.PaseadorBusquedaService;
@@ -80,7 +81,7 @@ class PaseadorBusquedaControllerTest {
                         .idPaseador(1L)
                         .nombreCompleto("Felipe")
                         .distanciaKm(1.2)
-                        .verificado(true)
+                        .esVerificado(true)
                         .build()));
 
         mockMvc.perform(get("/api/paseadores/public/cercanos")
@@ -88,7 +89,7 @@ class PaseadorBusquedaControllerTest {
                         .param("longitudReferencia", "-70.65")
                         .param("soloVerificados", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].verificado").value(true));
+                .andExpect(jsonPath("$[0].esVerificado").value(true));
 
         verify(paseadorBusquedaService).buscarCercanos(
                 eq(-33.45),
@@ -140,5 +141,23 @@ class PaseadorBusquedaControllerTest {
                 eq(null),
                 eq(null),
                 eq(true));
+    }
+
+    @Test
+    void obtenerPerfilPaseador_devuelveEsVerificadoEnJson() throws Exception {
+        when(paseadorBusquedaService.obtenerPerfilPorId(10L))
+                .thenReturn(PaseadorPerfilDTO.builder()
+                        .idUsuario(10L)
+                        .nombre("Felipe Pérez")
+                        .correo("felipe@test.cl")
+                        .esVerificado(true)
+                        .build());
+
+        mockMvc.perform(get("/api/paseadores/public/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idUsuario").value(10))
+                .andExpect(jsonPath("$.esVerificado").value(true));
+
+        verify(paseadorBusquedaService).obtenerPerfilPorId(10L);
     }
 }

@@ -12,8 +12,10 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,7 +29,7 @@ import java.util.stream.Collectors;
 
 /**
  * Búsqueda geográfica de paseadores y perfiles públicos para tutores.
- * El campo {@code verificado} en los DTOs públicos indica identidad aprobada ({@code APROBADO});
+ * El campo {@code esVerificado} en los DTOs públicos indica identidad aprobada ({@code APROBADO});
  * no expone estado del flujo ni documentos de cédula.
  * <p>
  * Si se envían los cuatro parámetros de agenda,
@@ -35,8 +37,9 @@ import java.util.stream.Collectors;
  * bloqueados por motivos personales cuando así esté implementado allí).
  * Opcionalmente ({@code patiperro.paseadores.cercanos.filtrar-disponible-desde-hoy})
  * se cruza con {@link AgendaDisponibilidadClient#idsConBloqueDisponibleDesdeHoy(int)}.
- * Con {@code soloVerificados=true} se amplía el prefetch geo (mismo criterio que agenda) y se
- * filtra en memoria usando {@code es_verificado}, reutilizando una sola carga de entidades.
+ * Con {@code soloVerificados=true} se amplía el prefetch geo (mismo criterio que agenda), se
+ * restringe en SQL por {@code p.es_verificado} y se valida con
+ * {@link PaseadorVerificacionService#esVerificadoPublicamente(Paseador)} en memoria.
  */
 @Service
 @RequiredArgsConstructor
@@ -88,6 +91,7 @@ public class PaseadorBusquedaService {
                 WHERE d.latitud IS NOT NULL
                   AND d.longitud IS NOT NULL
                   AND c.radio_cobertura IS NOT NULL
+                  AND (:soloVerificados = false OR p.es_verificado = true)
             ) t
             WHERE t.distancia_km <= LEAST(t.radio_cobertura::double precision, :radioMaxKm)
             ORDER BY t.distancia_km ASC
@@ -130,7 +134,8 @@ public class PaseadorBusquedaService {
 
         boolean filtroAgenda = agendaCompleto || filtrarDisponibleDesdeHoyCercanos;
         int limiteSql = calcularLimiteSqlGeo(limiteSeguro, filtroAgenda || soloVerificados);
-        List<CandidatoGeo> candidatos = consultarCandidatosGeo(latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteSql);
+        List<CandidatoGeo> candidatos = consultarCandidatosGeo(
+                latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteSql, soloVerificados);
 
         // Intersección geo ∩ agenda; la resta "disponibilidad − bloqueo día" vive en agenda-service.
         if (agendaCompleto) {
@@ -154,22 +159,17 @@ public class PaseadorBusquedaService {
                 preparados.candidatos(), limiteSeguro, preparados.paseadoresPorId());
     }
 
-    // Agrégalo dentro de tu clase PaseadorBusquedaService
-
+    /** Perfil público básico para el tutor (incluye {@code esVerificado} para AC2). */
+    @Transactional(readOnly = true)
     public PaseadorPerfilDTO obtenerPerfilPorId(Long idPaseador) {
-        /* * 1. Buscamos en la base de datos. 
-         * OJO: Cambia "usuarioRepository" y "Usuario" por el nombre 
-         * real de tu repositorio y entidad (ej: Paseador, Usuario, etc.)
-         */
-        Paseador usuario = paseadorRepository.findById(idPaseador)
-                .orElseThrow(() -> new IllegalArgumentException("Paseador no encontrado con ID: " + idPaseador));
+        Paseador paseador = paseadorRepository.findById(idPaseador)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paseador no encontrado"));
 
-        // 2. Metemos los datos de la base de datos en nuestro "paquete" DTO
         return PaseadorPerfilDTO.builder()
-                .idUsuario(usuario.getId())
-                .nombre(usuario.getPrimerNombre())
-                .correo(usuario.getCorreo())
-                .verificado(PaseadorVerificacionService.esVerificadoPublicamente(usuario))
+                .idUsuario(paseador.getId())
+                .nombre(nombrePublico(paseador))
+                .correo(paseador.getCorreo())
+                .esVerificado(PaseadorVerificacionService.esVerificadoPublicamente(paseador))
                 .build();
     }
 
@@ -204,7 +204,8 @@ public class PaseadorBusquedaService {
         int limiteGeo = filtroAgenda || soloVerificados
                 ? capGeoSql(Math.max(Math.max(1, maxGeoPrefetchConConteo), offsetSeguro + limitSeguro))
                 : capGeoSql(Math.max(1, offsetSeguro + limitSeguro));
-        List<CandidatoGeo> candidatos = consultarCandidatosGeo(latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteGeo);
+        List<CandidatoGeo> candidatos = consultarCandidatosGeo(
+                latitudReferencia, longitudReferencia, radioBusquedaMaxKm, limiteGeo, soloVerificados);
 
         // 2) Aplicar filtros de disponibilidad.
         if (agendaCompleto) {
@@ -248,13 +249,15 @@ public class PaseadorBusquedaService {
             double latitudReferencia,
             double longitudReferencia,
             double radioBusquedaMaxKm,
-            int limiteMax) {
+            int limiteMax,
+            boolean soloVerificados) {
         int limiteSql = capGeoSql(limiteMax);
         Query query = entityManager.createNativeQuery(SQL_CERCANOS_TOP);
         query.setParameter("latRef", latitudReferencia);
         query.setParameter("lonRef", longitudReferencia);
         query.setParameter("radioMaxKm", radioBusquedaMaxKm);
         query.setParameter("limiteMax", limiteSql);
+        query.setParameter("soloVerificados", soloVerificados);
 
         @SuppressWarnings("unchecked")
         List<Object[]> filas = query.getResultList();
@@ -316,7 +319,7 @@ public class PaseadorBusquedaService {
                     .latitud(cg.latitud())
                     .longitud(cg.longitud())
                     .tarifaDesde(tarifaMinima != null ? tarifaMinima : 0)
-                    .verificado(PaseadorVerificacionService.esVerificadoPublicamente(p))
+                    .esVerificado(PaseadorVerificacionService.esVerificadoPublicamente(p))
                     .build());
         }
         return salida;
@@ -332,6 +335,7 @@ public class PaseadorBusquedaService {
         if (!soloVerificados) {
             return new CandidatosPreparados(candidatos, porId);
         }
+        // Defensa: SQL filtra por es_verificado; aquí se alinea con estado APROBADO por si hubo desfase.
         List<CandidatoGeo> verificados = candidatos.stream()
                 .filter(c -> {
                     Paseador p = porId.get(c.idPaseador());

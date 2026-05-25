@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,7 +72,8 @@ class PaseadorBusquedaServiceVerificadoFilterTest {
 
         assertEquals(1, resultados.size());
         assertEquals(1L, resultados.getFirst().getIdPaseador());
-        assertTrue(resultados.getFirst().isVerificado());
+        assertTrue(resultados.getFirst().isEsVerificado());
+        verify(query).setParameter(eq("soloVerificados"), eq(true));
     }
 
     @Test
@@ -93,6 +96,7 @@ class PaseadorBusquedaServiceVerificadoFilterTest {
                 false);
 
         assertEquals(2, resultados.size());
+        verify(query).setParameter(eq("soloVerificados"), eq(false));
     }
 
     private static Object[] filaCandidato(long id, double distanciaKm) {
