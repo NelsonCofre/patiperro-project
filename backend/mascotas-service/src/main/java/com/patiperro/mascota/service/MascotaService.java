@@ -11,10 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -102,7 +105,7 @@ public class MascotaService {
             mascota.setFotoPerfil(urlNueva);
             Mascota guardada = mascotaRepository.save(mascota);
 
-            eliminarArchivoLocalSiNuestro(urlAnterior);
+            registrarLimpiezaFotoTrasCommit(urlAnterior, filenameNuevo);
             return guardada;
         } catch (RuntimeException ex) {
             mascotaFotoStorageService.deleteQuietly(filenameNuevo);
@@ -124,8 +127,7 @@ public class MascotaService {
 
         mascotaRepository.delete(m);
 
-        eliminarArchivoLocalSiNuestro(urlPerfil);
-        urlsGaleria.forEach(this::eliminarArchivoLocalSiNuestro);
+        registrarBorradoArchivosTrasCommit(urlPerfil, urlsGaleria);
     }
 
     // =========================================================================
@@ -159,7 +161,7 @@ public class MascotaService {
         String urlGaleria = foto.getUrl();
         m.getFotos().remove(foto);
         mascotaRepository.save(m);
-        eliminarArchivoLocalSiNuestro(urlGaleria);
+        registrarBorradoArchivosTrasCommit(null, List.of(urlGaleria));
     }
 
     // =========================================================================
@@ -167,9 +169,48 @@ public class MascotaService {
     // =========================================================================
 
     private void asegurarPropietario(Mascota m, Long idTutorSesion) {
-        if (!m.getIdTutor().equals(idTutorSesion)) { // Bloqueo de seguridad preventivo //
+        if (!Objects.equals(m.getIdTutor(), idTutorSesion)) { // Bloqueo de seguridad preventivo //
             throw new ForbiddenOperationException("Acceso denegado: No tiene permisos sobre esta mascota");
         }
+    }
+
+    /**
+     * Tras commit: borra la foto de perfil anterior. Si la transacción hace rollback, borra el fichero nuevo
+     * (evita huérfanos en disco sin tocar el archivo viejo).
+     */
+    private void registrarLimpiezaFotoTrasCommit(String urlAnterior, String filenameNuevo) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eliminarArchivoLocalSiNuestro(urlAnterior);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eliminarArchivoLocalSiNuestro(urlAnterior);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    mascotaFotoStorageService.deleteQuietly(filenameNuevo);
+                }
+            }
+        });
+    }
+
+    private void registrarBorradoArchivosTrasCommit(String urlPerfil, List<String> urlsGaleria) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eliminarArchivoLocalSiNuestro(urlPerfil);
+            urlsGaleria.forEach(MascotaService.this::eliminarArchivoLocalSiNuestro);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eliminarArchivoLocalSiNuestro(urlPerfil);
+                urlsGaleria.forEach(MascotaService.this::eliminarArchivoLocalSiNuestro);
+            }
+        });
     }
 
     /** Solo elimina ficheros bajo {@link MascotaFotoStorageService#PUBLIC_URL_PREFIX}; ignora URLs externas. */

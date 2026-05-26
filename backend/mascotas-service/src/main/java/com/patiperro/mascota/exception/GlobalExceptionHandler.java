@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import com.patiperro.mascota.service.MascotaFotoStorageService;
 
@@ -17,11 +18,13 @@ import java.util.Map;
 @RestControllerAdvice // Esta es la "Vigilancia de Controladores" solicitada //
 public class GlobalExceptionHandler {
 
-    // 1. VIGILANCIA DE ARGUMENTOS (Se mantiene tu lógica de mensaje nulo) //
+    /** Incluye mensajes de {@link MascotaFotoStorageService} (formato / peso) y reglas del CRUD. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex) {
         String msg = ex.getMessage() != null ? ex.getMessage() : "Solicitud inválida";
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, msg, null);
+        boolean notFound = msg.contains("no encontrado") || msg.contains("no encontrada");
+        HttpStatus status = notFound ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+        return buildErrorResponse(status, msg, null);
     }
 
     // 2. VIGILANCIA DE OPERACIONES PROHIBIDAS (Se mantiene tu lógica de "No autorizado") //
@@ -31,9 +34,18 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.FORBIDDEN, msg, null);
     }
 
+    /** Segunda línea si Spring rechaza el multipart antes de {@link MascotaFotoStorageService#save}. */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Object> handleMaxUpload(MaxUploadSizeExceededException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, MascotaFotoStorageService.MSG_PESO, null);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Object> handleMissingMultipartPart(MissingServletRequestPartException ex) {
+        String msg = "file".equals(ex.getRequestPartName())
+                ? MascotaFotoStorageService.MSG_FORMATO
+                : "Parámetro multipart requerido: " + ex.getRequestPartName();
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, msg, null);
     }
 
     // 3. VIGILANCIA DE VALIDACIONES (Mantiene tu captura de errores de @Valid en Mascota) //

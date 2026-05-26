@@ -30,12 +30,16 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Salud y catálogos (comportamiento histórico del servicio).
                         .requestMatchers("/api/mascotas/health").permitAll()
                         .requestMatchers("/api/mascotas/razas/**").permitAll()
                         .requestMatchers("/api/mascotas/especies/**").permitAll()
                         .requestMatchers("/api/mascotas/tamanos/**").permitAll()
+                        // Integración S2S: JWT no aplica; secreto en MascotaInternoController (gateway niega /interno/**).
                         .requestMatchers(HttpMethod.GET, "/api/mascotas/interno/**").permitAll()
+                        // Servir imágenes (solo GET), como /api/tutores/public/** y /api/paseadores/public/**.
                         .requestMatchers(HttpMethod.GET, "/api/mascotas/public/**").permitAll()
+                        // CRUD mascotas, multipart foto-perfil (PATCH/POST), galería: JWT tutor obligatorio.
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

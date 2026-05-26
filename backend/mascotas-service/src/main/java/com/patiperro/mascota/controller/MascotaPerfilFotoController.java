@@ -1,5 +1,6 @@
 package com.patiperro.mascota.controller;
 
+import com.patiperro.mascota.exception.ForbiddenOperationException;
 import com.patiperro.mascota.model.Mascota;
 import com.patiperro.mascota.security.TutorSecurity;
 import com.patiperro.mascota.service.MascotaFotoStorageService;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,12 +52,15 @@ public class MascotaPerfilFotoController {
     }
 
     @GetMapping("/api/mascotas/public/mascota/{filename:.+}")
-    public ResponseEntity<Resource> servirFoto(@PathVariable String filename) throws IOException {
+    public ResponseEntity<Resource> serve(@PathVariable String filename) throws IOException {
         Path path = mascotaFotoStorageService.resolveExisting(filename);
         if (path == null) {
             return ResponseEntity.notFound().build();
         }
         Resource resource = new UrlResource(path.toUri());
+        if (!resource.exists() || !resource.isReadable()) {
+            return ResponseEntity.notFound().build();
+        }
         String contentType = Files.probeContentType(path);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE,
@@ -71,6 +76,9 @@ public class MascotaPerfilFotoController {
                     "idMascota", actualizada.getIdMascota(),
                     "fotoPerfil", actualizada.getFotoPerfil(),
                     "message", "Foto de mascota actualizada"));
+        } catch (ForbiddenOperationException ex) {
+            String msg = ex.getMessage() != null ? ex.getMessage() : "No autorizado";
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", msg));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (IOException ex) {

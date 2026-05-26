@@ -62,6 +62,8 @@ public class SecurityConfig {
                 // front).
                 // - recursos bajo /api/paseadores/public/ (fotos servidas, catalogo tamanos)
                 // sin JWT.
+                // - GET /api/mascotas/public/** sin JWT; subida foto-perfil y CRUD mascotas con JWT
+                //   (mascotas no está en web.ignoring(), a diferencia de reserva/agenda).
                 // - resto de /api/** requiere JWT valido.
                 http
                                 .csrf(csrf -> csrf.disable())
@@ -113,6 +115,7 @@ public class SecurityConfig {
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/tutores/interno/**"))
                                                 .denyAll()
+                                                // Mascotas S2S (portada/detalle con secreto): no exponer por el borde HTTP.
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/mascotas/interno"))
                                                 .denyAll()
@@ -137,8 +140,6 @@ public class SecurityConfig {
                                                                                 .pathPattern("/api/tutores/public/**"),
                                                                 PathPatternRequestMatcher.pathPattern(
                                                                                 "/api/paseadores/public/**"),
-                                                                PathPatternRequestMatcher.pathPattern(
-                                                                                "/api/mascotas/public/**"),
                                                                 PathPatternRequestMatcher.pathPattern("/api/resenas"), // <---
                                                                                                                        // LA
                                                                                                                        // RAÍZ
@@ -147,6 +148,10 @@ public class SecurityConfig {
                                                                                                                        // POST)
                                                                 PathPatternRequestMatcher
                                                                                 .pathPattern("/api/resenas/**"))
+                                                .permitAll()
+                                                // Servir foto de mascota (GET); PATCH/POST .../foto-perfil exige JWT vía /api/**.
+                                                .requestMatchers(PathPatternRequestMatcher.pathPattern(
+                                                                HttpMethod.GET, "/api/mascotas/public/**"))
                                                 .permitAll()
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/pagos/webhooks/**"))
