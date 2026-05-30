@@ -2,6 +2,7 @@ package com.patiperro.reserva.repository;
 
 import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.Reserva;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -98,4 +99,28 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Integer> findIdReservasAceptadaParaRegenerarCodigoPorEncuentroVencido(
             @Param("idAceptada") Integer idAceptada,
             @Param("ahora") LocalDateTime ahora);
+
+    /**
+     * Esperando decisión del paseador: solicitada, pendiente de pago o ya pagada; solicitud más antigua que el umbral.
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva IN (:idSolicitada, :idPendientePago, :idPagada) "
+            + "AND r.fechaSolicitud < :limite ORDER BY r.idReserva")
+    List<Integer> findIdReservasParaExpiracionPorPlazoAceptacion(
+            @Param("idSolicitada") Integer idSolicitada,
+            @Param("idPendientePago") Integer idPendientePago,
+            @Param("idPagada") Integer idPagada,
+            @Param("limite") LocalDateTime limite,
+            Pageable pageable);
+
+    /**
+     * Reservas en estados que ameritan devolución y con cobro asociado ({@code id_pago}).
+     */
+    @Query("SELECT r.idReserva FROM Reserva r "
+            + "WHERE r.estadoReserva.idEstadoReserva IN :idsEstado "
+            + "AND r.idPago IS NOT NULL "
+            + "ORDER BY r.idReserva")
+    List<Integer> findIdReservasConCobroEnEstados(
+            @Param("idsEstado") Collection<Integer> idsEstado,
+            Pageable pageable);
 }

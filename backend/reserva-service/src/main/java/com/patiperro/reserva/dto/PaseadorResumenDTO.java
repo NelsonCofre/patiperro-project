@@ -7,4 +7,5 @@ public class PaseadorResumenDTO {
     private Long idPaseador;
     private String nombreCompleto;
     private String fotoPerfil;
+    private String correo;
 }

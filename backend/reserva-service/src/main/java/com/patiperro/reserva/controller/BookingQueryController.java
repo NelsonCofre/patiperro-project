@@ -5,7 +5,9 @@ import com.patiperro.reserva.dto.CodigoReservaValidarRequestDTO;
 import com.patiperro.reserva.dto.CodigoReservaValidarResponseDTO;
 import com.patiperro.reserva.dto.BookingTimelineResponseDTO;
 import com.patiperro.reserva.dto.EstadoEncuentroResponseDTO;
+import com.patiperro.reserva.dto.TutorCheckoutPreferenciaResponseDTO;
 import com.patiperro.reserva.dto.ReservaTutorDetalleResponseDTO;
+import com.patiperro.reserva.support.PagosCheckoutIntegracionClient;
 import com.patiperro.reserva.service.ReservaService;
 import com.patiperro.reserva.support.BookingTokenExtractor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -50,6 +53,32 @@ public class BookingQueryController {
     })
     public List<ReservaTutorDetalleResponseDTO> tutorBookings(HttpServletRequest request) {
         return reservaService.listarBookingsTutorDesdeJwt(exigirJwt(request));
+    }
+
+    /**
+     * Dos rutas equivalentes (gateway: {@code /api/bookings/**} y {@code /api/tutor/**} → reserva-service).
+     */
+    @PostMapping(value = {
+            "/bookings/{id}/mercadopago/checkout",
+            "/tutor/reservas/{id}/mercadopago/checkout"
+    })
+    @Operation(
+            summary = "Iniciar o reintentar pago (Mercado Pago Checkout Pro)",
+            description = "JWT de tutor. Opcional: cabecera Idempotency-Key para reintentos estables. "
+                    + "Si la reserva está SOLICITADA, pasa a PENDIENTE_PAGO antes de llamar a pagos-service.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "preferenceId y urlCheckout para redirigir al tutor"),
+            @ApiResponse(responseCode = "401", description = "Sin token o tutor no coincide"),
+            @ApiResponse(responseCode = "404", description = "Reserva no existe"),
+            @ApiResponse(responseCode = "409", description = "Estado no permite pagar / reintentar"),
+            @ApiResponse(responseCode = "502", description = "pagos-service no pudo crear la preferencia"),
+            @ApiResponse(responseCode = "503", description = "Integración pagos deshabilitada")
+    })
+    public TutorCheckoutPreferenciaResponseDTO iniciarCheckoutMercadoPago(
+            @PathVariable Integer id,
+            @RequestHeader(value = PagosCheckoutIntegracionClient.HEADER_IDEMPOTENCY_KEY, required = false) String idempotencyKey,
+            HttpServletRequest request) {
+        return reservaService.iniciarCheckoutMercadoPago(id, exigirJwt(request), idempotencyKey);
     }
 
     @GetMapping("/bookings/{id}/timeline")

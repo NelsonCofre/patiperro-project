@@ -14,9 +14,19 @@ export type ReservaTutorDetalleDTO = {
   idEstadoReserva: number | null;
   nombreEstado: string | null;
   fechaSolicitud: string | null;
+  fechaAceptacion: string | null;
   fechaInicioReal: string | null;
   fechaFin: string | null;
   codigoEncuentro: number | null;
+  paymentStatus?: string | null;
+  paymentPreferenceId?: string | null;
+  paymentInitPoint?: string | null;
+  paymentTransactionId?: string | null;
+  paymentOrderId?: string | null;
+  paymentConfirmedAt?: string | null;
+  paymentReceiptEmailSent?: boolean | null;
+  mensajeRetencionFondos?: string | null;
+  calificada: boolean;
 };
 
 export type ReservaEstadoKey =

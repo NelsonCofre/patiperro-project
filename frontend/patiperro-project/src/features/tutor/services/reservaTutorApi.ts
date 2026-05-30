@@ -1,14 +1,31 @@
 import { API_ENDPOINTS, TUTOR_ID_SESSION_KEY } from "../../../config/api";
+import { clearAuthSession } from "../../auth/services/authServices";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 
-type ApiErrorBody = { message?: string; mensaje?: string };
+type ApiErrorBody = { message?: string; mensaje?: string; error?: string; status?: number };
+
+class ApiRequestError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
 
 function readApiErrorMessage(data: unknown, fallback: string): string {
   if (data && typeof data === "object") {
     const o = data as ApiErrorBody;
     if (typeof o.message === "string" && o.message.trim()) return o.message;
     if (typeof o.mensaje === "string" && o.mensaje.trim()) return o.mensaje;
+    if (typeof o.error === "string" && o.error.trim()) {
+      if (typeof o.status === "number" && Number.isFinite(o.status)) {
+        return `${o.error} (${o.status})`;
+      }
+      return o.error;
+    }
   }
   return fallback;
 }
@@ -19,6 +36,11 @@ async function parseJsonSafe(response: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+function buildApiRequestError(response: Response, data: unknown, fallback: string): ApiRequestError {
+  const message = readApiErrorMessage(data, fallback);
+  return new ApiRequestError(message, response.status);
 }
 
 export type MascotaTutorDTO = {
@@ -94,6 +116,13 @@ export type ReservaCreatedDTO = {
   nombreEstado: string;
 };
 
+export type CheckoutPreferenciaDTO = {
+  preferenceId: string;
+  initPoint: string;
+  sandboxInitPoint: string;
+  urlCheckout: string;
+};
+
 type ReservaBasicaDTO = {
   idReserva: number;
   idTutorUsuario: number;
@@ -103,6 +132,7 @@ type ReservaBasicaDTO = {
   idEstadoReserva: number | null;
   nombreEstado: string | null;
   fechaSolicitud: string | null;
+  fechaAceptacion: string | null;
   montoTotal: number | null;
   idPago: number | null;
   fechaInicioReal: string | null;
@@ -150,24 +180,20 @@ export async function fetchMascotasTutor(): Promise<MascotaTutorDTO[]> {
 }
 
 export async function fetchPerfilPaseador(idPaseador: number): Promise<PaseadorPerfilDTO> {
-  const url = `http://localhost:8080/api/paseadores/public/${idPaseador}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(API_ENDPOINTS.auth.paseadores.publicPerfil(idPaseador), {
     method: "GET",
     credentials: "include",
     headers: { ...bearerAuthHeaders() }
   });
-  
+
   const data = await parseJsonSafe(response);
-  
+
   if (!response.ok) {
     throw new Error(readApiErrorMessage(data, "No se pudo cargar el perfil del paseador para enviar la notificación."));
   }
-  
-  return data as PaseadorPerfilDTO; 
+
+  return data as PaseadorPerfilDTO;
 }
-  
-  // ... resto del código intacto ...
 
 export async function fetchTarifasPublicasPaseador(
   idPaseador: number
@@ -251,6 +277,28 @@ export async function crearReservaTutor(payload: ReservaCreatePayload): Promise<
   return data as ReservaCreatedDTO;
 }
 
+export async function iniciarCheckoutMercadoPagoReserva(idReserva: number): Promise<CheckoutPreferenciaDTO> {
+  const response = await fetch(API_ENDPOINTS.bookings.iniciarCheckoutMercadoPago(idReserva), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" }
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo iniciar checkout Mercado Pago."));
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("Respuesta inválida al iniciar checkout.");
+  }
+  const o = data as CheckoutPreferenciaDTO;
+  return {
+    preferenceId: o.preferenceId ?? "",
+    initPoint: o.initPoint ?? "",
+    sandboxInitPoint: o.sandboxInitPoint ?? "",
+    urlCheckout: o.urlCheckout ?? ""
+  };
+}
+
 export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
   // Endpoint nuevo sin id en URL (usa tutorId del JWT).
   const response = await fetch(API_ENDPOINTS.tutores.bookings, {
@@ -277,10 +325,10 @@ export async function fetchReservasDetalleTutor(idTutor: number): Promise<Reserv
     if (legacyDetalle.status === 404) {
       return fetchReservasBasicasTutor(idTutor);
     }
-    throw new Error(readApiErrorMessage(legacyData, "No se pudieron cargar tus reservas."));
+    throw buildApiRequestError(legacyDetalle, legacyData, "No se pudieron cargar tus reservas.");
   }
 
-  throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+  throw buildApiRequestError(response, data, "No se pudieron cargar tus reservas.");
 }
 
 async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
@@ -291,7 +339,7 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
-    throw new Error(readApiErrorMessage(data, "No se pudieron cargar tus reservas."));
+    throw buildApiRequestError(response, data, "No se pudieron cargar tus reservas.");
   }
   if (!Array.isArray(data)) return [];
 
@@ -311,9 +359,11 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
     idEstadoReserva: reserva.idEstadoReserva,
     nombreEstado: reserva.nombreEstado,
     fechaSolicitud: reserva.fechaSolicitud,
+    fechaAceptacion: reserva.fechaAceptacion,
     fechaInicioReal: reserva.fechaInicioReal,
     fechaFin: reserva.fechaFin,
-    codigoEncuentro: reserva.codigoEncuentro
+    codigoEncuentro: reserva.codigoEncuentro,
+    calificada: false
   }));
 }
 
@@ -326,5 +376,16 @@ export async function cancelarReservaTutor(idReserva: number): Promise<void> {
   });
   const data = await parseJsonSafe(response);
   if (response.ok) return;
-  throw new Error(readApiErrorMessage(data, "No se pudo cancelar la solicitud."));
+  throw buildApiRequestError(response, data, "No se pudo cancelar la solicitud.");
+}
+
+export function isTutorAuthError(error: unknown): error is ApiRequestError {
+  if (!(error instanceof ApiRequestError)) {
+    return false;
+  }
+  return error.status === 401 || error.status === 403;
+}
+
+export function handleTutorAuthFailure() {
+  clearAuthSession();
 }

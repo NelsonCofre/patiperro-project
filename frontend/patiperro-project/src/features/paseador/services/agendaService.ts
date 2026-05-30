@@ -23,6 +23,20 @@ export type AgendaBloqueDTO = {
   diaSemana: DiaSemanaDTO;
 };
 
+export type AgendaBloqueoDiaDTO = {
+  idBloqueo: number;
+  idUsuario: number;
+  fecha: string;
+  motivo?: string | null;
+  creadoEn?: string | null;
+};
+
+export type AgendaBloqueoDiaRequest = {
+  idUsuario: number;
+  fecha: string;
+  motivo?: string;
+};
+
 export type AgendaBloqueCuerpo = {
   idUsuario: number;
   horaInicio: string;
@@ -153,6 +167,57 @@ export async function fetchBloquesOferta(
     throw new Error("Respuesta inválida (bloques oferta).");
   }
   return data as AgendaBloqueDTO[];
+}
+
+export async function fetchBloqueosDiaPorUsuario(
+  idUsuario: number
+): Promise<AgendaBloqueoDiaDTO[]> {
+  const res = await fetch(API_ENDPOINTS.agenda.bloqueosDiaPorUsuario(idUsuario), {
+    method: "GET",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  const data = await parseJson(res);
+  await guardarSesionRequerida(res, data);
+  if (!res.ok) {
+    throw new Error(readErrorMessage(data, "No se pudieron cargar los dias bloqueados."));
+  }
+  if (!Array.isArray(data)) {
+    return [];
+  }
+  return data as AgendaBloqueoDiaDTO[];
+}
+
+export async function crearBloqueoDia(
+  body: AgendaBloqueoDiaRequest
+): Promise<AgendaBloqueoDiaDTO> {
+  const res = await fetch(API_ENDPOINTS.agenda.bloqueosDia, {
+    method: "POST",
+    headers: { ...bearerAuthHeaders(), "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body)
+  });
+  const data = await parseJson(res);
+  await guardarSesionRequerida(res, data);
+  if (!res.ok) {
+    throw new Error(readErrorMessage(data, "No se pudo bloquear el dia seleccionado."));
+  }
+  return data as AgendaBloqueoDiaDTO;
+}
+
+export async function desbloquearDiaPorUsuario(
+  idUsuario: number,
+  fechaISO: string
+): Promise<void> {
+  const res = await fetch(API_ENDPOINTS.agenda.desbloquearDiaPorUsuario(idUsuario, fechaISO), {
+    method: "DELETE",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
+  });
+  if (res.status === 204) return;
+  const data = await parseJson(res);
+  await guardarSesionRequerida(res, data);
+  throw new Error(readErrorMessage(data, "No se pudo desbloquear el dia seleccionado."));
 }
 
 export async function crearSerieMensualBloques(

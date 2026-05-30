@@ -317,8 +317,13 @@
   .rejectButton,
   .codeButton,
   .tutorButton,
-  .mapButton {
+  .mapButton,
+  .finalizarButton {
     width: 100%;
+  }
+
+  .finalizarButton {
+    justify-self: stretch;
   }
 }
 .verMapaBtn {
@@ -354,4 +359,56 @@
 .locationSection {
   margin: 15px 0;
   padding: 0 5px;
+}
+
+.finalizarWrap {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e1ebe2;
+  display: grid;
+  gap: 10px;
+}
+
+.finalizarHint {
+  margin: 0;
+  color: #586673;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.finalizarButton {
+  justify-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  min-width: 160px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  color: #ffffff;
+  background: #1d6f4a;
+  box-shadow: 0 10px 20px rgba(29, 111, 74, 0.2);
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.finalizarButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.finalizarButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.finalizarButtonBusy:disabled {
+  cursor: wait;
+  opacity: 0.85;
 }

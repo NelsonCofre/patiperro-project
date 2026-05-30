@@ -2,6 +2,24 @@
   "configurations": [
     {
       "type": "java",
+      "name": "ResenaServiceApplication",
+      "request": "launch",
+      "mainClass": "com.patiperro.resena.ResenaServiceApplication",
+      "projectName": ""
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-ChatServiceApplication<chat-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend/chat-service",
+      "mainClass": "com.patiperro.chat.ChatServiceApplication",
+      "projectName": "chat-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=chat-service"
+    },
+    {
+      "type": "java",
       "name": "ReservaServiceApplication",
       "request": "launch",
       "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
@@ -15,7 +33,8 @@
       "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
       "projectName": "reserva-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=reserva-service"
     },
     {
       "type": "java",
@@ -23,7 +42,7 @@
       "request": "launch",
       "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
       "projectName": "mascotas-service",
-      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62027 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=mascotas-service"
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=mascotas-service"
     },
     {
       "type": "java",
@@ -33,7 +52,8 @@
       "mainClass": "com.patiperro.tutores.TutoresServiceApplication",
       "projectName": "tutores-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=tutores-service"
     },
     {
       "type": "java",
@@ -44,7 +64,10 @@
       "projectName": "api-gateway",
       "args": "",
       "envFile": "${workspaceFolder}/.env",
-      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62020 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=api-gateway"
+      "env": {
+        "RESERVA_SERVICE_URI": "http://localhost:8090"
+      },
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=api-gateway"
     },
     {
       "type": "java",
@@ -54,7 +77,8 @@
       "mainClass": "com.patiperro.paseador.PaseadorServiceApplication",
       "projectName": "paseadores-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=paseadores-service"
     },
     {
       "type": "java",
@@ -64,7 +88,8 @@
       "mainClass": "com.patiperro.agenda.AgendaServiceApplication",
       "projectName": "agenda-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=agenda-service"
     },
     {
       "type": "java",
@@ -74,7 +99,30 @@
       "mainClass": "com.patiperro.notification_service.NotificationServiceApplication",
       "projectName": "notification-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=notification-service"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-PagosServiceApplication<pagos-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.pagos.PagosServiceApplication",
+      "projectName": "pagos-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=pagos-service"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-ResenaServiceApplication<resena-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.resena.ResenaServiceApplication",
+      "projectName": "resena-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=resena-service"
     }
   ]
 }

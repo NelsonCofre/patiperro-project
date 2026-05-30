@@ -421,3 +421,200 @@
     width: 100%;
   }
 }
+/* --- Contenedor del Calendario --- */
+.calendarSection {
+  margin-top: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.calendarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendarHeader h3 {
+  font-size: 1.1rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+.weekNav {
+  display: flex;
+  gap: 8px;
+}
+
+.weekNav button {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.weekNav button:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* --- Pestañas de Días --- */
+.dayTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.dayTab {
+  flex: 1;
+  min-width: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dayTabActive {
+  background: #f0fdf4;
+  border-color: #166534;
+  box-shadow: 0 0 0 1px #166534;
+}
+
+.dayDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.dayName {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.dayNum {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 2px 0;
+}
+
+.dayMonth {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+/* --- Carrusel de Bloques Horarios --- */
+.blocksWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blocksScroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 8px 4px;
+  width: 100%;
+  scrollbar-width: none; /* Firefox */
+}
+
+.blocksScroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.timeCard {
+  flex: 0 0 calc(100% / 6 - 10px); /* Ajuste para ver 6 bloques */
+  min-width: 140px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeCardSelected {
+  border-color: #166534;
+  background: #f0fdf4;
+  box-shadow: 0 4px 6px -1px rgba(22, 101, 52, 0.1);
+}
+
+.cardDate {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.cardHours {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.cardHours strong {
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.timeCard small {
+  font-size: 0.7rem;
+  color: #059669;
+  font-weight: 600;
+}
+
+/* --- Flechas de Navegación --- */
+.navArrow {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  font-size: 1.2rem;
+  z-index: 5;
+}
+
+.navArrow:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.noBlocks {
+  width: 100%;
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* --- Error Tipográfico --- */
+.errorSmall {
+  display: block;
+  margin-top: 8px;
+  color: #dc2626;
+  font-size: 0.8rem;
+}

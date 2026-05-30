@@ -1,36 +1,58 @@
 package com.patiperro.notification_service.service;
 
 import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import java.util.Map;
 
 import jakarta.mail.internet.MimeMessage;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.patiperro.notification_service.dto.CorreoAceptacionRequest;
 import com.patiperro.notification_service.dto.NotificacionEventoRequest;
+import com.patiperro.notification_service.exception.BrevoEnvioFallidoException;
 import com.patiperro.notification_service.model.LogEnvio;
 import com.patiperro.notification_service.model.PlantillaCorreo;
 import com.patiperro.notification_service.repository.LogEnvioRepository;
 import com.patiperro.notification_service.repository.PlantillaRepository;
-import org.springframework.web.reactive.function.client.WebClient;
-import java.util.Map;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
     private final PlantillaRepository plantillaRepository;
     private final LogEnvioRepository logEnvioRepository;
     private final JavaMailSender mailSender;
+
+    /** Template Brevo para {@link PagoNotificacionService#TIPO_EVENTO_PAGO_CONFIRMADO}. */
+    @Value("${patiperro.notification.brevo.template.PAGO_CONFIRMADO:4}")
+    private Long brevoTemplatePagoConfirmado;
+
+    @Value("${patiperro.notification.brevo.template.REEMBOLSO_RESERVA:5}")
+    private Long brevoTemplateReembolsoReserva;
+
+    @Value("${patiperro.notification.brevo.template.RESUMEN_COMPROBANTE_TUTOR:6}")
+    private Long brevoTemplateResumenComprobanteTutor;
+
+    /** Consolidado al paseador tras liberación nocturna; default mismo template que PAGO_CONFIRMADO hasta crear uno en Brevo. */
+    @Value("${patiperro.notification.brevo.template.LIBERACION_FONDOS_CONSOLIDADA_PASEADOR:4}")
+    private Long brevoTemplateLiberacionFondosConsolidadaPaseador;
+
+    @Value("${patiperro.notification.brevo.transactional.base-url:https://api.brevo.com/v3/smtp/email}")
+    private String brevoTransactionalBaseUrl;
+
+    @Value("${patiperro.notification.brevo.transactional.api-key:}")
+    private String brevoTransactionalApiKey;
 
     // =========================================================================
     // GESTIÓN DE PLANTILLAS (Configuración del Sistema)
@@ -157,87 +179,118 @@ public class NotificationService {
         }
     }
 
-    @Transactional
-public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
-    String estadoEnvio = "EXITOSO";
-    
-    // Configuración de la API de Brevo
-    WebClient webClient = WebClient.create("https://api.brevo.com/v3/smtp/email");
-    String apiKey = "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";
-
-    try {
-        // Construimos el JSON exacto que pide Brevo para usar plantillas
-        Map<String, Object> body = Map.of(
-            "templateId", datos.idPlantillaBrevo(),
-            "to", List.of(Map.of("email", datos.correoTutor())),
-            "params", Map.of(
-                "nombrePaseador", datos.nombrePaseador(),
-                "nombreMascota", datos.nombreMascota(),
-                "montoTotal", datos.montoTotal(),
-                "nombreTutor", datos.nombreTutor()
-            )
-        );
-
-        webClient.post()
-            .header("api-key", apiKey)
-            .bodyValue(body)
-            .retrieve()
-            .toBodilessEntity()
-            .block(); // Esperamos la respuesta
-
-        System.out.println("DEBUG: Brevo API aceptó la petición de plantilla");
-
-    } catch (Exception e) {
-        estadoEnvio = "FALLIDO";
-        System.out.println("Error API Brevo: " + e.getMessage());
+    private String requireBrevoTransactionalApiKey() {
+        if (!StringUtils.hasText(brevoTransactionalApiKey)) {
+            throw new IllegalStateException(
+                    "Falta patiperro.notification.brevo.transactional.api-key o NOTIFICATION_BREVO_TRANSACTIONAL_API_KEY");
+        }
+        return brevoTransactionalApiKey.trim();
     }
 
-    return registrarLogTrasEnvio(datos.idUsuario(), datos.idPlantillaBrevo(), estadoEnvio);
-}
+    private WebClient.Builder brevoTransactionalWebClientBuilder() {
+        String base = brevoTransactionalBaseUrl != null ? brevoTransactionalBaseUrl.trim() : "";
+        if (!StringUtils.hasText(base)) {
+            base = "https://api.brevo.com/v3/smtp/email";
+        }
+        return WebClient.builder().baseUrl(base);
+    }
 
-
-@Transactional
-    public LogEnvio procesarEventoUniversal(NotificacionEventoRequest request) {
+    @Transactional
+    public LogEnvio procesarYEnviarViaBrevo(CorreoAceptacionRequest datos) {
+        String apiKey = requireBrevoTransactionalApiKey();
         String estadoEnvio = "EXITOSO";
-        Long brevoTemplateId = obtenerTemplateIdPorEvento(request.getTipoEvento());
-
-        // Configuración de la API de Brevo
-        WebClient webClient = WebClient.create("https://api.brevo.com/v3/smtp/email");
-        String apiKey = "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"; // Tip: ¡Mueve esto a application.properties luego!
 
         try {
-            // Construimos el JSON dinámico para Brevo
             Map<String, Object> body = Map.of(
-                "templateId", brevoTemplateId,
-                "to", List.of(Map.of("email", request.getEmailDestino())),
-                "params", request.getVariables() // <-- Aquí pasamos el Map completo de variables
-            );
+                    "templateId", datos.idPlantillaBrevo(),
+                    "to", List.of(Map.of("email", datos.correoTutor())),
+                    "params",
+                            Map.of(
+                                    "nombrePaseador", datos.nombrePaseador(),
+                                    "nombreMascota", datos.nombreMascota(),
+                                    "montoTotal", datos.montoTotal(),
+                                    "nombreTutor", datos.nombreTutor()));
 
-            webClient.post()
-                .header("api-key", apiKey)
-                .bodyValue(body)
-                .retrieve()
-                .toBodilessEntity()
-                .block(); // Esperamos la respuesta
+            brevoTransactionalWebClientBuilder()
+                    .build()
+                    .post()
+                    .header("api-key", apiKey)
+                    .bodyValue(body)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
 
-            System.out.println("DEBUG: Brevo API aceptó el evento: " + request.getTipoEvento());
-
+            log.debug("Brevo transactional aceptó plantilla {}", datos.idPlantillaBrevo());
         } catch (Exception e) {
             estadoEnvio = "FALLIDO";
-            System.out.println("Error API Brevo en evento " + request.getTipoEvento() + ": " + e.getMessage());
+            log.warn("Brevo transactional falló (plantilla={}): {}", datos.idPlantillaBrevo(), e.getMessage());
         }
 
-        // Importante: Asumimos idUsuario = 1 temporalmente o lo recibes en el DTO si es necesario
-        // En este ejemplo, pasaremos '1' como ID de usuario genérico o puedes añadir idUsuario a NotificacionEventoRequest
-        return registrarLogTrasEnvio(1, brevoTemplateId.intValue(), estadoEnvio);
+        return registrarLogTrasEnvio(datos.idUsuario(), datos.idPlantillaBrevo(), estadoEnvio);
     }
 
-    // Método privado que actúa como "Diccionario" de tus eventos
+
+    /**
+     * Envío por plantilla Brevo. Si la API o la red fallan, persiste log {@code FALLIDO} y lanza {@link BrevoEnvioFallidoException}
+     * (sin rollback de ese intento de auditoría).
+     */
+    @Transactional(noRollbackFor = BrevoEnvioFallidoException.class)
+    public LogEnvio procesarEventoUniversal(NotificacionEventoRequest request) {
+        String apiKey = requireBrevoTransactionalApiKey();
+        Long brevoTemplateId = obtenerTemplateIdPorEvento(request.getTipoEvento());
+        Map<String, Object> params = request.getVariables() != null ? request.getVariables() : Map.of();
+
+        try {
+            Map<String, Object> body = Map.of(
+                    "templateId", brevoTemplateId,
+                    "to", List.of(Map.of("email", request.getEmailDestino())),
+                    "params", params);
+
+            brevoTransactionalWebClientBuilder()
+                    .build()
+                    .post()
+                    .header("api-key", apiKey)
+                    .bodyValue(body)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+
+            log.debug("Brevo aceptó evento {}", request.getTipoEvento());
+        } catch (Exception e) {
+            log.warn(
+                    "Brevo o red falló para evento {}: {}",
+                    request.getTipoEvento(),
+                    e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            try {
+                registrarLogTrasEnvio(1, brevoTemplateId.intValue(), "FALLIDO");
+            } catch (RuntimeException logErr) {
+                log.warn(
+                        "No se pudo persistir log FALLIDO tras error Brevo (evento={})",
+                        request.getTipoEvento(),
+                        logErr);
+            }
+            throw new BrevoEnvioFallidoException(request.getTipoEvento(), e);
+        }
+        return registrarLogTrasEnvio(1, brevoTemplateId.intValue(), "EXITOSO");
+    }
+
+    /**
+     * Mapa tipo de evento → plantilla Brevo. {@code REEMBOLSO_RESERVA}: correo al tutor tras devolución MP
+     * ({@code POST /internal/pagos/reembolso-tutor} y {@code POST /internal/pagos/reembolso-procesado}).
+     */
     private Long obtenerTemplateIdPorEvento(String tipoEvento) {
         return switch (tipoEvento.toUpperCase()) {
             case "RESERVA_ACEPTADA" -> 1L;   // Conecta con tu plantilla "#1 Confirmacion de paseo"
             case "RESERVA_RECHAZADA" -> 2L;  // Conecta con tu plantilla "#2 Rechazo de paseo"
             case "SOLICITUD_PASEO" -> 3L;    // Conecta con tu plantilla "#3 Nueva plantilla"
+            case "PAGO_CONFIRMADO" -> brevoTemplatePagoConfirmado != null ? brevoTemplatePagoConfirmado : 4L;
+            case "REEMBOLSO_RESERVA" -> brevoTemplateReembolsoReserva != null ? brevoTemplateReembolsoReserva : 5L;
+            case "RESUMEN_COMPROBANTE_TUTOR" ->
+                    brevoTemplateResumenComprobanteTutor != null ? brevoTemplateResumenComprobanteTutor : 6L;
+            case "LIBERACION_FONDOS_CONSOLIDADA_PASEADOR" ->
+                    brevoTemplateLiberacionFondosConsolidadaPaseador != null
+                            ? brevoTemplateLiberacionFondosConsolidadaPaseador
+                            : 4L;
             default -> throw new IllegalArgumentException("Tipo de evento no soportado: " + tipoEvento);
         };
     }

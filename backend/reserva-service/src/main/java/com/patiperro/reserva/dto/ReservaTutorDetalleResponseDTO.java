@@ -23,10 +23,12 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime horaInicio;
     private LocalDateTime horaFinal;
     private BigDecimal montoTotal;
-    private Integer idPago;
+    /** Id de {@code transaccion} en pagos-service. */
+    private Long idPago;
     private Integer idEstadoReserva;
     private String nombreEstado;
     private LocalDateTime fechaSolicitud;
+    private LocalDateTime fechaAceptacion;
     private LocalDateTime fechaInicioReal;
     private LocalDateTime fechaFin;
     private Integer codigoEncuentro;
@@ -36,4 +38,6 @@ public class ReservaTutorDetalleResponseDTO {
     private LocalDateTime codigoEncuentroExpiraEn;
     private String motivoRechazo;
     private String detalleRechazo;
+    /** {@code true} si el tutor puede reintentar el pago (estado SOLICITADA / PENDIENTE_PAGO). */
+    private Boolean puedeReintentarPago;
 }

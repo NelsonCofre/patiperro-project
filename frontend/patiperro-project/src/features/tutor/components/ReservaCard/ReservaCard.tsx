@@ -5,19 +5,45 @@ import {
   formatReservaTime,
   getReservaEstadoMeta,
   isReservaFinalizada,
-  isReservaSolicitada
 } from "../../utils/reservaEstadoUtils";
 import styles from "./ReservaCard.module.css";
+
+function normalizePaymentStatus(value?: string | null): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function getPaymentLabel(reserva: ReservaTutorDetalleDTO): string {
+  const status = normalizePaymentStatus(reserva.paymentStatus);
+  if (status.includes("pagad") || reserva.idPago != null) return "Pago confirmado";
+  if (status.includes("pendiente_pago") || status.includes("pending_payment")) return "Pendiente de pago";
+  if (status.includes("fall")) return "Pago no completado";
+  return "Pago disponible";
+}
 
 type Props = {
   reserva: ReservaTutorDetalleDTO;
   onDetalle: (reserva: ReservaTutorDetalleDTO) => void;
   onCancelar: (reserva: ReservaTutorDetalleDTO) => void;
   onCalificar: (reserva: ReservaTutorDetalleDTO) => void;
+  onVerResumenPago: (reserva: ReservaTutorDetalleDTO) => void;
 };
 
-export default function ReservaCard({ reserva, onDetalle, onCancelar, onCalificar }: Props) {
+export default function ReservaCard({
+  reserva,
+  onDetalle,
+  onCalificar,
+  onVerResumenPago,
+}: Props) {
   const estado = getReservaEstadoMeta(reserva);
+  const paymentLabel = getPaymentLabel(reserva);
+  const finalizada = isReservaFinalizada(reserva);
+  const yaCalificada = reserva.calificada;
+  const pagoConfirmado = normalizePaymentStatus(reserva.paymentStatus).includes("pagad") || reserva.idPago != null;
 
   return (
     <article className={styles.card}>
@@ -28,46 +54,49 @@ export default function ReservaCard({ reserva, onDetalle, onCancelar, onCalifica
           </span>
           <p className={styles.statusHelper}>{estado.helper}</p>
         </div>
-        <strong className={styles.reservaId}>Reserva #{reserva.idReserva}</strong>
+        <strong className={styles.reservaId}>
+          Reserva #{reserva.idReserva}
+        </strong>
       </div>
 
       <div className={styles.mainInfo}>
-        <div>
-          <span>Paseador</span>
-          <strong>{reserva.paseadorNombre}</strong>
-        </div>
-        <div>
-          <span>Mascota</span>
-          <strong>{reserva.mascotaNombre}</strong>
-        </div>
-        <div>
-          <span>Fecha</span>
-          <strong>{formatReservaDate(reserva.fecha ?? reserva.horaInicio)}</strong>
-        </div>
-        <div>
-          <span>Horario</span>
-          <strong>
-            {formatReservaTime(reserva.horaInicio)} - {formatReservaTime(reserva.horaFinal)}
-          </strong>
-        </div>
+        <div><span>Paseador</span><strong>{reserva.paseadorNombre}</strong></div>
+        <div><span>Mascota</span><strong>{reserva.mascotaNombre}</strong></div>
+        <div><span>Fecha</span><strong>{formatReservaDate(reserva.fecha ?? reserva.horaInicio)}</strong></div>
+        <div><span>Horario</span><strong>{formatReservaTime(reserva.horaInicio)} - {formatReservaTime(reserva.horaFinal)}</strong></div>
       </div>
 
       <div className={styles.footer}>
-        <span>{formatReservaMoney(reserva.montoTotal)}</span>
+        <div>
+          <span>{formatReservaMoney(reserva.montoTotal)}</span>
+          <p className={styles.paymentHelper}>{paymentLabel}</p>
+        </div>
         <div className={styles.actions}>
           <button type="button" className={styles.secondaryButton} onClick={() => onDetalle(reserva)}>
             Ver detalle
           </button>
-          {isReservaSolicitada(reserva) ? (
-            <button type="button" className={styles.warningButton} onClick={() => onCancelar(reserva)}>
-              Cancelar Solicitud
+
+          {pagoConfirmado ? (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => onVerResumenPago(reserva)}
+            >
+              Resumen pago
             </button>
           ) : null}
-          {isReservaFinalizada(reserva) ? (
-            <button type="button" className={styles.primaryButton} onClick={() => onCalificar(reserva)}>
-              Calificar Paseador
+          
+          {finalizada && (
+            <button
+              type="button"
+              disabled={yaCalificada}
+              title={yaCalificada ? "Esta reserva ya fue calificada" : ""}
+              className={yaCalificada ? styles.primaryButtonDisabled : styles.primaryButton}
+              onClick={() => !yaCalificada && onCalificar(reserva)}
+            >
+              {yaCalificada ? "Reseña enviada" : "Calificar Paseador"}
             </button>
-          ) : null}
+          )}
         </div>
       </div>
     </article>

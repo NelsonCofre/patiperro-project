@@ -29,7 +29,8 @@
       "mainClass": "com.patiperro.reserva.ReservaServiceApplication",
       "projectName": "reserva-service",
       "args": "",
-      "envFile": "${workspaceFolder}/.env"
+      "envFile": "${workspaceFolder}/.env",
+      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=51253 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=reserva-service"
     },
     {
       "type": "java",
@@ -50,7 +51,7 @@
       "projectName": "paseadores-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env",
-      "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=59384 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=paseadores-service"
+      "vmArgs": "-Dspring.jmx.enabled=false -Dspring.application.admin.enabled=false -Dspring.boot.project.name=paseadores-service"
     },
     {
       "type": "java",
@@ -59,6 +60,26 @@
       "cwd": "${workspaceFolder}",
       "mainClass": "com.patiperro.mascota.MascotasServiceApplication",
       "projectName": "mascotas-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-PagosServiceApplication<pagos-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.pagos.PagosServiceApplication",
+      "projectName": "pagos-service",
+      "args": "",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "type": "java",
+      "name": "Spring Boot-NotificationServiceApplication<notification-service>",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "mainClass": "com.patiperro.notification_service.NotificationServiceApplication",
+      "projectName": "notification-service",
       "args": "",
       "envFile": "${workspaceFolder}/.env"
     }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.patiperro.notification_service.dto.CorreoAceptacionRequest;
 import com.patiperro.notification_service.dto.NotificacionEventoRequest;
+import com.patiperro.notification_service.exception.BrevoEnvioFallidoException;
 import com.patiperro.notification_service.model.LogEnvio;
 import com.patiperro.notification_service.model.PlantillaCorreo;
 import com.patiperro.notification_service.service.NotificationService;
@@ -117,12 +118,13 @@ public ResponseEntity<LogEnvio> enviarCorreoAceptacion(@Valid @RequestBody Corre
      * El Service se encargará de traducir el "tipoEvento" al ID de plantilla de Brevo correcto.
      */
     @PostMapping("/disparar-evento")
-    public ResponseEntity<LogEnvio> dispararNotificacionGlobal(@Valid @RequestBody NotificacionEventoRequest request) {
-        System.out.println("DEBUG: Recibida petición de notificación para: " + request.getEmailDestino());
-        // Integridad: Delegamos toda la lógica de ruteo y envío al Service
-        LogEnvio resultado = notificationService.procesarEventoUniversal(request);
-        
-        return new ResponseEntity<>(resultado, HttpStatus.CREATED);
+    public ResponseEntity<?> dispararNotificacionGlobal(@Valid @RequestBody NotificacionEventoRequest request) {
+        try {
+            LogEnvio resultado = notificationService.procesarEventoUniversal(request);
+            return new ResponseEntity<>(resultado, HttpStatus.CREATED);
+        } catch (BrevoEnvioFallidoException e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
     }
 
 

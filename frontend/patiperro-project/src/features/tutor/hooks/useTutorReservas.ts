@@ -4,6 +4,8 @@ import { subscribeEncuentroTopic } from "../../shared/services/encuentroWs";
 import {
   cancelarReservaTutor,
   fetchReservasDetalleTutor,
+  handleTutorAuthFailure,
+  isTutorAuthError,
   readTutorIdFromSession
 } from "../services/reservaTutorApi";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
@@ -36,10 +38,16 @@ export function useTutorReservas() {
     try {
       const idTutor = readTutorIdFromSession();
       const data = await fetchReservasDetalleTutor(idTutor);
-      setReservas([...data].sort((a, b) => getSortDate(a) - getSortDate(b)));
+      setReservas([...data].sort((a, b) => getSortDate(b) - getSortDate(a)));
       setLastUpdated(new Date());
       setError(null);
     } catch (e) {
+      if (isTutorAuthError(e)) {
+        handleTutorAuthFailure();
+        setError("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+        window.location.replace("/login/tutor");
+        return;
+      }
       setError(e instanceof Error ? e.message : "No se pudieron cargar tus reservas.");
     } finally {
       setIsLoading(false);
@@ -63,6 +71,20 @@ export function useTutorReservas() {
     return subscribeEncuentroTopic({
       topic: `/topic/tutor/${idTutor}/encuentro`,
       onEvent: (event) => {
+        if (event.idReserva != null) {
+          setReservas((prev) =>
+            prev.map((item) =>
+              item.idReserva === event.idReserva
+                ? {
+                    ...item,
+                    idEstadoReserva: 4,
+                    nombreEstado: "EN CURSO",
+                    fechaInicioReal: event.horaInicioRegistrada ?? item.fechaInicioReal
+                  }
+                : item
+            )
+          );
+        }
         setNotice(
           event.mensajeTutor?.trim() ||
             "El paseo ha comenzado. Tu mascota esta en buenas manos."
@@ -85,6 +107,12 @@ export function useTutorReservas() {
         setNotice("Solicitud cancelada correctamente.");
         await loadReservas("refresh");
       } catch (e) {
+        if (isTutorAuthError(e)) {
+          handleTutorAuthFailure();
+          setNotice("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+          window.location.replace("/login/tutor");
+          return;
+        }
         setNotice(e instanceof Error ? e.message : "No se pudo cancelar la solicitud.");
       }
     },

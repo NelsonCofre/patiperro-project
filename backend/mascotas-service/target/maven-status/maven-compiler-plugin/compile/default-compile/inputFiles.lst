@@ -2,9 +2,12 @@ C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\config\SecurityConfig.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\controller\EspecieController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\controller\MascotaController.java
+C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\controller\MascotaInternoController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\controller\RazaController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\controller\TamanoController.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\dto\FotoUrlRequest.java
+C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\dto\MascotaInternoDetalleResponse.java
+C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\dto\PortadaIntegracion.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\exception\ForbiddenOperationException.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\exception\GlobalExceptionHandler.java
 C:\Users\mipc\OneDrive\Documentos\patiperro2\patiperro-project\backend\mascotas-service\src\main\java\com\patiperro\mascota\MascotasServiceApplication.java

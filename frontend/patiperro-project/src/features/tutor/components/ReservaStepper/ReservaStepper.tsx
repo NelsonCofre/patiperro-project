@@ -19,7 +19,7 @@ export default function ReservaStepper({ reserva }: Props) {
     {
       label: "Aceptada",
       complete: aceptada,
-      time: null
+      time: reserva.fechaAceptacion
     },
     {
       label: "Iniciada",

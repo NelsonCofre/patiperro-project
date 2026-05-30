@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { subscribeChatMessages } from "../../../chat/services/chatWs";
+import type { ChatToastPayload } from "../../../chat/types/chat.types";
+import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -12,9 +16,11 @@ import L from 'leaflet';
 
 import {
   fetchSolicitudesPendientesPaseador,
+  finalizarPaseoPaseador,
   responderSolicitudPaseador
 } from "../../services/solicitudesPaseadorService";
 import { PASEADOR_ID_SESSION_KEY } from "../../../../config/api";
+import { buildNominatimSearchUrl } from "../../../../config/nominatimSearchUrl";
 import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
 import type {
   DecisionSolicitud,
@@ -85,6 +91,11 @@ type ViewConfig = {
   route: string;
 };
 
+function esSolicitudPorResponder(estado: SolicitudPendientePaseador["estado"]): boolean {
+  // Regla de negocio: aunque esté PAGADA, el paseador todavía debe aceptar o rechazar.
+  return estado === "Solicitada" || estado === "Pagada";
+}
+
 const VIEW_CONFIGS: ViewConfig[] = [
   {
     key: "solicitadas",
@@ -92,7 +103,7 @@ const VIEW_CONFIGS: ViewConfig[] = [
     description: "Reservas nuevas que aun esperan tu decision.",
     emptyTitle: "No tienes solicitudes por responder",
     emptyText: "Cuando un tutor envie una reserva dentro de tus bloques disponibles, aparecera aqui.",
-    filter: (solicitud) => solicitud.estado === "Solicitada",
+    filter: (solicitud) => esSolicitudPorResponder(solicitud.estado),
     route: "/paseador/dashboard/solicitudes"
   },
   {
@@ -147,6 +158,14 @@ export default function PaseadorSolicitudes() {
   const [processing, setProcessing] = useState<ConfirmationState | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const [selectedTutorSolicitud, setSelectedTutorSolicitud] = useState<SolicitudPendientePaseador | null>(null);
+  const [finalizingId, setFinalizingId] = useState<number | null>(null);
+  const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
+  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
+
+  const paseadorIdRaw = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY);
+  const currentPaseadorId = paseadorIdRaw ? Number(paseadorIdRaw) : 0;
+  const currentPaseadorName =
+    sessionStorage.getItem("patiperro_nombre_usuario")?.trim() || "Paseador";
 
   async function loadSolicitudes(silent = false) {
     if (!silent) {
@@ -215,14 +234,46 @@ export default function PaseadorSolicitudes() {
     });
   }, []);
 
-  const pendingCount = solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length;
+  useEffect(() => {
+    const reservaIds = new Set(solicitudes.map((solicitud) => solicitud.idReserva));
+    return subscribeChatMessages((message) => {
+      if (
+        !reservaIds.has(message.idReserva) ||
+        message.senderUserId === currentPaseadorId ||
+        activeChatReservaId === message.idReserva
+      ) {
+        return;
+      }
+
+      setChatToast({
+        reservaId: message.idReserva,
+        senderName: message.senderName,
+        snippet: buildMessageSnippet(message.content)
+      });
+    });
+  }, [activeChatReservaId, currentPaseadorId, solicitudes]);
+
+  useEffect(() => {
+    if (!chatToast) return;
+    const timer = window.setTimeout(() => setChatToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [chatToast]);
+
+  const pendingCount = solicitudes.filter((solicitud) => esSolicitudPorResponder(solicitud.estado)).length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
   const inProgressCount = solicitudes.filter((solicitud) => solicitud.estado === "En Curso").length;
   const rejectedCount = solicitudes.filter((solicitud) => solicitud.estado === "Rechazada").length;
-  const totalAmount = useMemo(
-    () => solicitudes.reduce((sum, solicitud) => sum + solicitud.montoTotal, 0),
-    [solicitudes]
-  );
+  const totalAmount = useMemo(() => {
+    const estadosPotencial = new Set<SolicitudPendientePaseador["estado"]>([
+      "Solicitada",
+      "Pagada",
+      "Aceptada",
+      "En Curso"
+    ]);
+    return solicitudes
+      .filter((s) => estadosPotencial.has(s.estado))
+      .reduce((sum, solicitud) => sum + solicitud.montoTotal, 0);
+  }, [solicitudes]);
   const visibleSolicitudes = useMemo(
     () => solicitudes.filter(activeView.filter),
     [activeView, solicitudes]
@@ -255,7 +306,10 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
 
     // Usamos Nominatim (OpenStreetMap) igual que en el dashboard del tutor
     const query = encodeURIComponent(`${solicitud.direccionReferencia}, ${solicitud.comuna}, Santiago, Chile`);
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+    const response = await fetch(buildNominatimSearchUrl(query));
+    if (!response.ok) {
+      throw new Error(`Geocodificación respondió HTTP ${response.status}`);
+    }
     const data = await response.json();
 
     if (data && data.length > 0) {
@@ -299,12 +353,39 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
     });
   }
 
-  function handleOpenChat(solicitud: SolicitudPendientePaseador) {
-    if (solicitud.chatActivo) {
+  async function handleFinalizarPaseo(solicitud: SolicitudPendientePaseador) {
+    const ok = window.confirm(
+      "¿Confirmás que el paseo ya terminó? La reserva pasará a Finalizada y el monto seguirá el flujo de verificación y liberación (N+2) en tu billetera."
+    );
+    if (!ok) return;
+
+    setFinalizingId(solicitud.idReserva);
+    setFeedback(null);
+    try {
+      await finalizarPaseoPaseador(solicitud.idReserva);
+      setSolicitudes((prev) =>
+        prev.map((item) =>
+          item.idReserva === solicitud.idReserva ? { ...item, estado: "Finalizada" as const } : item
+        )
+      );
       setFeedback({
         type: "success",
-        message: `Chat habilitado para ${solicitud.mascotaNombre}. Integraremos la sala en la siguiente historia.`
+        message: `Paseo finalizado para ${solicitud.mascotaNombre}. El saldo quedará en verificación y luego disponible según la política acordada.`
       });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "No se pudo finalizar el paseo. Intentalo de nuevo."
+      });
+    } finally {
+      setFinalizingId(null);
+    }
+  }
+
+  function handleOpenChat(solicitud: SolicitudPendientePaseador) {
+    if (solicitud.chatActivo) {
+      setActiveChatReservaId(solicitud.idReserva);
       return;
     }
     setFeedback({
@@ -379,6 +460,20 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
   return (
     <main className={styles.page}>
       <PaseadorNavbar />
+
+      {chatToast ? (
+        <button
+          type="button"
+          className={styles.chatToast}
+          onClick={() => {
+            setActiveChatReservaId(chatToast.reservaId);
+            setChatToast(null);
+          }}
+        >
+          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
+          <span>{chatToast.snippet}</span>
+        </button>
+      ) : null}
 
       <section className={styles.hero}>
         <div>
@@ -480,6 +575,8 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
                 onViewMap={handleVerMapa}
                 onStartPaseo={handleStartPaseo}
                 onOpenChat={handleOpenChat}
+                onFinalizarPaseo={handleFinalizarPaseo}
+                finalizingPaseo={finalizingId === solicitud.idReserva}
               />
             ))}
           </div>
@@ -517,6 +614,25 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
         <TutorDetalleModal
           solicitud={selectedTutorSolicitud}
           onClose={() => setSelectedTutorSolicitud(null)}
+        />
+      ) : null}
+
+      {activeChatReservaId != null ? (
+        <ChatWindow
+          isOpen
+          reservaId={activeChatReservaId}
+          currentUserId={Number.isFinite(currentPaseadorId) ? currentPaseadorId : 0}
+          currentUserRole="paseador"
+          currentUserName={currentPaseadorName}
+          counterpartName={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.tutorNombre ||
+            "Tutor"
+          }
+          mascotaNombre={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.mascotaNombre ||
+            "Mascota"
+          }
+          onClose={() => setActiveChatReservaId(null)}
         />
       ) : null}
     </main>

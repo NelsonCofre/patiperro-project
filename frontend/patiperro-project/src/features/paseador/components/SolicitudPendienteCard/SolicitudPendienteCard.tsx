@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   DecisionSolicitud,
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
 import CodigoEncuentroValidator from "../CodigoEncuentroValidator/CodigoEncuentroValidator";
 import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
+import { yaPasoHorarioFinPaseo } from "../../utils/paseoHorarioUtils";
 import styles from "./SolicitudPendienteCard.module.css";
 
 type SolicitudPendienteCardProps = {
@@ -16,6 +17,8 @@ type SolicitudPendienteCardProps = {
   onViewMap: (solicitud: SolicitudPendientePaseador) => void;
   onStartPaseo: (solicitud: SolicitudPendientePaseador, startTime: string) => void;
   onOpenChat: (solicitud: SolicitudPendientePaseador) => void;
+  onFinalizarPaseo?: (solicitud: SolicitudPendientePaseador) => void;
+  finalizingPaseo?: boolean;
 };
 
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
@@ -44,15 +47,26 @@ export default function SolicitudPendienteCard({
   onViewTutor,
   onViewMap,
   onStartPaseo,
-  onOpenChat
+  onOpenChat,
+  onFinalizarPaseo,
+  finalizingPaseo
 }: SolicitudPendienteCardProps) {
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [, setHorarioTick] = useState(0);
   const isProcessing = processingDecision != null;
   const accepting = processingDecision === "ACEPTAR";
   const rejecting = processingDecision === "RECHAZAR";
-  const isSolicitada = solicitud.estado === "Solicitada";
+  // Regla de negocio: PAGADA pero aún no aceptada también debe poder aceptarse/rechazarse.
+  const isPorResponder = solicitud.estado === "Solicitada" || solicitud.estado === "Pagada";
   const isAceptada = solicitud.estado === "Aceptada";
   const isEnCurso = solicitud.estado === "En Curso";
+  const puedeFinalizar = yaPasoHorarioFinPaseo(solicitud.fecha, solicitud.horaFin);
+
+  useEffect(() => {
+    if (!isEnCurso || puedeFinalizar) return;
+    const id = window.setInterval(() => setHorarioTick((t) => t + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, [isEnCurso, puedeFinalizar, solicitud.fecha, solicitud.horaFin]);
 
   return (
     <article className={`${styles.card} ${isAceptada ? styles.cardAccepted : ""}`}>
@@ -119,7 +133,7 @@ export default function SolicitudPendienteCard({
             Ver detalle
           </button>
           
-          {isSolicitada ? (
+          {isPorResponder ? (
             <>
               <button
                 type="button"
@@ -153,18 +167,38 @@ export default function SolicitudPendienteCard({
         </div>
 
         {isEnCurso ? (
-          <PaseoEnCursoCard
-            statusMessage="Paseo iniciado correctamente"
-            actorLabel="Tutor"
-            actorNombre={solicitud.tutorNombre}
-            actorFotoUrl={solicitud.tutorFotoUrl}
-            mascotaNombre={solicitud.mascotaNombre}
-            horaInicioRegistrada={solicitud.fechaInicioReal ?? solicitud.horaInicio}
-            locationLabel="Direccion de inicio"
-            locationValue={solicitud.direccionReferencia}
-            chatLabel="Abrir chat del paseo"
-            onOpenChat={() => onOpenChat(solicitud)}
-          />
+          <>
+            <PaseoEnCursoCard
+              statusMessage="Paseo iniciado correctamente"
+              actorLabel="Tutor"
+              actorNombre={solicitud.tutorNombre}
+              actorFotoUrl={solicitud.tutorFotoUrl}
+              mascotaNombre={solicitud.mascotaNombre}
+              horaInicioRegistrada={solicitud.fechaInicioReal ?? solicitud.horaInicio}
+              locationLabel="Direccion de inicio"
+              locationValue={solicitud.direccionReferencia}
+              chatLabel="Abrir chat del paseo"
+              onOpenChat={() => onOpenChat(solicitud)}
+            />
+            {onFinalizarPaseo ? (
+              <div className={styles.finalizarWrap}>
+                <p className={styles.finalizarHint}>
+                  {puedeFinalizar
+                    ? "Ya pasó el horario del bloque. Cuando el paseo haya terminado, podés finalizarlo para iniciar la liberación del pago (verificación y luego saldo disponible según política N+2)."
+                    : `El botón "Finalizar" se habilita al terminar el horario del paseo (${solicitud.horaFin}).`}
+                </p>
+                <button
+                  type="button"
+                  className={`${styles.finalizarButton} ${finalizingPaseo ? styles.finalizarButtonBusy : ""}`}
+                  disabled={!puedeFinalizar || finalizingPaseo}
+                  onClick={() => onFinalizarPaseo(solicitud)}
+                >
+                  {finalizingPaseo ? <span className={styles.spinner} aria-hidden="true" /> : null}
+                  {finalizingPaseo ? "Finalizando..." : "Finalizar paseo"}
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
 

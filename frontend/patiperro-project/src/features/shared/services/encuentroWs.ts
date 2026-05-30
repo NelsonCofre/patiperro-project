@@ -1,6 +1,3 @@
-import { Client } from "@stomp/stompjs";
-import { RESERVA_WS_URL } from "../../../config/api";
-
 export type EncuentroConfirmadoEvent = {
   tipo?: string;
   idReserva?: number;
@@ -21,38 +18,17 @@ type SubscribeOptions = {
   onError?: (message: string) => void;
 };
 
+/**
+ * Placeholder hasta integrar STOMP (SockJS + @stomp/stompjs) contra el broker del backend.
+ * No emite eventos ni errores: la UI debe actualizarse por polling o tras acciones HTTP.
+ */
 export function subscribeEncuentroTopic({
   topic,
   onEvent,
   onError
 }: SubscribeOptions): () => void {
-  const client = new Client({
-    brokerURL: RESERVA_WS_URL,
-    reconnectDelay: 3000,
-    heartbeatIncoming: 10000,
-    heartbeatOutgoing: 10000,
-    onStompError: (frame) => {
-      onError?.(frame.headers.message || "Error STOMP en eventos de encuentro.");
-    }
-  });
-
-  client.onConnect = () => {
-    client.subscribe(topic, (message) => {
-      try {
-        const payload = JSON.parse(message.body) as EncuentroConfirmadoEvent;
-        onEvent(payload);
-      } catch {
-        onError?.("No se pudo interpretar el evento de encuentro.");
-      }
-    });
-  };
-
-  client.onWebSocketError = () => {
-    onError?.("No se pudo conectar al canal en tiempo real de reservas.");
-  };
-
-  client.activate();
-  return () => {
-    client.deactivate();
-  };
+  void topic;
+  void onEvent;
+  void onError;
+  return () => {};
 }

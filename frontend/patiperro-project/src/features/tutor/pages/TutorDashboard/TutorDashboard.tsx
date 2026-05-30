@@ -13,6 +13,7 @@ const SKELETON_CARDS = ["skeleton-1", "skeleton-2", "skeleton-3"];
 
 export default function TutorDashboard() {
   const [selectedPaseador, setSelectedPaseador] = useState<PaseadorHome | null>(null);
+
   const {
     isLoading,
     searchRadiusKm,
@@ -47,23 +48,55 @@ export default function TutorDashboard() {
     minSearchRadiusKm,
     maxSearchRadiusKm,
     refLat,
-    refLon
+    refLon,
+    minRating,
+    setMinRating,
+    maxPriceFilter,
+    setMaxPriceFilter
   } = usePaseadoresHome();
 
   const hasResults = visiblePaseadores.length > 0;
 
   const selectedPaseadorPerfil = useMemo(
-  () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
-  [selectedPaseador]
-);
-  const noFilterMatches =
-    !isLoading && !needsReferencePoint && hasActiveFilters && filteredCount === 0;
-  const emptyResultsTitle = noFilterMatches
-    ? "No encontramos paseadores disponibles"
-    : "No hay paseadores en esta zona";
-  const emptyResultsMessage = noFilterMatches
-    ? "No encontramos paseadores disponibles en este horario cerca de tu ubicacion. Intenta ampliar el rango de busqueda."
-    : "Prueba ampliando el radio o ajustando los filtros de busqueda.";
+    () => (selectedPaseador ? buildPaseadorPerfilMock(selectedPaseador) : null),
+    [selectedPaseador]
+  );
+
+  // --- LÓGICA DE MENSAJES CONTEXTUALES CORREGIDA ---
+  const noFilterMatches = !isLoading && !needsReferencePoint && hasActiveFilters && filteredCount === 0;
+
+  const getEmptyStateContent = () => {
+  if (!noFilterMatches) {
+    return {
+      title: "No hay paseadores en esta zona",
+      message: "Prueba ampliando el radio o ajustando los filtros de busqueda."
+    };
+  }
+
+  // Si el usuario movió el slider de distancia (como en tu foto de 3km)
+  if (maxDistanceFilterKm !== null) {
+    return {
+      title: "Fuera de rango",
+      message: `No hay paseadores a menos de ${maxDistanceFilterKm} km. Intenta aumentar la distancia maxima en la lista.`
+    };
+  }
+
+  // Solo si seleccionó estrellas
+  if (minRating > 0) {
+    return {
+      title: "Sin coincidencias de calificación",
+      message: "No se encontraron paseadores con esta calificación en tu zona. Intenta ajustar tus criterios de búsqueda."
+    };
+  }
+
+  return {
+    title: "No encontramos paseadores disponibles",
+    message: "Intenta limpiar los filtros o ajustar tus criterios de busqueda."
+  };
+};
+
+  const { title: emptyResultsTitle, message: emptyResultsMessage } = getEmptyStateContent();
+
   const locationMessage =
     locationStatus === "requesting"
       ? "Solicitando ubicacion..."
@@ -163,10 +196,14 @@ export default function TutorDashboard() {
             filteredCount={filteredCount}
             hasActiveFilters={hasActiveFilters}
             onResetFilters={resetFilters}
+            minRating={minRating}
+            onMinRatingChange={setMinRating}
+            maxPrice={maxPriceFilter}
+            onMaxPriceChange={setMaxPriceFilter}
           />
         )}
 
-        {/* EL MAPA Y SU PANEL LATERAL SIEMPRE AQUÍ */}
+        {/* EL MAPA Y SU PANEL LATERAL */}
         {refLat && refLon && !needsReferencePoint && (
           <div style={{ marginTop: '20px' }}>
             <PaseadoresMap 
@@ -180,7 +217,7 @@ export default function TutorDashboard() {
           </div>
         )}
 
-        {/* SOLAMENTE RENDERIZAMOS CARGA O PUNTO DE REFERENCIA FALTANTE */}
+        {/* ESTADOS DE CARGA Y REFERENCIA */}
         {isLoading ? (
           <div className={styles.walkersList} style={{ marginTop: '20px' }}>
             {SKELETON_CARDS.map((item) => (
@@ -203,10 +240,6 @@ export default function TutorDashboard() {
             </div>
           </article>
         ) : (
-          /* SI NO ESTÁ CARGANDO Y HAY PUNTO DE REFERENCIA, 
-             EL MAPA YA SE ESTÁ MOSTRANDO ARRIBA CON SUS PROPIOS MENSAJES.
-             SOLO AGREGAMOS EL BOTÓN DE "CARGAR MÁS" SI HAY RESULTADOS.
-          */
           hasResults && hasMore && (
             <div className={styles.loadMoreRow}>
               <button type="button" className={styles.secondaryButton} onClick={loadMore}>
