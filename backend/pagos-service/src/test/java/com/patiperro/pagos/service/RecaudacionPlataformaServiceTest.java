@@ -37,7 +37,7 @@ class RecaudacionPlataformaServiceTest {
     @Test
     void registrarCobroAprobado_insertaComisionPositiva() {
         when(repository.insertarLog(
-                        any(), any(), any(), any(), any(), any(), any()))
+                        any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(1);
 
         service.registrarCobroAprobado(transaccionBase());
@@ -50,6 +50,7 @@ class RecaudacionPlataformaServiceTest {
                 eq(new BigDecimal("10000.00")),
                 comisionCaptor.capture(),
                 eq(new BigDecimal("9500.00")),
+                any(LocalDateTime.class),
                 any(LocalDateTime.class));
         assertThat(comisionCaptor.getValue()).isEqualByComparingTo("500.00");
     }
@@ -57,7 +58,7 @@ class RecaudacionPlataformaServiceTest {
     @Test
     void registrarReembolsoTotal_insertaComisionNegativa() {
         when(repository.insertarLog(
-                        any(), any(), any(), any(), any(), any(), any()))
+                        any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(1);
 
         service.registrarReembolsoTotal(transaccionBase());
@@ -70,6 +71,7 @@ class RecaudacionPlataformaServiceTest {
                 eq(new BigDecimal("10000.00")),
                 comisionCaptor.capture(),
                 eq(new BigDecimal("9500.00")),
+                any(LocalDateTime.class),
                 any(LocalDateTime.class));
         assertThat(comisionCaptor.getValue()).isEqualByComparingTo("-500.00");
     }

@@ -4,20 +4,32 @@ declare module "@stomp/stompjs" {
     body: string;
   };
 
+  export type StompSubscription = {
+    unsubscribe: () => void;
+  };
+
   export type ClientOptions = {
     brokerURL?: string;
+    webSocketFactory?: () => WebSocket;
     reconnectDelay?: number;
     heartbeatIncoming?: number;
     heartbeatOutgoing?: number;
+    debug?: (message: string) => void;
     onStompError?: (frame: StompFrame) => void;
   };
 
   export class Client {
     constructor(options?: ClientOptions);
+    connected: boolean;
     onConnect?: (() => void) | undefined;
-    onWebSocketError?: (() => void) | undefined;
-    subscribe(destination: string, callback: (message: StompFrame) => void): void;
+    onDisconnect?: (() => void) | undefined;
+    onWebSocketError?: ((event: unknown) => void) | undefined;
     activate(): void;
     deactivate(): void;
+    publish(params: { destination: string; body: string }): void;
+    subscribe(
+      destination: string,
+      callback: (message: StompFrame) => void
+    ): StompSubscription;
   }
 }

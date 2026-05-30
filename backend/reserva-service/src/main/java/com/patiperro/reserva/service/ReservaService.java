@@ -801,7 +801,7 @@ public class ReservaService {
      */
     @Transactional(readOnly = true)
     public ReservaComprobanteInternoDto obtenerComprobanteInterno(Integer idReserva) {
-        Reserva r = reservaRepository.findById(idReserva)
+        Reserva r = reservaRepository.findByIdWithEstadoReserva(idReserva)
                 .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
 
         Integer idAgendaBloque = r.getIdAgendaBloque();
@@ -868,6 +868,9 @@ public class ReservaService {
             }
         }
 
+        Integer idEstadoReserva = r.getEstadoReserva() != null ? r.getEstadoReserva().getIdEstadoReserva() : null;
+        String nombreEstadoReserva = r.getEstadoReserva() != null ? r.getEstadoReserva().getNombreEstado() : null;
+
         return new ReservaComprobanteInternoDto(
                 r.getIdReserva(),
                 idTutorUsuario,
@@ -881,7 +884,9 @@ public class ReservaService {
                 horaInicio,
                 horaFinal,
                 r.getMontoTotal(),
-                r.getIdPago());
+                r.getIdPago(),
+                idEstadoReserva,
+                nombreEstadoReserva);
     }
 
     /**

@@ -63,6 +63,12 @@
   font-size: 0.9rem;
 }
 
+.distance {
+  margin: 6px 0 0;
+  color: #657386;
+  font-size: 0.9rem;
+}
+
 .bio {
   margin: 0;
   color: #586673;

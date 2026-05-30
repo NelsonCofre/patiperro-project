@@ -21,6 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * CRUD de mascotas (datos de perfil). La foto de perfil no se crea ni actualiza por JSON:
+ * usar {@code PATCH|POST /api/mascotas/{id}/foto-perfil} ({@link com.patiperro.mascota.controller.MascotaPerfilFotoController}).
+ */
 @RestController
 @RequestMapping("/api/mascotas")
 @RequiredArgsConstructor
@@ -28,6 +32,7 @@ public class MascotaController {
 
     private final MascotaService mascotaService;
 
+    /** Registro de datos; {@code fotoPerfil} se ignora en el body (multipart en /foto-perfil). */
     @PostMapping
     public ResponseEntity<Mascota> crearMascota(@Valid @RequestBody @NonNull Mascota mascota) {
         long idTutor = TutorSecurity.requireTutor().tutorId();
@@ -54,6 +59,7 @@ public class MascotaController {
         return mascotaService.obtenerPerfil(id, idTutor);
     }
 
+    /** Actualización selectiva; {@code fotoPerfil} no se modifica por PUT. */
     @PutMapping("/{id}")
     public Mascota actualizar(@PathVariable Long id, @Valid @RequestBody Mascota body) {
         long idTutor = TutorSecurity.requireTutor().tutorId();

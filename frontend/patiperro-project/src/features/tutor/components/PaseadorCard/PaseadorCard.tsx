@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { PaseadorHome } from "../../types/paseadorHome.types";
-import { resenaApi } from "../../services/resenaApi"; // Importa el servicio de reseñas
+import { resenaApi } from "../../services/resenaApi";
 import { formatDistanceFromKm } from "../../utils/distanceFormat";
+import VerifiedBadge from "../VerifiedBadge/VerifiedBadge";
 import styles from "./PaseadorCard.module.css";
 
 type PaseadorCardProps = {
@@ -10,7 +11,6 @@ type PaseadorCardProps = {
 };
 
 export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProps) {
-  // Estado local para el promedio real
   const [promedioReal, setPromedioReal] = useState<number>(paseador.calificacionPromedio);
 
   useEffect(() => {
@@ -31,10 +31,10 @@ export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProp
   return (
     <article className={styles.card}>
       <div className={styles.photoWrap}>
-        <img 
-          src={paseador.fotoUrl || "https://via.placeholder.com/150"} 
-          alt={`Foto de ${paseador.nombre}`} 
-          className={styles.photo} 
+        <img
+          src={paseador.fotoUrl || "https://via.placeholder.com/150"}
+          alt={`Foto de ${paseador.nombre}`}
+          className={styles.photo}
         />
       </div>
 
@@ -44,21 +44,19 @@ export default function PaseadorCard({ paseador, onVerPerfil }: PaseadorCardProp
             <h3>{paseador.nombre}</h3>
             <div className={styles.ratingBadge}>
               <span className={styles.starIcon}>★</span>
-              {/* CAMBIO AQUÍ: Validación para AC de "Paseadores Nuevos" */}
-              <span>
-                {promedioReal > 0 ? promedioReal.toFixed(1) : "Nuevo"}
-              </span>
+              <span>{promedioReal > 0 ? promedioReal.toFixed(1) : "Nuevo"}</span>
             </div>
           </div>
           <p className={styles.distance}>{formatDistanceFromKm(paseador.distanciaKm)} de ti</p>
+          <VerifiedBadge verified={paseador.verificado} variant="list" />
         </div>
 
         <p className={styles.bio}>{paseador.bio}</p>
 
         <div className={styles.footer}>
-          <button 
-            type="button" 
-            className={styles.primaryButton} 
+          <button
+            type="button"
+            className={styles.primaryButton}
             onClick={(e) => {
               e.stopPropagation();
               onVerPerfil?.(paseador);

@@ -82,6 +82,15 @@ spring:
               uri: ${PAGOS_SERVICE_URI:http://localhost:8087}
               predicates:
                 - Path=/api/pagos/**
+            # chat-service: REST + handshake WebSocket STOMP (/ws/chat).
+            - id: chat-service
+              uri: ${CHAT_SERVICE_URI:http://localhost:8089}
+              predicates:
+                - Path=/api/chat/**
+            - id: chat-service-ws
+              uri: ${CHAT_SERVICE_URI:http://localhost:8089}
+              predicates:
+                - Path=/ws/chat/**
 
 server:
   port: ${GATEWAY_PORT:8080}

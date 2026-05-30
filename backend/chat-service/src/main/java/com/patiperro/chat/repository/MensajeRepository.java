@@ -1,6 +1,7 @@
 package com.patiperro.chat.repository;
 
 import com.patiperro.chat.model.Mensaje;
+import com.patiperro.chat.model.TipoMensaje;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,4 +25,10 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Integer> {
 	Optional<Mensaje> findByIdAndConversacionId(
 			@Param("idMensaje") Integer idMensaje,
 			@Param("idConversacion") Integer idConversacion);
+
+	@Query("SELECT m FROM Mensaje m JOIN FETCH m.estadoMensaje JOIN FETCH m.conversacion c "
+			+ "WHERE c.idReserva = :idReserva AND m.tipo = :tipo ORDER BY m.fechaEnvio ASC")
+	List<Mensaje> findByReservaIdAndTipoWithCatalogos(
+			@Param("idReserva") Integer idReserva,
+			@Param("tipo") TipoMensaje tipo);
 }

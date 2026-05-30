@@ -1,16 +1,19 @@
 import type { ReactElement } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ACCESS_TOKEN_SESSION_KEY, TUTOR_ID_SESSION_KEY } from "../config/api";
+import { ACCESS_TOKEN_SESSION_KEY, PASEADOR_ID_SESSION_KEY, TUTOR_ID_SESSION_KEY } from "../config/api";
 import LoginPaseador from "../features/auth/pages/LoginPaseador/LoginPaseador";
 import LoginTutor from "../features/auth/pages/LoginTutor/LoginTutor";
 import RegisterPaseador from "../features/auth/pages/RegisterPaseador/RegisterPaseador";
 import RegisterTutor from "../features/auth/pages/RegisterTutor/RegisterTutor";
+import ChatReservaPage from "../features/chat/pages/ChatReservaPage/ChatReservaPage";
 import LandingHome from "../features/home/pages/LandingHome/LandingHome";
 import CheckoutProSandboxPage from "../features/labs/pages/CheckoutProSandboxPage/CheckoutProSandboxPage";
 import AddMascota from "../features/mascota/pages/AddMascota/AddMascota";
+import MisMascotas from "../features/mascota/pages/MisMascotas/MisMascotas";
 import PaseadorAgenda from "../features/paseador/pages/PaseadorAgenda/PaseadorAgenda";
 import PaseadorBilletera from "../features/paseador/pages/PaseadorBilletera/PaseadorBilletera";
 import PaseadorConfiguracion from "../features/paseador/pages/PaseadorConfiguracion/PaseadorConfiguracion";
+import PaseadorVerificacion from "../features/paseador/pages/PaseadorVerificacion/PaseadorVerificacion";
 import PaseadorDashboard from "../features/paseador/pages/PaseadorDashboard/PaseadorDashboard";
 import PaseadorSolicitudes from "../features/paseador/pages/PaseadorSolicitudes/PaseadorSolicitudes";
 import SolicitudPaseo from "../features/tutor/pages/SolicitudPaseo/SolicitudPaseo";
@@ -26,6 +29,19 @@ function RequireTutorAuth({ children }: { children: ReactElement }) {
 
   if (!accessToken || !tutorId) {
     return <Navigate to="/login/tutor" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
+
+function RequireChatAuth({ children }: { children: ReactElement }) {
+  const location = useLocation();
+  const accessToken = sessionStorage.getItem(ACCESS_TOKEN_SESSION_KEY)?.trim();
+  const tutorId = sessionStorage.getItem(TUTOR_ID_SESSION_KEY)?.trim();
+  const paseadorId = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY)?.trim();
+
+  if (!accessToken || (!tutorId && !paseadorId)) {
+    return <Navigate to="/" replace state={{ from: location }} />;
   }
 
   return children;
@@ -47,6 +63,10 @@ export default function AppRoutes() {
         path="/paseador/dashboard/configuracion"
         element={<PaseadorConfiguracion />}
       />
+      <Route
+        path="/paseador/dashboard/verificacion"
+        element={<PaseadorVerificacion />}
+      />
       <Route path="/paseador/dashboard/solicitudes" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/aceptadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/en-curso" element={<PaseadorSolicitudes />} />
@@ -63,7 +83,23 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/tutor/mascotas"
+        element={
+          <RequireTutorAuth>
+            <MisMascotas />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
         path="/tutor/mascota/nueva"
+        element={
+          <RequireTutorAuth>
+            <AddMascota />
+          </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/tutor/mascotas/:idMascota/editar"
         element={
           <RequireTutorAuth>
             <AddMascota />
@@ -104,6 +140,14 @@ export default function AppRoutes() {
           <RequireTutorAuth>
             <TutorReservas />
           </RequireTutorAuth>
+        }
+      />
+      <Route
+        path="/chat/reserva/:idReserva"
+        element={
+          <RequireChatAuth>
+            <ChatReservaPage />
+          </RequireChatAuth>
         }
       />
       {/* Modulo aislado de pruebas Checkout Pro (MVP sandbox). */}

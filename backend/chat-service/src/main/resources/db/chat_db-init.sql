@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS conversacion (
 CREATE TABLE IF NOT EXISTS mensaje (
     id_mensaje                        SERIAL PRIMARY KEY,
     id_usuario                        INTEGER NOT NULL,
-    contenido                         VARCHAR(4000) NOT NULL,
+    tipo                              VARCHAR(20) NOT NULL DEFAULT 'TEXTO',
+    contenido                         VARCHAR(4000),
+    url_media                         VARCHAR(512),
     fecha_envio                       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     conversacion_id_conversacion      INTEGER NOT NULL,
     estado_mensaje_id_estado_mensaje  INTEGER NOT NULL,

@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Documentos de identidad y fotos de perfil (PII; no versionar).
+uploads/

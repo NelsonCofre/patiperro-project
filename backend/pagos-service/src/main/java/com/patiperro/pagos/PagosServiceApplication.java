@@ -25,6 +25,11 @@ public class PagosServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PagosServiceApplication.class, args);
+
+                System.out.println("----------------------------------------------");
+                System.out.println("¡Microservicio de PAGOS iniciado con éxito!");
+                System.out.println("Puerto: 8087");
+                System.out.println("----------------------------------------------");
 	}
 
 }

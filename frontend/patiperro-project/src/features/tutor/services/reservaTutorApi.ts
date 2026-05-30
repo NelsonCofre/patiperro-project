@@ -2,6 +2,7 @@ import { API_ENDPOINTS, TUTOR_ID_SESSION_KEY } from "../../../config/api";
 import { clearAuthSession } from "../../auth/services/authServices";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
+import { resenaApi } from "./resenaApi";
 
 type ApiErrorBody = { message?: string; mensaje?: string; error?: string; status?: number };
 
@@ -53,9 +54,12 @@ export type MascotaTutorDTO = {
 export type PaseadorPerfilDTO = {
   idUsuario: number;
   nombre: string;
-  correo: string; // ¡El campo estrella que necesitamos!
+  correo: string;
+  /** Badge de identidad aprobada (GET /api/paseadores/public/{id}). */
+  esVerificado?: boolean;
+  /** @deprecated usar esVerificado */
+  verificado?: boolean;
   telefono?: string;
-  // ... puedes agregar otros campos que devuelva tu backend si los necesitas
 };
 
 export type EstadoReservaDTO = {
@@ -299,6 +303,34 @@ export async function iniciarCheckoutMercadoPagoReserva(idReserva: number): Prom
   };
 }
 
+function normalizeReservaDetalle(row: ReservaTutorDetalleDTO): ReservaTutorDetalleDTO {
+  return {
+    ...row,
+    calificada: row.calificada === true
+  };
+}
+
+async function enrichReservasConCalificacion(
+  reservas: ReservaTutorDetalleDTO[],
+  idTutor: number
+): Promise<ReservaTutorDetalleDTO[]> {
+  const normalized = reservas.map(normalizeReservaDetalle);
+  let calificadasIds: number[] = [];
+  try {
+    calificadasIds = await resenaApi.obtenerReservasCalificadasPorTutor(idTutor);
+  } catch {
+    calificadasIds = [];
+  }
+  if (calificadasIds.length === 0) {
+    return normalized;
+  }
+  const calificadas = new Set(calificadasIds);
+  return normalized.map((reserva) => ({
+    ...reserva,
+    calificada: reserva.calificada || calificadas.has(reserva.idReserva)
+  }));
+}
+
 export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
   // Endpoint nuevo sin id en URL (usa tutorId del JWT).
   const response = await fetch(API_ENDPOINTS.tutores.bookings, {
@@ -308,7 +340,8 @@ export async function fetchReservasDetalleTutor(idTutor: number): Promise<Reserv
   });
   const data = await parseJsonSafe(response);
   if (response.ok) {
-    return Array.isArray(data) ? (data as ReservaTutorDetalleDTO[]) : [];
+    const reservas = Array.isArray(data) ? (data as ReservaTutorDetalleDTO[]) : [];
+    return enrichReservasConCalificacion(reservas, idTutor);
   }
 
   if (response.status === 404) {
@@ -320,7 +353,8 @@ export async function fetchReservasDetalleTutor(idTutor: number): Promise<Reserv
     });
     const legacyData = await parseJsonSafe(legacyDetalle);
     if (legacyDetalle.ok) {
-      return Array.isArray(legacyData) ? (legacyData as ReservaTutorDetalleDTO[]) : [];
+      const reservas = Array.isArray(legacyData) ? (legacyData as ReservaTutorDetalleDTO[]) : [];
+      return enrichReservasConCalificacion(reservas, idTutor);
     }
     if (legacyDetalle.status === 404) {
       return fetchReservasBasicasTutor(idTutor);
@@ -343,7 +377,7 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
   }
   if (!Array.isArray(data)) return [];
 
-  return (data as ReservaBasicaDTO[]).map((reserva) => ({
+  const reservas = (data as ReservaBasicaDTO[]).map((reserva) => ({
     idReserva: reserva.idReserva,
     idTutorUsuario: reserva.idTutorUsuario,
     idMascota: reserva.idMascota,
@@ -365,6 +399,7 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
     codigoEncuentro: reserva.codigoEncuentro,
     calificada: false
   }));
+  return enrichReservasConCalificacion(reservas, idTutor);
 }
 
 export async function cancelarReservaTutor(idReserva: number): Promise<void> {

@@ -64,6 +64,7 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora.",
     latitud: dto.latitud,
     longitud: dto.longitud,
+    verificado: Boolean(dto.esVerificado ?? dto.verificado),
   };
 }
 
@@ -88,6 +89,7 @@ export function usePaseadoresHome() {
   const [availabilityEndTime, setAvailabilityEndTime] = useState("");
   
   const [minRating, setMinRating] = useState<number>(0);
+  const [soloVerificados, setSoloVerificados] = useState(false);
 
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [coordinates, setCoordinates] = useState<TutorCoordinates | null>(null);
@@ -222,6 +224,7 @@ export function usePaseadoresHome() {
       longitudReferencia: refLon,
       radioBusquedaMaxKm: searchRadiusKm,
       limite: CERCANOS_LIMITE,
+      soloVerificados: soloVerificados || undefined,
       ...(scheduleFilterState.params ?? {})
     })
       .then((rows) => {
@@ -245,7 +248,7 @@ export function usePaseadoresHome() {
     return () => {
       cancelled = true;
     };
-  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState]);
+  }, [profileLoadDone, refLat, refLon, searchRadiusKm, cercanosFetchNonce, scheduleFilterState, soloVerificados]);
 
   // NUEVO: EFECTO PARA SINCRONIZAR CALIFICACIONES REALES
   useEffect(() => {
@@ -321,7 +324,11 @@ export function usePaseadoresHome() {
       });
     }
 
-    // NUEVO: Filtro por Precio Máximo
+    if (soloVerificados) {
+      list = list.filter((p) => p.verificado);
+    }
+
+    // Filtro por precio máximo
     if (maxPriceFilter !== "") {
       const maximo = Number(maxPriceFilter);
       if (!Number.isNaN(maximo) && maximo > 0) {
@@ -343,11 +350,11 @@ export function usePaseadoresHome() {
     }
 
     return list;
-  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode, minRating, maxPriceFilter]); // <-- DEPENDENCIA CORREGIDA
+  }, [paseadores, queryText, maxDistanceFilterKm, searchRadiusKm, sortMode, minRating, maxPriceFilter, soloVerificados]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime, minRating, maxPriceFilter]);
+  }, [queryText, maxDistanceFilterKm, sortMode, paseadores, availabilityDate, availabilityStartTime, availabilityEndTime, minRating, maxPriceFilter, soloVerificados]);
 
   const visiblePaseadores = useMemo(
     () => filteredPaseadores.slice(0, visibleCount),
@@ -449,14 +456,17 @@ export function usePaseadoresHome() {
     setMinRating,
     refLat,
     refLon,
-    maxPriceFilter, // <-- Exportar el valor
-    setMaxPriceFilter, // <-- Exportar la función para cambiarlo
+    maxPriceFilter,
+    setMaxPriceFilter,
+    soloVerificados,
+    setSoloVerificados,
     hasActiveFilters:
       queryText.trim().length > 0 ||
       maxDistanceFilterKm != null ||
       sortMode !== "distance" ||
       scheduleFilterState.hasAny ||
       minRating > 0 ||
-      maxPriceFilter !== "" // <-- Activa el botón de "Limpiar filtros"
+      maxPriceFilter !== "" ||
+      soloVerificados
   };
 }

@@ -2,6 +2,8 @@ package com.patiperro.chat.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -30,8 +32,15 @@ public class Mensaje {
 	@Column(name = "id_usuario", nullable = false)
 	private Integer idUsuario;
 
-	@Column(nullable = false, length = 4000)
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private TipoMensaje tipo = TipoMensaje.TEXTO;
+
+	@Column(length = 4000)
 	private String contenido;
+
+	@Column(name = "url_media", length = 512)
+	private String urlMedia;
 
 	@Column(name = "fecha_envio", nullable = false)
 	private Instant fechaEnvio = Instant.now();

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -111,6 +112,20 @@ return resenas.stream().map(resena -> {
             .build();
 }).collect(Collectors.toList());
 }
+
+    /**
+     * IDs de reserva ya calificadas por un tutor (para deshabilitar re-calificación en UI).
+     */
+    public List<Integer> listarIdsReservaCalificadasPorTutor(Long idTutor) {
+        if (idTutor == null || idTutor <= 0) {
+            return List.of();
+        }
+        return resenaRepository.findByIdTutor(idTutor).stream()
+                .map(Resena::getIdReserva)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+    }
 
     /**
      * Calcula el promedio de estrellas de un paseador (TAPG3-244).

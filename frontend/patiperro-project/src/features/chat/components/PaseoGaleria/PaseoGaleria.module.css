@@ -1,0 +1,71 @@
+.section {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.header span {
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.thumbButton {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.thumbButton img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbCaption {
+  padding: 0 8px 8px;
+  color: #475569;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.stateText {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.errorText {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.92rem;
+}

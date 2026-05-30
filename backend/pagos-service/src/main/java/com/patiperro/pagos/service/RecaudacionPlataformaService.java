@@ -72,6 +72,7 @@ public class RecaudacionPlataformaService {
         if (idReserva == null) {
             return;
         }
+        LocalDateTime ahora = LocalDateTime.now();
         int filas = repository.insertarLog(
                 tx.getIdTransaccion(),
                 idReserva,
@@ -79,7 +80,8 @@ public class RecaudacionPlataformaService {
                 nz(tx.getMontoBruto()),
                 nz(comisionApp),
                 nz(tx.getMontoNeto()),
-                LocalDateTime.now());
+                ahora,
+                ahora);
         if (filas == 0) {
             log.debug(
                     "Log de recaudacion idempotente ya existente (idTransaccion={}, tipoEvento={})",

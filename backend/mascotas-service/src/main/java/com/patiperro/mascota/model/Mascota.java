@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Data;
-import org.hibernate.validator.constraints.URL;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Period; // Necesario para calcular la edad
@@ -97,7 +95,8 @@ public class Mascota {
     @Column(name = "numero_chip", length = 50)
     private String numeroChip;
 
-    //@URL(message = "La foto de perfil debe ser una URL válida (http/https)") // Vigila que la ruta de la imagen sea un enlace real //
+    /** Solo lectura en JSON; se asigna vía multipart en {@code /api/mascotas/{id}/foto-perfil}. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "foto_perfil", length = 150)
     private String fotoPerfil;
 

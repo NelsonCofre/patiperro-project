@@ -11,8 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -24,6 +29,7 @@ public class MascotaService {
     private final RazaRepository razaRepository;
     private final TamanoRepository tamanoRepository;
     private final FotoRepository fotoRepository;
+    private final MascotaFotoStorageService mascotaFotoStorageService;
 
     // =========================================================================
     // GESTIÓN DE REGISTRO Y LISTADO (Vigilancia de Propiedad)
@@ -34,6 +40,7 @@ public class MascotaService {
         mascota.setIdMascota(null); // Vigilancia: Evita que el usuario fuerce un ID existente //
         mascota.setIdTutor(idTutorSesion); // Seguridad: Vincula la mascota al tutor logueado automáticamente //
         mascota.getFotos().clear(); // Integridad: El registro inicial no debe traer fotos previas //
+        mascota.setFotoPerfil(null); // Foto solo vía PATCH/POST /foto-perfil (multipart validado) //
         enlazarCatalogo(mascota); // Validación: Cruza datos con las tablas maestras //
         return mascotaRepository.save(mascota);
     }
@@ -76,18 +83,51 @@ public class MascotaService {
         existente.setCuidadosEspeciales(body.getCuidadosEspeciales());
         existente.setEsterilizado(body.getEsterilizado());
         existente.setNumeroChip(body.getNumeroChip());
-        existente.setFotoPerfil(body.getFotoPerfil());
+        // fotoPerfil: no se actualiza por PUT; usar MascotaPerfilFotoController (multipart).
 
         enlazarCatalogoParaActualizar(existente, body); // Re-validación de integridad de catálogos //
         return mascotaRepository.save(existente);
+    }
+
+    /**
+     * Sube o reemplaza la foto de perfil ({@code mascota.foto_perfil}). Persiste la URL pública y elimina
+     * el archivo anterior solo si fue generado por este servicio.
+     */
+    @Transactional
+    public Mascota actualizarFotoPerfil(Long idMascota, MultipartFile file, @NonNull Long idTutorSesion)
+            throws IOException {
+        Mascota mascota = obtenerPerfil(idMascota, idTutorSesion);
+        String urlAnterior = mascota.getFotoPerfil();
+
+        String filenameNuevo = mascotaFotoStorageService.save(file);
+        try {
+            String urlNueva = mascotaFotoStorageService.buildPublicUrl(filenameNuevo);
+            mascota.setFotoPerfil(urlNueva);
+            Mascota guardada = mascotaRepository.save(mascota);
+
+            registrarLimpiezaFotoTrasCommit(urlAnterior, filenameNuevo);
+            return guardada;
+        } catch (RuntimeException ex) {
+            mascotaFotoStorageService.deleteQuietly(filenameNuevo);
+            throw ex;
+        }
     }
 
     @Transactional
     public void eliminarMascota(Long idMascota, @NonNull Long idTutorSesion) {
         Mascota m = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
-        asegurarPropietario(m, idTutorSesion); // Vigilancia previa al borrado físico //
+        asegurarPropietario(m, idTutorSesion);
+
+        String urlPerfil = m.getFotoPerfil();
+        List<String> urlsGaleria = m.getFotos().stream()
+                .map(Foto::getUrl)
+                .filter(u -> u != null && !u.isBlank())
+                .toList();
+
         mascotaRepository.delete(m);
+
+        registrarBorradoArchivosTrasCommit(urlPerfil, urlsGaleria);
     }
 
     // =========================================================================
@@ -118,8 +158,10 @@ public class MascotaService {
         if (!foto.getMascota().getIdMascota().equals(idMascota)) { // Vigilancia: Evita borrar fotos de otro perro //
             throw new IllegalArgumentException("Foto no asociada a la mascota");
         }
+        String urlGaleria = foto.getUrl();
         m.getFotos().remove(foto);
         mascotaRepository.save(m);
+        registrarBorradoArchivosTrasCommit(null, List.of(urlGaleria));
     }
 
     // =========================================================================
@@ -127,8 +169,55 @@ public class MascotaService {
     // =========================================================================
 
     private void asegurarPropietario(Mascota m, Long idTutorSesion) {
-        if (!m.getIdTutor().equals(idTutorSesion)) { // Bloqueo de seguridad preventivo //
+        if (!Objects.equals(m.getIdTutor(), idTutorSesion)) { // Bloqueo de seguridad preventivo //
             throw new ForbiddenOperationException("Acceso denegado: No tiene permisos sobre esta mascota");
+        }
+    }
+
+    /**
+     * Tras commit: borra la foto de perfil anterior. Si la transacción hace rollback, borra el fichero nuevo
+     * (evita huérfanos en disco sin tocar el archivo viejo).
+     */
+    private void registrarLimpiezaFotoTrasCommit(String urlAnterior, String filenameNuevo) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eliminarArchivoLocalSiNuestro(urlAnterior);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eliminarArchivoLocalSiNuestro(urlAnterior);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    mascotaFotoStorageService.deleteQuietly(filenameNuevo);
+                }
+            }
+        });
+    }
+
+    private void registrarBorradoArchivosTrasCommit(String urlPerfil, List<String> urlsGaleria) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            eliminarArchivoLocalSiNuestro(urlPerfil);
+            urlsGaleria.forEach(MascotaService.this::eliminarArchivoLocalSiNuestro);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eliminarArchivoLocalSiNuestro(urlPerfil);
+                urlsGaleria.forEach(MascotaService.this::eliminarArchivoLocalSiNuestro);
+            }
+        });
+    }
+
+    /** Solo elimina ficheros bajo {@link MascotaFotoStorageService#PUBLIC_URL_PREFIX}; ignora URLs externas. */
+    private void eliminarArchivoLocalSiNuestro(String url) {
+        String filename = mascotaFotoStorageService.filenameFromPublicUrl(url);
+        if (filename != null) {
+            mascotaFotoStorageService.deleteQuietly(filename);
         }
     }
 

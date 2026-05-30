@@ -18,10 +18,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		// WebSocket nativo (STOMP); evita SockJS/iframe.html que falla detrás de Vite+Cloudflare+gateway.
 		registry.addEndpoint("/ws/chat")
 				.setAllowedOriginPatterns(
 						"http://localhost:5173",
 						"http://localhost:5174",
-						"http://127.0.0.1:5173");
+						"http://127.0.0.1:5173",
+						"http://127.0.0.1:5174",
+						"https://*.trycloudflare.com");
 	}
 }

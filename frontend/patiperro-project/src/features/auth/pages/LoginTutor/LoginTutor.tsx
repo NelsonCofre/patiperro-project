@@ -1,6 +1,7 @@
 // Vista de inicio de sesion exclusiva para el rol tutor.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import AuthForm from "../../components/AuthForm";
 import AuthInput from "../../components/AuthInput";
 import { loginTutor } from "../../services/authServices";
@@ -15,6 +16,7 @@ type TutorLoginForm = {
 
 export default function LoginTutor() {
   const navigate = useNavigate();
+  const { requestPermission } = usePushNotifications();
   const [form, setForm] = useState<TutorLoginForm>({
     email: "",
     password: ""
@@ -89,6 +91,7 @@ export default function LoginTutor() {
         correo: form.email.trim(),
         contrasena: form.password
       });
+      void requestPermission("login");
       navigate("/tutor/dashboard", { replace: true });
     } catch (error) {
       setFeedback({

@@ -3,19 +3,32 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const gatewayTarget = process.env.VITE_GATEWAY_PROXY_TARGET || "http://127.0.0.1:8080";
+/** WebSocket STOMP del chat: directo a chat-service (el gateway WebMVC no proxifica bien SockJS/WS). */
+const chatWsTarget = process.env.VITE_CHAT_WS_PROXY_TARGET || "http://127.0.0.1:8089";
 
-const apiProxy: ProxyOptions = {
-  target: gatewayTarget,
-  changeOrigin: true
-};
-
-if (/ngrok-free\.(dev|app)|\.ngrok\.io/i.test(gatewayTarget)) {
-  apiProxy.configure = (proxy) => {
-    proxy.on("proxyReq", (proxyReq) => {
-      proxyReq.setHeader("ngrok-skip-browser-warning", "true");
-    });
+function withNgrokSkipHeader(proxy: ProxyOptions, target: string): ProxyOptions {
+  if (!/ngrok-free\.(dev|app)|\.ngrok\.io/i.test(target)) {
+    return proxy;
+  }
+  return {
+    ...proxy,
+    configure: (instance) => {
+      instance.on("proxyReq", (proxyReq) => {
+        proxyReq.setHeader("ngrok-skip-browser-warning", "true");
+      });
+    }
   };
 }
+
+const apiProxy: ProxyOptions = withNgrokSkipHeader(
+  { target: gatewayTarget, changeOrigin: true },
+  gatewayTarget
+);
+
+const chatWsProxy: ProxyOptions = withNgrokSkipHeader(
+  { target: chatWsTarget, changeOrigin: true, ws: true },
+  chatWsTarget
+);
 
 /** Nominatim exige User-Agent identificable; el navegador no siempre cumple la política OSM. */
 const nominatimProxy: ProxyOptions = {
@@ -35,12 +48,17 @@ const nominatimProxy: ProxyOptions = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // sockjs-client (chat) referencia `global` como en Node; en el navegador no existe.
+  define: {
+    global: "globalThis"
+  },
   server: {
     // Cloudflare Quick Tunnel / otros hosts dinámicos (retorno MP, acceso móvil).
     allowedHosts: true,
     // En dev las imágenes van por mismo origen (sin cabecera ngrok en <img>).
     proxy: {
       "/api": apiProxy,
+      "/ws/chat": chatWsProxy,
       "/geo/nominatim": nominatimProxy
     }
   }

@@ -21,6 +21,7 @@ public class SecurityConfig {
 				.cors(Customizer.withDefaults())
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/ws/chat/**").permitAll()
+						.requestMatchers("/api/chat/media/**").permitAll()
 						.requestMatchers("/api/chat/**").permitAll()
 						.anyRequest().authenticated());
 		return http.build();
@@ -29,10 +30,12 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOrigins(List.of(
+		config.setAllowedOriginPatterns(List.of(
 				"http://localhost:5173",
 				"http://localhost:5174",
-				"http://127.0.0.1:5173"));
+				"http://127.0.0.1:5173",
+				"http://127.0.0.1:5174",
+				"https://*.trycloudflare.com"));
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control"));
 		config.setAllowCredentials(true);
