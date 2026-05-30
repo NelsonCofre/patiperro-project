@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
@@ -123,4 +124,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
     List<Integer> findIdReservasConCobroEnEstados(
             @Param("idsEstado") Collection<Integer> idsEstado,
             Pageable pageable);
+
+    /** Carga {@link Reserva} con {@code estadoReserva} para endpoints internos (comprobante / chat). */
+    @Query("SELECT r FROM Reserva r JOIN FETCH r.estadoReserva WHERE r.idReserva = :idReserva")
+    Optional<Reserva> findByIdWithEstadoReserva(@Param("idReserva") Integer idReserva);
 }

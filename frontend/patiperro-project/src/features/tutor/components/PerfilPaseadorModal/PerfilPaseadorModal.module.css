@@ -88,29 +88,6 @@
   line-height: 1.75;
 }
 
-.verifiedBadge,
-.unverifiedBadge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.verifiedBadge {
-  color: #1f5c29;
-  background: #e8f7ea;
-  border: 1px solid #bfe5c5;
-}
-
-.unverifiedBadge {
-  color: #8a4b14;
-  background: #fff4e6;
-  border: 1px solid #ffd7a8;
-}
-
 .statsGrid,
 .rateGrid {
   display: grid;

@@ -54,5 +54,13 @@ export const resenaApi = {
     if (!response.ok) return 0;
     
     return response.json();
+  },
+
+  /** IDs de reserva que el tutor ya calificó. */
+  obtenerReservasCalificadasPorTutor: async (idTutor: number): Promise<number[]> => {
+    const response = await fetch(`${API_PREFIX}/resenas/tutor/${idTutor}/reservas-calificadas`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data.map((id) => Number(id)).filter((id) => Number.isFinite(id)) : [];
   }
 };

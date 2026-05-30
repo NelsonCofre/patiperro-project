@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,6 +54,42 @@ public class Paseador {
     @Column(name = "biografia", length = 250)
     private String biografia;
 
+    // Verificacion de identidad (cedula). Distinto de saldo_verificacion en pagos-service.
+    // No se serializa a JSON; el cliente usa VerificacionIdentidadResponseDTO.
+    @JsonIgnore
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_verificacion_identidad", length = 20, nullable = false)
+    @Builder.Default
+    private EstadoVerificacionIdentidad estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
+
+    // Nombre de archivo en disco (UUID.ext), no ruta publica.
+    @JsonIgnore
+    @Column(name = "archivo_cedula_frontal", length = 255)
+    private String archivoCedulaFrontal;
+
+    @JsonIgnore
+    @Column(name = "archivo_cedula_reverso", length = 255)
+    private String archivoCedulaReverso;
+
+    @JsonIgnore
+    @Column(name = "verificacion_identidad_enviada_en")
+    private LocalDateTime verificacionIdentidadEnviadaEn;
+
+    @JsonIgnore
+    @Column(name = "verificacion_identidad_revisada_en")
+    private LocalDateTime verificacionIdentidadRevisadaEn;
+
+    @JsonIgnore
+    @Column(name = "motivo_rechazo_verificacion_identidad", length = 500)
+    private String motivoRechazoVerificacionIdentidad;
+
+    /** Badge público para tutores (lista, perfil, filtros). Sincronizado con {@link #estadoVerificacionIdentidad}. */
+    @JsonIgnore
+    @Column(name = "es_verificado", nullable = false)
+    @Builder.Default
+    private boolean esVerificado = false;
+
+    // Contrasena hash; nunca en respuestas JSON.
     @JsonIgnore
     @Column(name = "contrasena", length = 60, nullable = false)
     private String contrasena;
@@ -70,4 +107,27 @@ public class Paseador {
     @OneToMany(mappedBy = "paseador", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Foto> fotos = new ArrayList<>();
+
+    @PrePersist
+    @PreUpdate
+    private void normalizarVerificacionIdentidad() {
+        sincronizarEsVerificadoConEstado();
+    }
+
+    /** Repara lecturas si enum y boolean llegaron desalineados (p. ej. SQL manual o dev/prod distintos). */
+    @PostLoad
+    private void alinearEsVerificadoTrasCarga() {
+        if (estadoVerificacionIdentidad == null) {
+            esVerificado = false;
+            return;
+        }
+        esVerificado = estadoVerificacionIdentidad.esAprobado();
+    }
+
+    private void sincronizarEsVerificadoConEstado() {
+        if (estadoVerificacionIdentidad == null) {
+            estadoVerificacionIdentidad = EstadoVerificacionIdentidad.SIN_ENVIAR;
+        }
+        esVerificado = estadoVerificacionIdentidad.esAprobado();
+    }
 }

@@ -90,11 +90,21 @@ export default function ReservaCard({
             <button
               type="button"
               disabled={yaCalificada}
-              title={yaCalificada ? "Esta reserva ya fue calificada" : ""}
-              className={yaCalificada ? styles.primaryButtonDisabled : styles.primaryButton}
+              aria-disabled={yaCalificada}
+              title={yaCalificada ? "Ya calificaste este paseo" : "Calificar al paseador"}
+              className={yaCalificada ? styles.ratedButton : styles.primaryButton}
               onClick={() => !yaCalificada && onCalificar(reserva)}
             >
-              {yaCalificada ? "Reseña enviada" : "Calificar Paseador"}
+              {yaCalificada ? (
+                <>
+                  <span className={styles.ratedButtonIcon} aria-hidden="true">
+                    ✓
+                  </span>
+                  Reseña enviada
+                </>
+              ) : (
+                "Calificar Paseador"
+              )}
             </button>
           )}
         </div>

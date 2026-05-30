@@ -1,26 +1,25 @@
 package com.patiperro.paseador.config;
 
 import lombok.RequiredArgsConstructor;
-
-import java.util.List;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.security.config.Customizer;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
 
+/**
+ * JWT stateless para paseadores. Rutas bajo {@code /api/paseadores/me/**} (perfil, verificación
+ * de identidad con cédula) requieren autenticación. {@code /api/paseadores/interno/**} confía en
+ * {@code X-Patiperro-Interno-Secret} en el controller; el api-gateway deniega ese prefijo en el
+ * borde HTTP público.
+ */
 @Configuration
+@EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -37,19 +36,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/paseadores/auth/register").permitAll()
-                        .requestMatchers("/api/paseadores/auth/login").permitAll()
-                        .requestMatchers("/api/paseadores/auth/logout").permitAll()
-                        .requestMatchers("/api/paseadores/auth/upload-foto-perfil").permitAll()
+                        .requestMatchers("/api/paseadores/auth/**").permitAll()
                         .requestMatchers("/api/paseadores/public/**").permitAll()
                         .requestMatchers("/api/paseadores/interno/**").permitAll()
-                        // 👇 AGREGA ESTA LÍNEA 👇
+                        .requestMatchers("/api/paseadores/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/paseadores/*").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
-    
 }

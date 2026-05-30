@@ -84,6 +84,24 @@ export const ACCESS_TOKEN_SESSION_KEY = "patiperro_access_token";
 /** Endpoint WS STOMP expuesto por reserva-service para eventos de encuentro. */
 export const RESERVA_WS_URL = "ws://localhost:8090/ws/reservas";
 
+/**
+ * WebSocket STOMP del chat (mismo origen que Vite/Cloudflare → proxy /ws/chat → chat-service).
+ * Override: {@code VITE_CHAT_WS_URL} (ej. ws://127.0.0.1:8089/ws/chat).
+ */
+export function resolveChatWsBrokerUrl(): string {
+  const override = readEnvTrim("VITE_CHAT_WS_URL");
+  if (override) {
+    return override.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws/chat`;
+  }
+  return "ws://127.0.0.1:5173/ws/chat";
+}
+
+export const CHAT_WS_BROKER_URL = resolveChatWsBrokerUrl();
+
 // Endpoints centralizados para evitar URLs repetidas en paginas y servicios.
 export const API_ENDPOINTS = {
   auth: {
@@ -100,6 +118,9 @@ export const API_ENDPOINTS = {
       publicTamanos: `${API_BASE_URL}/api/paseadores/public/tamanos`,
       /** Configuración del paseador autenticado (JWT en cookie vía gateway). */
       meConfiguracion: `${API_BASE_URL}/api/paseadores/me/configuracion`,
+      /** Verificación de identidad del paseador autenticado. */
+      meVerificacion: `${API_BASE_URL}/api/paseadores/me/verificacion`,
+      meVerificacionDocumento: `${API_BASE_URL}/api/paseadores/me/verificacion/documento`,
       /**
        * Búsqueda pública por proximidad (Haversine + radio de cobertura). Query params obligatorios:
        * latitudReferencia, longitudReferencia; opcionales: radioBusquedaMaxKm, limite, y filtro agenda
@@ -117,6 +138,7 @@ export const API_ENDPOINTS = {
   mascotas: {
     base: `${API_BASE_URL}/api/mascotas`,
     mias: `${API_BASE_URL}/api/mascotas/mias`,
+    byId: (idMascota: number) => `${API_BASE_URL}/api/mascotas/${idMascota}`,
     especies: `${API_BASE_URL}/api/mascotas/especies`,
     razas: (especieId?: number) =>
       especieId != null
@@ -176,6 +198,13 @@ export const API_ENDPOINTS = {
     /** Sandbox MVP: crea preferencia Checkout Pro en pagos-service (endpoint interno con secret). */
     checkoutProPreferencias: `${PAGOS_CHECKOUT_API_BASE}/api/pagos/interno/mercadopago/checkout/preferencia`
   },
+  /** Web Push del chat (notification-service vía gateway). */
+  notificaciones: {
+    push: {
+      vapidPublicKey: `${API_BASE_URL}/api/notificaciones/push/vapid-public-key`,
+      suscripciones: `${API_BASE_URL}/api/notificaciones/push/suscripciones`
+    }
+  },
   reserva: {
     base: `${API_BASE_URL}/api/reserva`,
     estados: `${API_BASE_URL}/api/reserva/estados`,
@@ -183,6 +212,8 @@ export const API_ENDPOINTS = {
     byTutorDetalle: (idTutor: number) => `${API_BASE_URL}/api/reserva/tutor/${idTutor}/detalle`,
     byId: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}`,
     status: (idReserva: number) => `${API_BASE_URL}/api/reserva/${idReserva}/status`,
+    paseadorAgendaHoyPanel: (idPaseador: number) =>
+      `${API_BASE_URL}/api/reserva/paseador/${idPaseador}/agenda-hoy/panel`,
     paseadorSolicitudesPendientes: (idPaseador: number) =>
       `${API_BASE_URL}/api/reserva/paseador/${idPaseador}/solicitudes-pendientes`
   }

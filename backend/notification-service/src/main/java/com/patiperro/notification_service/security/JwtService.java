@@ -21,6 +21,9 @@ public class JwtService {
     /** Mismo claim que emite paseadores-service. */
     public static final String CLAIM_PASEADOR_ID = "paseadorId";
 
+    /** Claim legacy en algunos JWT de tutor; solo si {@link #CLAIM_TUTOR_ID} no está presente. */
+    private static final String CLAIM_USUARIO_ID_LEGACY = "usuarioId";
+
     private final SecretKey secretKey;
 
     public JwtService(@Value("${jwt.secret}") String secret) {
@@ -35,11 +38,15 @@ public class JwtService {
                 .getPayload();
     }
 
+    /**
+     * Id tutor del token. Incluye fallback {@code usuarioId} para tokens legacy (pagos no lo usa;
+     * notification lo conserva por compatibilidad con tutores antiguos).
+     */
     public Long extractTutorId(String token) {
         Claims c = parseClaims(token);
         Object v = c.get(CLAIM_TUTOR_ID);
         if (v == null) {
-            v = c.get("usuarioId");
+            v = c.get(CLAIM_USUARIO_ID_LEGACY);
         }
         if (v == null) {
             return null;

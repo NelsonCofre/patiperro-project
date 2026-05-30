@@ -75,8 +75,9 @@ public class ReservaController {
     }
 
     /**
-     * Datos internos para comprobante/resumen de transacción (pagos-service).
-     * Ruta interna: requiere cabecera secreta validada por el filtro de reserva-service.
+     * Datos internos para comprobante (pagos-service) y contexto de reserva (chat-service:
+     * participantes + estado para subida de fotos en EN CURSO).
+     * Requiere cabecera {@code X-Patiperro-Interno-Secret} validada por el filtro interno.
      */
     @GetMapping("/interno/{idReserva}/comprobante")
     public ResponseEntity<ReservaComprobanteInternoDto> obtenerComprobanteInterno(@PathVariable Integer idReserva) {

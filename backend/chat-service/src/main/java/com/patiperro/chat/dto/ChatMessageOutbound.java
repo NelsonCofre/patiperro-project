@@ -13,7 +13,13 @@ public class ChatMessageOutbound {
 	Integer idReserva;
 	Integer idUsuario;
 	String sender;
+	String tipo;
 	String content;
+	/** Alias de {@code content} para paridad con historial REST. */
+	String contenido;
+	String imageUrl;
+	/** Alias de {@code imageUrl} para paridad con historial REST. */
+	String urlMedia;
 	Instant timestamp;
 	String estadoMensaje;
 }

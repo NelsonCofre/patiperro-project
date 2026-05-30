@@ -126,6 +126,6 @@ export function buildPaseadorPerfilMock(paseador: PaseadorHome): PaseadorPerfil 
     tarifasPorTamano: buildTarifas(seed),
     disponibilidadProximos7Dias: buildDisponibilidadProximos7Dias(seed),
     resenas,
-    verificado: seed % 2 === 0
+    verificado: paseador.verificado,
   };
 }

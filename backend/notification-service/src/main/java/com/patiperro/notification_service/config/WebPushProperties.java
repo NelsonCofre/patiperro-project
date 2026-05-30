@@ -3,15 +3,26 @@ package com.patiperro.notification_service.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Web Push del chat (VAPID). Propiedades en {@code application-dev.properties} /
- * {@code application-prod.properties} con prefijo {@code patiperro.notification.webpush}.
- * La clave privada solo debe definirse por entorno ({@code VAPID_PRIVATE_KEY}), no en el repo.
+ * Web Push del chat (VAPID).
+ * <p>Propiedades: {@code patiperro.notification.webpush.*} en application-dev / application-prod.</p>
+ * <p>La clave privada solo por entorno ({@code VAPID_PRIVATE_KEY}); no commitear en el repo.</p>
  */
 @ConfigurationProperties(prefix = "patiperro.notification.webpush")
 public class WebPushProperties {
 
+    private static final int MIN_PAYLOAD_PREVIEW_CHARS = 20;
+    private static final int MAX_PAYLOAD_PREVIEW_CHARS = 500;
+
+    /**
+     * Si {@code false}, no se envían push aunque existan suscripciones (arranque seguro sin VAPID).
+     */
     private boolean enabled;
+
     private Vapid vapid = new Vapid();
+
+    /**
+     * Longitud máxima del texto del cuerpo en el payload JSON (FCM/Mozilla limitan tamaño total).
+     */
     private int payloadPreviewChars = 120;
 
     public boolean isEnabled() {
@@ -31,11 +42,11 @@ public class WebPushProperties {
     }
 
     public int getPayloadPreviewChars() {
-        return payloadPreviewChars;
+        return normalizePreviewChars(payloadPreviewChars);
     }
 
     public void setPayloadPreviewChars(int payloadPreviewChars) {
-        this.payloadPreviewChars = payloadPreviewChars;
+        this.payloadPreviewChars = normalizePreviewChars(payloadPreviewChars);
     }
 
     /** {@code true} si el envío push está habilitado y VAPID está completo. */
@@ -46,15 +57,24 @@ public class WebPushProperties {
         return vapid.hasKeysForSend();
     }
 
-    /** Clave pública disponible (p. ej. {@code GET /push/vapid-public-key}). */
+    /** Clave pública disponible (p. ej. {@code GET /api/notificaciones/push/vapid-public-key}). */
     public boolean hasPublicKey() {
         return vapid.hasPublicKey();
+    }
+
+    private static int normalizePreviewChars(int value) {
+        if (value < MIN_PAYLOAD_PREVIEW_CHARS) {
+            return MIN_PAYLOAD_PREVIEW_CHARS;
+        }
+        return Math.min(value, MAX_PAYLOAD_PREVIEW_CHARS);
     }
 
     public static class Vapid {
 
         private String publicKey = "";
         private String privateKey = "";
+
+        /** Contacto del emisor VAPID (mailto: o URL HTTPS). */
         private String subject = "mailto:soporte@patiperro.cl";
 
         public String getPublicKey() {

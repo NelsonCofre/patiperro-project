@@ -21,5 +21,10 @@ public class ReservaServiceApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(ReservaServiceApplication.class, args);
+
+        System.out.println("----------------------------------------------");
+        System.out.println("¡Microservicio de RESERVA iniciado con éxito!");
+        System.out.println("Puerto: 8090");
+        System.out.println("----------------------------------------------");
     }
 }

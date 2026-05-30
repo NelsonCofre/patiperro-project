@@ -19,9 +19,9 @@ public interface RecaudacionPlataformaLogRepository extends JpaRepository<Recaud
     @Query(
             value = """
                     INSERT INTO recaudacion_plataforma_log
-                        (id_transaccion, id_reserva, tipo_evento, monto_bruto, comision_app, monto_neto, fecha_evento)
+                        (id_transaccion, id_reserva, tipo_evento, monto_bruto, comision_app, monto_neto, fecha_evento, creado_en)
                     VALUES
-                        (:idTransaccion, :idReserva, :tipoEvento, :montoBruto, :comisionApp, :montoNeto, :fechaEvento)
+                        (:idTransaccion, :idReserva, :tipoEvento, :montoBruto, :comisionApp, :montoNeto, :fechaEvento, :creadoEn)
                     ON CONFLICT (id_transaccion, tipo_evento) DO NOTHING
                     """,
             nativeQuery = true)
@@ -32,7 +32,8 @@ public interface RecaudacionPlataformaLogRepository extends JpaRepository<Recaud
             @Param("montoBruto") BigDecimal montoBruto,
             @Param("comisionApp") BigDecimal comisionApp,
             @Param("montoNeto") BigDecimal montoNeto,
-            @Param("fechaEvento") LocalDateTime fechaEvento);
+            @Param("fechaEvento") LocalDateTime fechaEvento,
+            @Param("creadoEn") LocalDateTime creadoEn);
 
     /**
      * SQL nativo PostgreSQL: date_trunc agrupa por day/month. El rango es semiabierto: [desde, hasta).

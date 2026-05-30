@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchChatHistory } from "../services/chatApi";
+import { fetchChatHistory, uploadChatImage } from "../services/chatApi";
 import {
   sendReservaChatMessage,
   sendTypingSignal,
@@ -11,6 +11,7 @@ import type {
   ChatRole,
   TypingEvent
 } from "../types/chat.types";
+import { enrichChatMessage } from "../utils/chatDisplayNames";
 
 type UseReservaChatOptions = {
   isOpen: boolean;
@@ -18,7 +19,36 @@ type UseReservaChatOptions = {
   currentUserId: number;
   currentUserRole: ChatRole;
   currentUserName: string;
+  counterpartUserId?: number;
+  counterpartName: string;
 };
+
+function isLocalOptimisticId(id: string): boolean {
+  return id.startsWith("local-");
+}
+
+/** Quita el eco local cuando el servidor devuelve el mismo mensaje por STOMP. */
+function dropOwnOptimisticEcho(
+  current: ChatMessage[],
+  incoming: ChatMessage,
+  currentUserId: number
+): ChatMessage[] {
+  if (incoming.senderUserId !== currentUserId) {
+    return current;
+  }
+  return current.filter(
+    (item) =>
+      !(
+        item.senderUserId === currentUserId &&
+        (item.estado === "pendiente" || isLocalOptimisticId(item.id)) &&
+        (item.tipo === "IMAGEN"
+          ? incoming.tipo === "IMAGEN" &&
+            (isLocalOptimisticId(item.id) ||
+              (item.imageUrl && item.imageUrl === incoming.imageUrl))
+          : item.content === incoming.content)
+      )
+  );
+}
 
 function mergeMessages(
   current: ChatMessage[],
@@ -48,8 +78,12 @@ export function useReservaChat({
   reservaId,
   currentUserId,
   currentUserRole,
-  currentUserName
+  currentUserName,
+  counterpartUserId,
+  counterpartName
 }: UseReservaChatOptions) {
+  const enrichMessage = (message: ChatMessage): ChatMessage =>
+    enrichChatMessage(message, currentUserId, counterpartUserId, counterpartName);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [typingUsers, setTypingUsers] = useState<TypingEvent[]>([]);
@@ -59,8 +93,29 @@ export function useReservaChat({
   const [sendError, setSendError] = useState<string | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
 
+  function clearTypingTimeout(): void {
+    if (typingTimeoutRef.current != null) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  }
+
+  async function notifyStoppedTyping(): Promise<void> {
+    if (!Number.isFinite(reservaId) || reservaId <= 0) return;
+    await sendTypingSignal({
+      idReserva: reservaId,
+      senderUserId: currentUserId,
+      senderRole: currentUserRole,
+      senderName: currentUserName,
+      isTyping: false
+    });
+  }
+
   useEffect(() => {
     if (!isOpen || !Number.isFinite(reservaId) || reservaId <= 0) {
+      clearTypingTimeout();
+      setTypingUsers([]);
+      setConnectionState("idle");
       return;
     }
 
@@ -71,7 +126,7 @@ export function useReservaChat({
     void fetchChatHistory(reservaId)
       .then((history) => {
         if (!active) return;
-        setMessages(history);
+        setMessages(history.map(enrichMessage));
         setConnectionState("connecting");
       })
       .catch((error) => {
@@ -98,7 +153,10 @@ export function useReservaChat({
       },
       onMessage: (message) => {
         if (!active) return;
-        setMessages((prev) => mergeMessages(prev, message));
+        const enriched = enrichMessage(message);
+        setMessages((prev) =>
+          mergeMessages(dropOwnOptimisticEcho(prev, enriched, currentUserId), enriched)
+        );
       },
       onTyping: (event) => {
         if (!active || event.senderUserId === currentUserId) return;
@@ -114,25 +172,19 @@ export function useReservaChat({
 
     return () => {
       active = false;
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      clearTypingTimeout();
       setTypingUsers([]);
+      setConnectionState("idle");
       unsubscribe();
     };
-  }, [currentUserId, isOpen, reservaId]);
+  }, [counterpartName, counterpartUserId, currentUserId, isOpen, reservaId]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     if (!draft.trim()) {
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
-      });
+      clearTypingTimeout();
+      void notifyStoppedTyping();
       return;
     }
 
@@ -144,23 +196,14 @@ export function useReservaChat({
       isTyping: true
     });
 
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-    }
+    clearTypingTimeout();
     typingTimeoutRef.current = window.setTimeout(() => {
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
-      });
+      typingTimeoutRef.current = null;
+      void notifyStoppedTyping();
     }, 1800);
 
     return () => {
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      clearTypingTimeout();
     };
   }, [currentUserId, currentUserName, currentUserRole, draft, isOpen, reservaId]);
 
@@ -187,6 +230,7 @@ export function useReservaChat({
       senderUserId: currentUserId,
       senderRole: currentUserRole,
       senderName: currentUserName,
+      tipo: "TEXTO",
       content,
       timestamp: new Date().toISOString(),
       estado: "pendiente"
@@ -213,13 +257,61 @@ export function useReservaChat({
       );
     } finally {
       setIsSending(false);
-      void sendTypingSignal({
-        idReserva: reservaId,
-        senderUserId: currentUserId,
-        senderRole: currentUserRole,
-        senderName: currentUserName,
-        isTyping: false
+      clearTypingTimeout();
+      void notifyStoppedTyping();
+    }
+  }
+
+  async function sendImage(file: File, comentario?: string): Promise<void> {
+    if (isSending) return;
+
+    setIsSending(true);
+    setSendError(null);
+
+    const previewUrl = URL.createObjectURL(file);
+    const optimisticId = `local-img-${reservaId}-${Date.now()}`;
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      idReserva: reservaId,
+      senderUserId: currentUserId,
+      senderRole: currentUserRole,
+      senderName: currentUserName,
+      tipo: "IMAGEN",
+      content: comentario?.trim() ?? "",
+      imageUrl: previewUrl,
+      timestamp: new Date().toISOString(),
+      estado: "pendiente"
+    };
+
+    setMessages((prev) => mergeMessages(prev, optimisticMessage));
+
+    try {
+      const saved = await uploadChatImage(
+        reservaId,
+        currentUserId,
+        currentUserName,
+        file,
+        comentario
+      );
+      setMessages((prev) => {
+        const withoutLocal = prev.filter((item) => item.id !== optimisticId);
+        return mergeMessages(
+          dropOwnOptimisticEcho(withoutLocal, enrichMessage(saved), currentUserId),
+          enrichMessage(saved)
+        );
       });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo enviar la foto.";
+      setSendError(message);
+      setMessages((prev) =>
+        prev.map((item) =>
+          item.id === optimisticId ? { ...item, estado: "error" } : item
+        )
+      );
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setIsSending(false);
     }
   }
 
@@ -228,7 +320,7 @@ export function useReservaChat({
     setHistoryError(null);
     try {
       const history = await fetchChatHistory(reservaId);
-      setMessages(history);
+      setMessages(history.map(enrichMessage));
       setConnectionState("connected");
     } catch (error) {
       setHistoryError(
@@ -253,8 +345,8 @@ export function useReservaChat({
     historyError,
     sendError,
     sendMessage,
+    sendImage,
     retryHistory,
     clearSendError
   };
 }
-

@@ -104,9 +104,12 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
   const dash = "—";
   const fotoTutor = s.tutorFotoUrl ? resolveApiUrl(s.tutorFotoUrl) : "";
   const fechaSol = s.fechaSolicitud?.trim() || "";
+  const estado = mapNombreEstadoToUi(s.nombreEstado);
+  const paseoIniciado = estado === "En Curso" || estado === "Finalizada";
 
   return {
     idReserva: s.idReserva,
+    idTutorUsuario: s.idTutorUsuario,
     tutorNombre: s.tutorNombre || `Tutor #${s.idTutorUsuario}`,
     tutorTelefono: s.tutorTelefono?.trim() || dash,
     tutorCorreo: s.tutorCorreo?.trim() || dash,
@@ -129,13 +132,13 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     comuna: s.comuna?.trim() || dash,
     direccionReferencia: s.direccionReferencia?.trim() || dash,
     montoTotal: Number(s.montoTotal) || 0,
-    estado: mapNombreEstadoToUi(s.nombreEstado),
+    estado,
     codigoEncuentro: s.codigoEncuentro ?? null,
     comentarioTutor: undefined,
     fechaSolicitud: fechaSol,
     fechaInicioReal: s.fechaInicioReal ?? null,
-    trackingActivo: false,
-    chatActivo: false
+    trackingActivo: paseoIniciado,
+    chatActivo: paseoIniciado
   };
 }
 

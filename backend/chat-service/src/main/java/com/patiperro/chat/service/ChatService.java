@@ -8,13 +8,16 @@ import com.patiperro.chat.dto.ConversacionCreateRequest;
 import com.patiperro.chat.dto.ConversacionResponseDTO;
 import com.patiperro.chat.dto.ConversacionUpdateRequest;
 import com.patiperro.chat.dto.EstadoCatalogoDTO;
+import com.patiperro.chat.dto.GaleriaPaseoItemDTO;
 import com.patiperro.chat.dto.MensajeCreateRequest;
 import com.patiperro.chat.dto.MensajeResponseDTO;
 import com.patiperro.chat.dto.MensajeUpdateRequest;
+import com.patiperro.chat.event.ChatMensajePersistidoEvent;
 import com.patiperro.chat.model.Conversacion;
 import com.patiperro.chat.model.EstadoChat;
 import com.patiperro.chat.model.EstadoMensaje;
 import com.patiperro.chat.model.Mensaje;
+import com.patiperro.chat.model.TipoMensaje;
 import com.patiperro.chat.repository.ConversacionRepository;
 import com.patiperro.chat.repository.EstadoChatRepository;
 import com.patiperro.chat.repository.EstadoMensajeRepository;
@@ -22,24 +25,38 @@ import com.patiperro.chat.repository.MensajeRepository;
 import com.patiperro.chat.support.ReservaChatIntegracionClient;
 import com.patiperro.chat.support.ReservaParticipantesDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class ChatService {
 
+	public static final String MEDIA_PUBLIC_PATH_PREFIX = "/api/chat/media/";
+
+	private static final String NOMBRE_ESTADO_EN_CURSO = "EN CURSO";
+
+	private static final String NOMBRE_ESTADO_FINALIZADA = "FINALIZADA";
+
 	private final ConversacionRepository conversacionRepository;
 	private final MensajeRepository mensajeRepository;
 	private final EstadoChatRepository estadoChatRepository;
 	private final EstadoMensajeRepository estadoMensajeRepository;
 	private final ReservaChatIntegracionClient reservaChatIntegracionClient;
+	private final ChatMediaStorageService chatMediaStorageService;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
 	@Transactional(readOnly = true)
 	public List<EstadoCatalogoDTO> listarEstadosChat() {
@@ -176,11 +193,64 @@ public class ChatService {
 		Mensaje mensaje = new Mensaje();
 		mensaje.setConversacion(conversacion);
 		mensaje.setIdUsuario(request.getIdUsuario());
+		mensaje.setTipo(TipoMensaje.TEXTO);
 		mensaje.setContenido(request.getContenido());
 		mensaje.setEstadoMensaje(estadoMensaje);
 		mensaje = mensajeRepository.save(mensaje);
 
 		return toMensajeDTO(mensaje);
+	}
+
+	@Transactional
+	public ChatMessageOutbound enviarImagenPaseo(
+			Integer idReserva,
+			Integer idUsuario,
+			String sender,
+			MultipartFile file,
+			String comentarioOpcional) {
+		validarEntradaImagenPaseo(idReserva, idUsuario, sender);
+		validarPaseadorConPaseoEnCurso(idReserva, idUsuario);
+
+		String filename;
+		try {
+			filename = chatMediaStorageService.save(file);
+		} catch (IllegalArgumentException ex) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+		} catch (IOException ex) {
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar la imagen.");
+		}
+		registrarLimpiezaArchivoSiRollback(filename);
+
+		Conversacion conversacion = obtenerOCrearConversacionPorReserva(idReserva);
+		EstadoMensaje estadoMensaje = resolverEstadoMensajeEnviado();
+
+		Mensaje mensaje = new Mensaje();
+		mensaje.setConversacion(conversacion);
+		mensaje.setIdUsuario(idUsuario);
+		mensaje.setTipo(TipoMensaje.IMAGEN);
+		mensaje.setUrlMedia(MEDIA_PUBLIC_PATH_PREFIX + filename);
+		mensaje.setContenido(normalizarComentarioOpcional(comentarioOpcional));
+		mensaje.setEstadoMensaje(estadoMensaje);
+		mensaje = mensajeRepository.save(mensaje);
+
+		ChatMessageOutbound outbound = toChatMessageOutbound(mensaje, sender.trim());
+		applicationEventPublisher.publishEvent(new ChatMensajePersistidoEvent(outbound));
+		return outbound;
+	}
+
+	@Transactional(readOnly = true)
+	public List<GaleriaPaseoItemDTO> listarGaleriaPaseo(Integer idReserva, Integer idUsuarioTutor) {
+		if (idReserva == null || idReserva <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idReserva inválido.");
+		}
+		if (idUsuarioTutor == null || idUsuarioTutor <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idUsuario inválido.");
+		}
+		validarTutorConPaseoFinalizado(idReserva, idUsuarioTutor);
+
+		return mensajeRepository.findByReservaIdAndTipoWithCatalogos(idReserva, TipoMensaje.IMAGEN).stream()
+				.map(m -> toGaleriaPaseoItemDTO(m))
+				.toList();
 	}
 
 	@Transactional
@@ -193,21 +263,26 @@ public class ChatService {
 		Mensaje mensaje = new Mensaje();
 		mensaje.setConversacion(conversacion);
 		mensaje.setIdUsuario(request.getIdUsuario());
+		mensaje.setTipo(TipoMensaje.TEXTO);
 		mensaje.setContenido(request.getContent().trim());
 		mensaje.setFechaEnvio(request.getTimestamp() != null ? request.getTimestamp() : Instant.now());
 		mensaje.setEstadoMensaje(estadoMensaje);
 		mensaje = mensajeRepository.save(mensaje);
 
-		return toChatMessageOutbound(mensaje, request.getSender().trim());
+		ChatMessageOutbound outbound = toChatMessageOutbound(mensaje, request.getSender().trim());
+		applicationEventPublisher.publishEvent(new ChatMensajePersistidoEvent(outbound));
+		return outbound;
 	}
 
 	/**
-	 * Usuario que debe recibir la notificación push (el interlocutor, no el remitente).
-	 * Usa reserva-service interno; {@code null} si la integración falla o no hay participantes.
+	 * Usuario que debe recibir la notificación push (el interlocutor de la reserva, no el remitente).
+	 * Usa reserva-service interno ({@link ReservaChatIntegracionClient}).
+	 *
+	 * @return {@code null} si la integración falla, el remitente no es tutor ni paseador de la reserva,
+	 *         o no hay interlocutor identificable
 	 */
-	@Transactional(readOnly = true)
 	public Integer resolverDestinatarioPush(Integer idReserva, Integer idRemitente) {
-		if (idReserva == null || idRemitente == null) {
+		if (idReserva == null || idReserva <= 0 || idRemitente == null || idRemitente <= 0) {
 			return null;
 		}
 		ReservaParticipantesDto participantes = reservaChatIntegracionClient.obtenerParticipantes(idReserva);
@@ -217,16 +292,10 @@ public class ChatService {
 		Integer tutor = participantes.idTutorUsuario();
 		Integer paseador = participantes.idPaseadorUsuario();
 		if (tutor != null && Objects.equals(tutor, idRemitente)) {
-			return paseador;
+			return paseador != null && !Objects.equals(paseador, idRemitente) ? paseador : null;
 		}
 		if (paseador != null && Objects.equals(paseador, idRemitente)) {
-			return tutor;
-		}
-		if (tutor != null && !Objects.equals(tutor, idRemitente)) {
-			return tutor;
-		}
-		if (paseador != null && !Objects.equals(paseador, idRemitente)) {
-			return paseador;
+			return tutor != null && !Objects.equals(tutor, idRemitente) ? tutor : null;
 		}
 		return null;
 	}
@@ -235,6 +304,9 @@ public class ChatService {
 	public ChatTypingEvent publicarTyping(ChatTypingEvent event) {
 		if (event.getIdReserva() == null || event.getIdReserva() <= 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idReserva inválido.");
+		}
+		if (event.getIdUsuario() == null || event.getIdUsuario() <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idUsuario inválido.");
 		}
 		if (event.getSender() == null || event.getSender().trim().isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sender es obligatorio.");
@@ -283,6 +355,95 @@ public class ChatService {
 						"Mensaje no encontrado en la conversación: conversacion=" + idConversacion
 								+ ", mensaje=" + idMensaje));
 		mensajeRepository.delete(mensaje);
+	}
+
+	private void validarEntradaImagenPaseo(Integer idReserva, Integer idUsuario, String sender) {
+		if (idReserva == null || idReserva <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idReserva inválido.");
+		}
+		if (idUsuario == null || idUsuario <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "idUsuario inválido.");
+		}
+		if (sender == null || sender.trim().isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sender es obligatorio.");
+		}
+	}
+
+	private ReservaParticipantesDto obtenerContextoReservaOrThrow(Integer idReserva) {
+		if (!reservaChatIntegracionClient.isEnabled()) {
+			throw new ResponseStatusException(
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"No se puede validar la reserva. Activa patiperro.chat.integracion.reserva.* y reserva-service.");
+		}
+		ReservaParticipantesDto contexto = reservaChatIntegracionClient.obtenerParticipantes(idReserva);
+		if (contexto == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Reserva no encontrada: " + idReserva);
+		}
+		if (contexto.nombreEstadoReserva() == null) {
+			throw new ResponseStatusException(
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"reserva-service debe incluir nombreEstadoReserva en GET /api/reserva/interno/{id}/comprobante.");
+		}
+		return contexto;
+	}
+
+	private void validarPaseadorConPaseoEnCurso(Integer idReserva, Integer idUsuario) {
+		ReservaParticipantesDto contexto = obtenerContextoReservaOrThrow(idReserva);
+		if (contexto.idPaseadorUsuario() == null || !Objects.equals(contexto.idPaseadorUsuario(), idUsuario)) {
+			throw new ResponseStatusException(
+					HttpStatus.FORBIDDEN,
+					"Solo el paseador asignado a la reserva puede enviar fotos del paseo.");
+		}
+		if (!coincideNombreEstado(contexto.nombreEstadoReserva(), NOMBRE_ESTADO_EN_CURSO)) {
+			throw new ResponseStatusException(
+					HttpStatus.CONFLICT,
+					"Solo puedes enviar fotos cuando el paseo está en curso.");
+		}
+	}
+
+	private void validarTutorConPaseoFinalizado(Integer idReserva, Integer idUsuarioTutor) {
+		ReservaParticipantesDto contexto = obtenerContextoReservaOrThrow(idReserva);
+		if (contexto.idTutorUsuario() == null || !Objects.equals(contexto.idTutorUsuario(), idUsuarioTutor)) {
+			throw new ResponseStatusException(
+					HttpStatus.FORBIDDEN,
+					"Solo el tutor de la reserva puede consultar la galería del paseo.");
+		}
+		if (!coincideNombreEstado(contexto.nombreEstadoReserva(), NOMBRE_ESTADO_FINALIZADA)) {
+			throw new ResponseStatusException(
+					HttpStatus.CONFLICT,
+					"La galería del paseo está disponible cuando el servicio ha finalizado.");
+		}
+	}
+
+	private static boolean coincideNombreEstado(String nombreEstado, String esperado) {
+		if (nombreEstado == null || esperado == null) {
+			return false;
+		}
+		String normalizado = nombreEstado.trim().toUpperCase(Locale.ROOT).replace('_', ' ');
+		String esperadoNormalizado = esperado.trim().toUpperCase(Locale.ROOT).replace('_', ' ');
+		return esperadoNormalizado.equals(normalizado);
+	}
+
+	private void registrarLimpiezaArchivoSiRollback(String filename) {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			return;
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCompletion(int status) {
+				if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+					chatMediaStorageService.deleteQuietly(filename);
+				}
+			}
+		});
+	}
+
+	private static String normalizarComentarioOpcional(String comentarioOpcional) {
+		if (comentarioOpcional == null) {
+			return null;
+		}
+		String trimmed = comentarioOpcional.trim();
+		return trimmed.isEmpty() ? null : trimmed;
 	}
 
 	private void validarChatRealtime(ChatMessageInbound request) {
@@ -358,26 +519,59 @@ public class ChatService {
 	}
 
 	private MensajeResponseDTO toMensajeDTO(Mensaje mensaje) {
+		TipoMensaje tipo = mensaje.getTipo() != null ? mensaje.getTipo() : TipoMensaje.TEXTO;
+		String content = mensaje.getContenido() != null ? mensaje.getContenido() : "";
+		String imageUrl = tipo == TipoMensaje.IMAGEN ? mensaje.getUrlMedia() : null;
+		Instant timestamp = mensaje.getFechaEnvio();
 		return MensajeResponseDTO.builder()
 				.id(mensaje.getId())
 				.idConversacion(mensaje.getConversacion().getId())
 				.idUsuario(mensaje.getIdUsuario())
+				.tipo(tipo.name())
 				.contenido(mensaje.getContenido())
-				.fechaEnvio(mensaje.getFechaEnvio())
+				.content(content)
+				.urlMedia(imageUrl)
+				.imageUrl(imageUrl)
+				.fechaEnvio(timestamp)
+				.timestamp(timestamp)
 				.idEstadoMensaje(mensaje.getEstadoMensaje().getId())
 				.nombreEstadoMensaje(mensaje.getEstadoMensaje().getNombre())
 				.build();
 	}
 
+	private GaleriaPaseoItemDTO toGaleriaPaseoItemDTO(Mensaje mensaje) {
+		String content = mensaje.getContenido();
+		String imageUrl = mensaje.getUrlMedia();
+		Instant timestamp = mensaje.getFechaEnvio();
+		return GaleriaPaseoItemDTO.builder()
+				.idMensaje(mensaje.getId())
+				.urlMedia(imageUrl)
+				.imageUrl(imageUrl)
+				.comentario(content)
+				.content(content != null ? content : "")
+				.fechaEnvio(timestamp)
+				.timestamp(timestamp)
+				.idUsuario(mensaje.getIdUsuario())
+				.build();
+	}
+
 	private ChatMessageOutbound toChatMessageOutbound(Mensaje mensaje, String sender) {
+		TipoMensaje tipo = mensaje.getTipo() != null ? mensaje.getTipo() : TipoMensaje.TEXTO;
+		String content = mensaje.getContenido() != null ? mensaje.getContenido() : "";
+		String imageUrl = tipo == TipoMensaje.IMAGEN ? mensaje.getUrlMedia() : null;
+		Instant timestamp = mensaje.getFechaEnvio();
 		return ChatMessageOutbound.builder()
 				.idMensaje(mensaje.getId())
 				.idConversacion(mensaje.getConversacion().getId())
 				.idReserva(mensaje.getConversacion().getIdReserva())
 				.idUsuario(mensaje.getIdUsuario())
 				.sender(sender)
-				.content(mensaje.getContenido())
-				.timestamp(mensaje.getFechaEnvio())
+				.tipo(tipo.name())
+				.content(content)
+				.contenido(content)
+				.imageUrl(imageUrl)
+				.urlMedia(imageUrl)
+				.timestamp(timestamp)
 				.estadoMensaje(mensaje.getEstadoMensaje().getNombre())
 				.build();
 	}

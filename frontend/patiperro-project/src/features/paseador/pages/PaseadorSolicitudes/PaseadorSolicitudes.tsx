@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
+import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
 import { subscribeChatMessages } from "../../../chat/services/chatWs";
 import type { ChatToastPayload } from "../../../chat/types/chat.types";
-import { buildMessageSnippet } from "../../../chat/utils/chatFormatters";
+import { buildChatMessageSnippet } from "../../../chat/utils/chatFormatters";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
@@ -33,7 +34,7 @@ import styles from "./PaseadorSolicitudes.module.css";
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -144,6 +145,7 @@ function getActiveView(pathname: string): ViewConfig {
 }
 
 export default function PaseadorSolicitudes() {
+  const { requestPermission } = usePushNotifications();
   const location = useLocation();
   const activeView = useMemo(() => getActiveView(location.pathname), [location.pathname]);
 
@@ -235,10 +237,9 @@ export default function PaseadorSolicitudes() {
   }, []);
 
   useEffect(() => {
-    const reservaIds = new Set(solicitudes.map((solicitud) => solicitud.idReserva));
-    return subscribeChatMessages((message) => {
+    const reservaIds = solicitudes.map((solicitud) => solicitud.idReserva);
+    return subscribeChatMessages(reservaIds, (message) => {
       if (
-        !reservaIds.has(message.idReserva) ||
         message.senderUserId === currentPaseadorId ||
         activeChatReservaId === message.idReserva
       ) {
@@ -248,7 +249,7 @@ export default function PaseadorSolicitudes() {
       setChatToast({
         reservaId: message.idReserva,
         senderName: message.senderName,
-        snippet: buildMessageSnippet(message.content)
+        snippet: buildChatMessageSnippet(message)
       });
     });
   }, [activeChatReservaId, currentPaseadorId, solicitudes]);
@@ -325,6 +326,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
     } else {
       throw new Error("No se pudo encontrar la ubicación exacta en el mapa.");
     }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     setFeedback({
       type: "error",
@@ -384,7 +386,11 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
   }
 
   function handleOpenChat(solicitud: SolicitudPendientePaseador) {
-    if (solicitud.chatActivo) {
+    const puedeChat =
+      solicitud.chatActivo ||
+      solicitud.estado === "En Curso" ||
+      solicitud.estado === "Finalizada";
+    if (puedeChat) {
       setActiveChatReservaId(solicitud.idReserva);
       return;
     }
@@ -466,6 +472,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           type="button"
           className={styles.chatToast}
           onClick={() => {
+            void requestPermission("chat-entry");
             setActiveChatReservaId(chatToast.reservaId);
             setChatToast(null);
           }}
@@ -624,6 +631,9 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           currentUserId={Number.isFinite(currentPaseadorId) ? currentPaseadorId : 0}
           currentUserRole="paseador"
           currentUserName={currentPaseadorName}
+          counterpartUserId={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.idTutorUsuario
+          }
           counterpartName={
             solicitudes.find((item) => item.idReserva === activeChatReservaId)?.tutorNombre ||
             "Tutor"
@@ -631,6 +641,10 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           mascotaNombre={
             solicitudes.find((item) => item.idReserva === activeChatReservaId)?.mascotaNombre ||
             "Mascota"
+          }
+          canSendPhotos={
+            solicitudes.find((item) => item.idReserva === activeChatReservaId)?.estado ===
+            "En Curso"
           }
           onClose={() => setActiveChatReservaId(null)}
         />
