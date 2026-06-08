@@ -1,46 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
 import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
-import { subscribeChatMessages } from "../../../chat/services/chatWs";
-import type { ChatToastPayload } from "../../../chat/types/chat.types";
-import { buildChatMessageSnippet } from "../../../chat/utils/chatFormatters";
 import { dispararNotificacion } from "../../../tutor/services/notificacionesApi";
+import EstadoFilterTabs from "../../../shared/components/EstadoFilterTabs/EstadoFilterTabs";
+import type { EstadoFilterTab } from "../../../shared/components/EstadoFilterTabs/EstadoFilterTabs";
 import ConfirmarDecisionSolicitudModal from "../../components/ConfirmarDecisionSolicitudModal/ConfirmarDecisionSolicitudModal";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import SolicitudPendienteCard from "../../components/SolicitudPendienteCard/SolicitudPendienteCard";
 import TutorDetalleModal from "../../components/TutorDetalleModal/TutorDetalleModal";
-// Importamos componentes de Leaflet
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
+import MapaEncuentroModal from "../../../shared/components/MapaEncuentroModal/MapaEncuentroModal";
+import { geocodeEncuentroAddress } from "../../../shared/utils/geocodeAddress";
 import {
   fetchSolicitudesPendientesPaseador,
   finalizarPaseoPaseador,
   responderSolicitudPaseador
 } from "../../services/solicitudesPaseadorService";
 import { PASEADOR_ID_SESSION_KEY } from "../../../../config/api";
-import { buildNominatimSearchUrl } from "../../../../config/nominatimSearchUrl";
 import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
+import { findProximaSolicitudId } from "../../utils/paseoHorarioUtils";
 import type {
   DecisionSolicitud,
   RechazoSolicitudForm,
   SolicitudPendientePaseador
 } from "../../types/solicitudPaseador.types";
+import { esSolicitudPorResponder } from "../../utils/solicitudEstadoUtils";
 import styles from "./PaseadorSolicitudes.module.css";
-
-// Fix para los iconos de Leaflet en React
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-const DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
 
 type ConfirmationState = {
   solicitud: SolicitudPendientePaseador;
@@ -52,39 +37,12 @@ type FeedbackState = {
   message: string;
 };
 
-// Componente Interno del Modal del Mapa
-function MapaModal({ lat, lng, direccion, onClose }: { lat: number, lng: number, direccion: string, onClose: () => void }) {
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000
-    }}>
-      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', width: '90%', maxWidth: '700px', position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h3 style={{ margin: 0 }}>Ubicación del Encuentro</h3>
-          <button onClick={onClose} style={{ cursor: 'pointer', border: 'none', background: '#eee', borderRadius: '50%', width: '30px', height: '30px', fontWeight: 'bold' }}>&times;</button>
-        </div>
-        
-        <div style={{ height: '450px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ddd' }}>
-          <MapContainer center={[lat, lng]} zoom={16} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[lat, lng]}>
-              <Popup>{direccion}</Popup>
-            </Marker>
-          </MapContainer>
-        </div>
-        <p style={{ marginTop: '12px', fontSize: '14px', color: '#444', textAlign: 'center' }}>
-          <strong>Dirección:</strong> {direccion}
-        </p>
-      </div>
-    </div>
-  );
-}
-type ViewKey = "solicitadas" | "aceptadas" | "en-curso" | "rechazadas";
+type ViewKey = "solicitadas" | "aceptadas" | "en-curso" | "finalizadas" | "rechazadas" | "expiradas";
 
 type ViewConfig = {
   key: ViewKey;
   title: string;
+  shortLabel: string;
   description: string;
   emptyTitle: string;
   emptyText: string;
@@ -92,47 +50,70 @@ type ViewConfig = {
   route: string;
 };
 
-function esSolicitudPorResponder(estado: SolicitudPendientePaseador["estado"]): boolean {
-  // Regla de negocio: aunque esté PAGADA, el paseador todavía debe aceptar o rechazar.
-  return estado === "Solicitada" || estado === "Pagada";
+function esSolicitudPorResponderLocal(estado: SolicitudPendientePaseador["estado"]): boolean {
+  return esSolicitudPorResponder(estado);
 }
 
 const VIEW_CONFIGS: ViewConfig[] = [
   {
     key: "solicitadas",
     title: "Solicitudes por responder",
-    description: "Reservas nuevas que aun esperan tu decision.",
+    shortLabel: "Por responder",
+    description: "Reservas nuevas que aún esperan tu decisión.",
     emptyTitle: "No tienes solicitudes por responder",
-    emptyText: "Cuando un tutor envie una reserva dentro de tus bloques disponibles, aparecera aqui.",
-    filter: (solicitud) => esSolicitudPorResponder(solicitud.estado),
+    emptyText: "Cuando un tutor envíe una reserva dentro de tus bloques disponibles, aparecerá aquí.",
+    filter: (solicitud) => esSolicitudPorResponderLocal(solicitud.estado),
     route: "/paseador/dashboard/solicitudes"
   },
   {
     key: "aceptadas",
     title: "Reservas aceptadas",
-    description: "Reservas listas para validar el codigo e iniciar el paseo.",
+    shortLabel: "Aceptadas",
+    description: "Reservas listas para validar el código e iniciar el paseo.",
     emptyTitle: "No tienes reservas aceptadas",
-    emptyText: "Las reservas que aceptes apareceran aqui para continuar con el encuentro.",
+    emptyText: "Las reservas que aceptes aparecerán aquí para continuar con el encuentro.",
     filter: (solicitud) => solicitud.estado === "Aceptada",
     route: "/paseador/dashboard/solicitudes/aceptadas"
   },
   {
     key: "en-curso",
     title: "Paseos en curso",
-    description: "Servicios que ya fueron confirmados y se estan realizando ahora.",
+    shortLabel: "En curso",
+    description: "Servicios que ya fueron confirmados y se están realizando ahora.",
     emptyTitle: "No tienes paseos en curso",
-    emptyText: "Cuando confirmes el inicio de un paseo, quedara visible aqui con acceso al chat.",
+    emptyText: "Cuando confirmes el inicio de un paseo, quedará visible aquí con acceso al chat.",
     filter: (solicitud) => solicitud.estado === "En Curso",
     route: "/paseador/dashboard/solicitudes/en-curso"
   },
   {
+    key: "finalizadas",
+    title: "Paseos finalizados",
+    shortLabel: "Finalizadas",
+    description: "Historial de servicios completados y en proceso de liberación de pago.",
+    emptyTitle: "No tienes paseos finalizados",
+    emptyText: "Los paseos que cierres aparecerán aquí como referencia.",
+    filter: (solicitud) => solicitud.estado === "Finalizada",
+    route: "/paseador/dashboard/solicitudes/finalizadas"
+  },
+  {
     key: "rechazadas",
     title: "Solicitudes rechazadas",
-    description: "Historial reciente de reservas que decidiste no tomar.",
+    shortLabel: "Rechazadas",
+    description: "Historial de reservas que decidiste no tomar.",
     emptyTitle: "No tienes solicitudes rechazadas",
-    emptyText: "Las solicitudes rechazadas seguiran visibles aqui como referencia.",
+    emptyText: "Las solicitudes rechazadas seguirán visibles aquí como referencia.",
     filter: (solicitud) => solicitud.estado === "Rechazada",
     route: "/paseador/dashboard/solicitudes/rechazadas"
+  },
+  {
+    key: "expiradas",
+    title: "Solicitudes expiradas",
+    shortLabel: "Expiradas",
+    description: "Reservas que vencieron porque no se respondieron a tiempo.",
+    emptyTitle: "No tienes solicitudes expiradas",
+    emptyText: "Las solicitudes expiradas por plazo de aceptación aparecerán aquí.",
+    filter: (solicitud) => solicitud.estado === "Expirada",
+    route: "/paseador/dashboard/solicitudes/expiradas"
   }
 ];
 const REFRESH_MS = 15000;
@@ -140,7 +121,9 @@ const REFRESH_MS = 15000;
 function getActiveView(pathname: string): ViewConfig {
   if (pathname.endsWith("/aceptadas")) return VIEW_CONFIGS[1];
   if (pathname.endsWith("/en-curso")) return VIEW_CONFIGS[2];
-  if (pathname.endsWith("/rechazadas")) return VIEW_CONFIGS[3];
+  if (pathname.endsWith("/finalizadas")) return VIEW_CONFIGS[3];
+  if (pathname.endsWith("/rechazadas")) return VIEW_CONFIGS[4];
+  if (pathname.endsWith("/expiradas")) return VIEW_CONFIGS[5];
   return VIEW_CONFIGS[0];
 }
 
@@ -162,7 +145,6 @@ export default function PaseadorSolicitudes() {
   const [selectedTutorSolicitud, setSelectedTutorSolicitud] = useState<SolicitudPendientePaseador | null>(null);
   const [finalizingId, setFinalizingId] = useState<number | null>(null);
   const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
-  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
 
   const paseadorIdRaw = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY);
   const currentPaseadorId = paseadorIdRaw ? Number(paseadorIdRaw) : 0;
@@ -192,7 +174,6 @@ export default function PaseadorSolicitudes() {
     void loadSolicitudes();
     const timer = window.setInterval(() => void loadSolicitudes(true), REFRESH_MS);
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -236,48 +217,43 @@ export default function PaseadorSolicitudes() {
     });
   }, []);
 
-  useEffect(() => {
-    const reservaIds = solicitudes.map((solicitud) => solicitud.idReserva);
-    return subscribeChatMessages(reservaIds, (message) => {
-      if (
-        message.senderUserId === currentPaseadorId ||
-        activeChatReservaId === message.idReserva
-      ) {
-        return;
-      }
-
-      setChatToast({
-        reservaId: message.idReserva,
-        senderName: message.senderName,
-        snippet: buildChatMessageSnippet(message)
-      });
-    });
-  }, [activeChatReservaId, currentPaseadorId, solicitudes]);
-
-  useEffect(() => {
-    if (!chatToast) return;
-    const timer = window.setTimeout(() => setChatToast(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [chatToast]);
-
-  const pendingCount = solicitudes.filter((solicitud) => esSolicitudPorResponder(solicitud.estado)).length;
+  const pendingCount = solicitudes.filter((solicitud) => esSolicitudPorResponderLocal(solicitud.estado)).length;
   const acceptedCount = solicitudes.filter((solicitud) => solicitud.estado === "Aceptada").length;
   const inProgressCount = solicitudes.filter((solicitud) => solicitud.estado === "En Curso").length;
+  const finishedCount = solicitudes.filter((solicitud) => solicitud.estado === "Finalizada").length;
   const rejectedCount = solicitudes.filter((solicitud) => solicitud.estado === "Rechazada").length;
-  const totalAmount = useMemo(() => {
-    const estadosPotencial = new Set<SolicitudPendientePaseador["estado"]>([
-      "Solicitada",
-      "Pagada",
-      "Aceptada",
-      "En Curso"
-    ]);
-    return solicitudes
-      .filter((s) => estadosPotencial.has(s.estado))
-      .reduce((sum, solicitud) => sum + solicitud.montoTotal, 0);
-  }, [solicitudes]);
+  const expiredCount = solicitudes.filter((solicitud) => solicitud.estado === "Expirada").length;
   const visibleSolicitudes = useMemo(
     () => solicitudes.filter(activeView.filter),
     [activeView, solicitudes]
+  );
+
+  const proximaSolicitudId = useMemo(
+    () => findProximaSolicitudId(visibleSolicitudes),
+    [visibleSolicitudes]
+  );
+
+  const filterTabs: EstadoFilterTab[] = useMemo(
+    () =>
+      VIEW_CONFIGS.map((view) => ({
+        key: view.key,
+        label: view.shortLabel,
+        count:
+          view.key === "solicitadas"
+            ? pendingCount
+            : view.key === "aceptadas"
+              ? acceptedCount
+              : view.key === "en-curso"
+                ? inProgressCount
+                : view.key === "finalizadas"
+                  ? finishedCount
+                  : view.key === "rechazadas"
+                    ? rejectedCount
+                    : expiredCount,
+        route: view.route,
+        end: view.key === "solicitadas"
+      })),
+    [acceptedCount, expiredCount, finishedCount, inProgressCount, pendingCount, rejectedCount]
   );
 
   const processingId = processing?.solicitud.idReserva ?? null;
@@ -291,46 +267,32 @@ export default function PaseadorSolicitudes() {
   // En PaseadorSolicitudes.tsx
 
 const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
-  // 1. Si ya vienen las coordenadas del backend, las usamos directo
-  if (solicitud.latitud && solicitud.longitud) {
+  const direccion = solicitud.direccionReferencia?.trim() || "Dirección del encuentro";
+
+  if (Number.isFinite(solicitud.latitud) && Number.isFinite(solicitud.longitud)) {
     setMapConfig({
-      lat: solicitud.latitud,
-      lng: solicitud.longitud,
-      dir: solicitud.direccionReferencia || "Dirección del encuentro"
+      lat: solicitud.latitud!,
+      lng: solicitud.longitud!,
+      dir: direccion
     });
     return;
   }
 
-  // 2. Si no vienen (como en tu foto), las convertimos al vuelo
   try {
     setFeedback({ type: "success", message: "Obteniendo coordenadas del mapa..." });
 
-    // Usamos Nominatim (OpenStreetMap) igual que en el dashboard del tutor
-    const query = encodeURIComponent(`${solicitud.direccionReferencia}, ${solicitud.comuna}, Santiago, Chile`);
-    const response = await fetch(buildNominatimSearchUrl(query));
-    if (!response.ok) {
-      throw new Error(`Geocodificación respondió HTTP ${response.status}`);
-    }
-    const data = await response.json();
+    const { lat, lng } = await geocodeEncuentroAddress({
+      direccionReferencia: solicitud.direccionReferencia,
+      comuna: solicitud.comuna
+    });
 
-    if (data && data.length > 0) {
-      const lat = parseFloat(data[0].lat);
-      const lon = parseFloat(data[0].lon);
-
-      setMapConfig({
-        lat: lat,
-        lng: lon,
-        dir: solicitud.direccionReferencia
-      });
-      setFeedback(null); // Limpiamos el mensaje de carga
-    } else {
-      throw new Error("No se pudo encontrar la ubicación exacta en el mapa.");
-    }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
+    setMapConfig({ lat, lng, dir: direccion });
+    setFeedback(null);
+  } catch {
     setFeedback({
       type: "error",
-      message: "Error al convertir la dirección a coordenadas. Intenta buscar la dirección manualmente."
+      message:
+        "No pudimos ubicar la dirección en el mapa. Revisa que calle, número y comuna estén completos en el perfil del tutor."
     });
   }
 };
@@ -357,7 +319,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
 
   async function handleFinalizarPaseo(solicitud: SolicitudPendientePaseador) {
     const ok = window.confirm(
-      "¿Confirmás que el paseo ya terminó? La reserva pasará a Finalizada y el monto seguirá el flujo de verificación y liberación (N+2) en tu billetera."
+      "¿Confirmas que el paseo ya terminó? La reserva pasará a Finalizada y el monto seguirá el flujo de verificación y liberación (N+2) en tu billetera."
     );
     if (!ok) return;
 
@@ -370,6 +332,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           item.idReserva === solicitud.idReserva ? { ...item, estado: "Finalizada" as const } : item
         )
       );
+      void loadSolicitudes(true);
       setFeedback({
         type: "success",
         message: `Paseo finalizado para ${solicitud.mascotaNombre}. El saldo quedará en verificación y luego disponible según la política acordada.`
@@ -391,12 +354,13 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
       solicitud.estado === "En Curso" ||
       solicitud.estado === "Finalizada";
     if (puedeChat) {
+      void requestPermission("chat-entry");
       setActiveChatReservaId(solicitud.idReserva);
       return;
     }
     setFeedback({
       type: "error",
-      message: `El chat aun no esta habilitado para ${solicitud.mascotaNombre}. Espera la confirmacion del encuentro.`
+      message: `El chat aún no está habilitado para ${solicitud.mascotaNombre}. Espera la confirmación del encuentro.`
     });
   }
 
@@ -467,70 +431,6 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
     <main className={styles.page}>
       <PaseadorNavbar />
 
-      {chatToast ? (
-        <button
-          type="button"
-          className={styles.chatToast}
-          onClick={() => {
-            void requestPermission("chat-entry");
-            setActiveChatReservaId(chatToast.reservaId);
-            setChatToast(null);
-          }}
-        >
-          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
-          <span>{chatToast.snippet}</span>
-        </button>
-      ) : null}
-
-      <section className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>Solicitudes del paseador</p>
-          <h1 className={styles.title}>Resumen de solicitudes</h1>
-          <p className={styles.description}>
-            Revisa el estado general de tus reservas y entra a cada vista para responder,
-            validar encuentros o seguir el progreso del paseo.
-          </p>
-        </div>
-
-        <div className={styles.summaryPanel}>
-          <div className={styles.summaryHeader}>
-            <span>Dashboard de solicitudes</span>
-            <strong>{solicitudes.length}</strong>
-            <p>Vista general de tus reservas y su estado actual.</p>
-          </div>
-
-          <div className={styles.metricsGrid}>
-            <article className={styles.metricCard}>
-              <span>Pendientes</span>
-              <strong>{pendingCount}</strong>
-            </article>
-            <article className={styles.metricCard}>
-              <span>Aceptadas</span>
-              <strong>{acceptedCount}</strong>
-            </article>
-            <article className={styles.metricCard}>
-              <span>En curso</span>
-              <strong>{inProgressCount}</strong>
-            </article>
-            <article className={styles.metricCard}>
-              <span>Rechazadas</span>
-              <strong>{rejectedCount}</strong>
-            </article>
-          </div>
-
-          <div className={styles.summaryFooter}>
-            <span>Monto potencial</span>
-            <strong>
-              {new Intl.NumberFormat("es-CL", {
-                style: "currency",
-                currency: "CLP",
-                maximumFractionDigits: 0
-              }).format(totalAmount)}
-            </strong>
-          </div>
-        </div>
-      </section>
-
       {feedback ? (
         <div className={`${styles.feedback} ${feedback.type === "success" ? styles.feedbackSuccess : styles.feedbackError}`} role="status">
           {feedback.message}
@@ -540,23 +440,16 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
       <section className={styles.listSection}>
         <div className={styles.sectionHeading}>
           <div>
-            <p className={styles.cardEyebrow}>Panel del paseador</p>
+            <p className={styles.cardEyebrow}>Filtrar por estado</p>
             <h2>{activeView.title}</h2>
+            <p className={styles.sectionDescription}>{activeView.description}</p>
           </div>
+          <span className={styles.resultCount}>
+            {visibleSolicitudes.length} {visibleSolicitudes.length === 1 ? "resultado" : "resultados"}
+          </span>
         </div>
 
-        <nav className={styles.stateTabs} aria-label="Estados de solicitudes">
-          {VIEW_CONFIGS.map((view) => (
-            <NavLink
-              key={view.key}
-              to={view.route}
-              end={view.key === "solicitadas"}
-              className={({ isActive }) => `${styles.stateTab} ${isActive ? styles.stateTabActive : ""}`}
-            >
-              {view.title}
-            </NavLink>
-          ))}
-        </nav>
+        <EstadoFilterTabs tabs={filterTabs} ariaLabel="Estados de solicitudes del paseador" mode="route" />
 
         {isLoading ? (
           <div className={styles.skeletonList} aria-label="Cargando solicitudes">
@@ -575,6 +468,7 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
               <SolicitudPendienteCard
                 key={solicitud.idReserva}
                 solicitud={solicitud}
+                destacada={proximaSolicitudId === solicitud.idReserva}
                 processingDecision={processingId === solicitud.idReserva ? processing?.decision ?? null : null}
                 onAccept={(nextSolicitud) => openConfirmation(nextSolicitud, "ACEPTAR")}
                 onReject={(nextSolicitud) => openConfirmation(nextSolicitud, "RECHAZAR")}
@@ -589,8 +483,9 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
           </div>
         ) : (
           <article className={styles.emptyState}>
-            <h3>No tienes solicitudes ni encuentros pendientes</h3>
-            <p>Cuando un tutor solicite un paseo aparecerá aquí.</p>
+            <div className={styles.emptyIcon} aria-hidden="true">
+              ◌
+            </div>
             <h3>{activeView.emptyTitle}</h3>
             <p>{activeView.emptyText}</p>
           </article>
@@ -599,11 +494,11 @@ const handleVerMapa = async (solicitud: SolicitudPendientePaseador) => {
 
       {/* RENDERIZADO DEL MODAL DEL MAPA */}
       {mapConfig && (
-        <MapaModal 
-          lat={mapConfig.lat} 
-          lng={mapConfig.lng} 
-          direccion={mapConfig.dir} 
-          onClose={() => setMapConfig(null)} 
+        <MapaEncuentroModal
+          lat={mapConfig.lat}
+          lng={mapConfig.lng}
+          direccion={mapConfig.dir}
+          onClose={() => setMapConfig(null)}
         />
       )}
 

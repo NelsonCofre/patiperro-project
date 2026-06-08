@@ -6,6 +6,7 @@ export type ReservaTutorDetalleDTO = {
   idAgendaBloque: number;
   idPaseador: number | null;
   paseadorNombre: string;
+  paseadorFotoUrl?: string | null;
   fecha: string | null;
   horaInicio: string | null;
   horaFinal: string | null;
@@ -27,15 +28,20 @@ export type ReservaTutorDetalleDTO = {
   paymentReceiptEmailSent?: boolean | null;
   mensajeRetencionFondos?: string | null;
   calificada: boolean;
+  comuna?: string | null;
+  direccionReferencia?: string | null;
 };
 
 export type ReservaEstadoKey =
   | "solicitada"
+  | "pendiente_pago"
+  | "pagada"
   | "aceptada"
   | "en_curso"
   | "finalizada"
   | "rechazada"
   | "cancelada"
+  | "expirada"
   | "desconocida";
 
 export type ReservaEstadoMeta = {

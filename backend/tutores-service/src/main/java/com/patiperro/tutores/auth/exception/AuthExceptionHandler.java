@@ -51,4 +51,16 @@ public class AuthExceptionHandler {
                 )
         );
     }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                Map.of(
+                        "timestamp", Instant.now().toString(),
+                        "status", HttpStatus.SERVICE_UNAVAILABLE.value(),
+                        "error", "Service Unavailable",
+                        "message", ex.getMessage()
+                )
+        );
+    }
 }

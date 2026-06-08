@@ -12,6 +12,37 @@ export function keepOnlyMoneyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+export function normalizeTamanoId(value: unknown): number {
+  const id = Number(value);
+  return Number.isFinite(id) && id > 0 ? id : 0;
+}
+
+export function parsePrecioPorHora(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.trunc(n);
+}
+
+/** Tarifa que se publicará al guardar (switch activo + precio válido). */
+export function isTarifaOfrecida(tarifa: Pick<TarifaPaseadorFormItem, "enabled" | "precioBase">): boolean {
+  if (!tarifa.enabled) return false;
+  return parsePrecioPorHora(tarifa.precioBase.trim()) != null;
+}
+
+export function countTarifasOfrecidas(form: TarifasForm): number {
+  return form.tarifas.filter(isTarifaOfrecida).length;
+}
+
+export function formatTarifaCLP(value: string | number): string {
+  const n = typeof value === "number" ? value : Number.parseInt(String(value).replace(/\D/g, ""), 10);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0
+  }).format(n);
+}
+
 export function validateTarifaValue(enabled: boolean, value: string): string | undefined {
   if (!enabled) {
     return undefined;
@@ -66,9 +97,7 @@ export function validateTarifasForm(form: TarifasForm): TarifasErrors {
     return perRow;
   }
 
-  const activeWithPrice = form.tarifas.filter(
-    (t) => t.enabled && t.precioBase.trim() && Number.parseInt(t.precioBase, 10) >= 1
-  );
+  const activeWithPrice = form.tarifas.filter(isTarifaOfrecida);
   if (activeWithPrice.length === 0) {
     // Marca error en la primera fila para que el usuario vea el bloque.
     const firstId = form.tarifas[0]?.tamanoId;
@@ -108,10 +137,10 @@ export function buildTarifaPaseadorPayload(
 export function buildUpsertConfiguracionBody(form: TarifasForm): UpsertConfiguracionBody {
   const radio = Number.parseFloat(form.radioCoberturaKm.trim().replace(",", "."));
   const tarifas = form.tarifas
-    .filter((t) => t.enabled && t.precioBase.trim())
+    .filter(isTarifaOfrecida)
     .map((t) => ({
       tamanoId: t.tamanoId,
-      precioPorHora: Number.parseInt(t.precioBase, 10)
+      precioPorHora: parsePrecioPorHora(t.precioBase.trim())!
     }));
   return {
     radioCoberturaKm: radio,

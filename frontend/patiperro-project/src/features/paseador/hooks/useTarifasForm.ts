@@ -6,11 +6,15 @@ import {
   getMyConfiguracion,
   putMyConfiguracion,
   type ConfiguracionPaseadorDTO,
-  type TamanoPublicDTO
+  type TamanoPublicDTO,
+  type TarifaConfiguracionDTO
 } from "../services/paseadorConfigService";
 import type { TarifasErrors, TarifasForm } from "../types/tarifas.types";
 import {
   buildUpsertConfiguracionBody,
+  countTarifasOfrecidas,
+  normalizeTamanoId,
+  parsePrecioPorHora,
   updateTarifaItem,
   validateConfigForm,
   validateTarifaValue
@@ -20,7 +24,14 @@ function buildFormFromApi(
   tamanos: TamanoPublicDTO[],
   config: ConfiguracionPaseadorDTO
 ): TarifasForm {
-  const byTamano = new Map(config.tarifas.map((x) => [x.tamanoId, x]));
+  const byTamano = new Map<number, TarifaConfiguracionDTO>();
+  for (const tarifa of config.tarifas ?? []) {
+    const tamanoId = normalizeTamanoId(tarifa.tamanoId);
+    if (tamanoId > 0) {
+      byTamano.set(tamanoId, tarifa);
+    }
+  }
+
   const radio =
     config.radioCoberturaKm != null && !Number.isNaN(Number(config.radioCoberturaKm))
       ? String(config.radioCoberturaKm)
@@ -29,15 +40,17 @@ function buildFormFromApi(
   return {
     radioCoberturaKm: radio,
     tarifas: tamanos.map((t) => {
-      const ex = byTamano.get(t.id);
+      const tamanoId = normalizeTamanoId(t.id);
+      const ex = byTamano.get(tamanoId);
+      const precio = ex ? parsePrecioPorHora(ex.precioPorHora) : null;
       return {
         tarifaId: null,
         configuracionId: config.configuracionId,
-        tamanoId: t.id,
+        tamanoId,
         tamanoNombre: t.nombre,
         descripcion: t.descripcion ?? "",
-        enabled: ex != null,
-        precioBase: ex ? String(ex.precioPorHora) : ""
+        enabled: precio != null,
+        precioBase: precio != null ? String(precio) : ""
       };
     })
   };
@@ -107,7 +120,8 @@ export function useTarifasForm() {
     setForm((prev) => {
       const nextTarifas = updateTarifaItem(prev.tarifas, tamanoId, (item) => ({
         ...item,
-        precioBase: nextPrice
+        precioBase: nextPrice,
+        enabled: nextPrice.trim() ? true : item.enabled
       }));
       const updatedItem = nextTarifas.find((item) => item.tamanoId === tamanoId);
       if (updatedItem) {
@@ -143,7 +157,16 @@ export function useTarifasForm() {
     setRadioError(radio);
   };
 
-  const currentValidation = useMemo(() => validate(form), [form]);
+  const currentValidation = useMemo(() => {
+    const { radio, tarifas } = validateConfigForm(form);
+    const cleaned = Object.fromEntries(
+      Object.entries(tarifas).filter(([, value]) => Boolean(value))
+    ) as TarifasErrors;
+    return { radio, tarifas: cleaned };
+  }, [form]);
+
+  const tarifasOfrecidasCount = useMemo(() => countTarifasOfrecidas(form), [form]);
+
   const isSubmitDisabled =
     loadStatus !== "ready" ||
     Boolean(loadError) ||
@@ -186,6 +209,7 @@ export function useTarifasForm() {
     loadStatus,
     isSubmitting,
     isSubmitDisabled,
+    tarifasOfrecidasCount,
     setSuccessMessage,
     reload: load,
     updateRadio,

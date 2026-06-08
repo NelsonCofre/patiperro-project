@@ -56,7 +56,7 @@ export default function LoginPaseador() {
     const nextErrors: FormErrors = {};
 
     if (!isValidEmail(form.email)) {
-      nextErrors.email = "Formato de correo invalido";
+      nextErrors.email = "Formato de correo inválido";
     }
 
     const passwordError = getPasswordSecurityError(form.password);
@@ -96,7 +96,7 @@ export default function LoginPaseador() {
     } catch (error) {
       setFeedback({
         type: "error",
-        text: error instanceof Error ? error.message : "No se pudo iniciar sesion."
+        text: error instanceof Error ? error.message : "No se pudo iniciar sesión."
       });
     } finally {
       setIsSubmitting(false);
@@ -105,7 +105,7 @@ export default function LoginPaseador() {
 
   return (
     <AuthForm
-      title="Iniciar sesion como paseador"
+      title="Iniciar sesión como paseador"
       onSubmit={handleSubmit}
       buttonText="Ingresar"
       isSubmitting={isSubmitting}
@@ -137,7 +137,7 @@ export default function LoginPaseador() {
       />
 
       <AuthInput
-        label="Contrasena"
+        label="Contraseña"
         name="password"
         type="password"
         value={form.password}
@@ -149,7 +149,7 @@ export default function LoginPaseador() {
       />
 
       <p className={styles.helperText}>
-        <a href="/">Olvidaste tu contrasena?</a>
+        <a href="/">¿Olvidaste tu contraseña?</a>
       </p>
 
       <p className={styles.footerText}>

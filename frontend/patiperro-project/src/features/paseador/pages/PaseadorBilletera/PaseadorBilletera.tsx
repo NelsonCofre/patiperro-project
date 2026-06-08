@@ -1,14 +1,10 @@
 import { useMemo, useState } from "react";
 import AvailableBalance from "../../components/AvailableBalance/AvailableBalance";
 import BalanceCard from "../../components/BalanceCard/BalanceCard";
-import GananciasBreakdown from "../../components/GananciasBreakdown/GananciasBreakdown";
 import PaseadorNavbar from "../../components/PaseadorNavbar/PaseadorNavbar";
 import WithdrawalRequest from "../../components/WithdrawalRequest/WithdrawalRequest";
 import { usePaseadorBilletera } from "../../hooks/usePaseadorBilletera";
-import type {
-  BilleteraBucketKey,
-  BilleteraReservaItem
-} from "../../services/billeteraPaseadorService";
+import { formatPaseoCount, type BilleteraBucketKey, type BilleteraReservaItem } from "../../services/billeteraPaseadorService";
 import styles from "./PaseadorBilletera.module.css";
 
 function formatMoney(value: number): string {
@@ -19,11 +15,11 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
-function formatDate(value: string): string {
-  if (!value) return "Fecha pendiente";
-  const date = new Date(`${value}T00:00:00`);
+function formatDateShort(value: string): string {
+  if (!value) return "Sin fecha";
+  const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("es-CL", { dateStyle: "full" }).format(date);
+  return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(date);
 }
 
 function formatTime(value: string): string {
@@ -36,27 +32,24 @@ function formatTime(value: string): string {
   }).format(date);
 }
 
-function formatDateTime(value?: string | null): string {
-  if (!value) return "Sin liberacion programada";
+function formatReleaseDate(value?: string | null): string {
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sin liberacion programada";
-  return new Intl.DateTimeFormat("es-CL", {
-    dateStyle: "full",
-    timeStyle: "short"
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(date);
 }
 
 function formatWithdrawalDate(value: string): string {
-  if (!value) return "Fecha no disponible";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("es-CL", {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(date);
 }
 
-function getProximaLiberacion(reservas: BilleteraReservaItem[]): string {
+function getProximaLiberacionCorta(reservas: BilleteraReservaItem[]): string {
   const fechas = reservas
     .map((item) => item.fechaLiberacionEstimada)
     .filter((value): value is string => Boolean(value))
@@ -64,51 +57,46 @@ function getProximaLiberacion(reservas: BilleteraReservaItem[]): string {
     .filter((value) => Number.isFinite(value))
     .sort((a, b) => a - b);
 
-  if (fechas.length === 0) return "Sin liberaciones programadas";
+  if (fechas.length === 0) return "Sin fecha estimada";
 
-  return new Intl.DateTimeFormat("es-CL", {
-    dateStyle: "full",
-    timeStyle: "short"
-  }).format(new Date(fechas[0]));
+  return new Intl.DateTimeFormat("es-CL", { dateStyle: "medium" }).format(new Date(fechas[0]));
 }
 
 function getEmptyCopy(selectedBucket: BilleteraBucketKey): { title: string; text: string } {
   if (selectedBucket === "retenido") {
     return {
-      title: "Todavia no tienes saldo retenido",
-      text: "Cuando un paseo pagado quede aceptado o en curso, aparecera aqui con su desglose por reserva."
+      title: "Sin saldo retenido",
+      text: "Aparecerá aquí cuando tengas paseos pagados en curso o por iniciar."
     };
   }
   if (selectedBucket === "verificacion") {
     return {
-      title: "No tienes montos en verificacion",
-      text: "Los paseos finalizados se mostraran aqui durante el periodo de espera antes de liberar el saldo."
+      title: "Nada en verificación",
+      text: "Los paseos finalizados se muestran aquí mientras se confirman."
     };
   }
   return {
-    title: "No tienes saldo disponible aun",
-    text: "Una vez cumplido el plazo de liberacion, tu dinero listo para retiro aparecera en esta vista."
+    title: "Sin saldo disponible",
+    text: "Cuando se libere tu dinero, podrás retirarlo desde esta vista."
   };
 }
 
 function ReservaWalletRow({ reserva }: { reserva: BilleteraReservaItem }) {
+  const releaseLabel = formatReleaseDate(reserva.fechaLiberacionEstimada);
+
   return (
     <article className={styles.reservaRow}>
       <div>
-        <p className={styles.rowEyebrow}>Reserva #{reserva.idReserva}</p>
         <h3>{reserva.mascotaNombre}</h3>
         <p className={styles.rowMeta}>
-          Tutor: {reserva.tutorNombre} - {formatDate(reserva.fecha)} - {formatTime(reserva.horaInicio)}
+          {formatDateShort(reserva.fecha)} · {formatTime(reserva.horaInicio)}
         </p>
-        {reserva.fechaLiberacionEstimada ? (
-          <p className={styles.rowRelease}>
-            Disponible desde: {formatDateTime(reserva.fechaLiberacionEstimada)}
-          </p>
+        {releaseLabel ? (
+          <p className={styles.rowRelease}>Disponible desde {releaseLabel}</p>
         ) : null}
       </div>
       <div className={styles.rowSide}>
         <strong>{formatMoney(reserva.montoNeto)}</strong>
-        <span>{reserva.estado}</span>
       </div>
     </article>
   );
@@ -147,52 +135,40 @@ export default function PaseadorBilletera() {
   }, [data.disponible, data.retenido, data.verificacion, selectedBucket]);
 
   const emptyCopy = getEmptyCopy(selectedBucket);
-  const totalWalletAmount = buckets.reduce((sum, bucket) => sum + bucket.amount, 0);
 
   return (
     <main className={styles.page}>
       <PaseadorNavbar />
 
       <section className={styles.hero}>
-        <div className={styles.heroContent}>
-          <p className={styles.eyebrow}>Mi Billetera</p>
-          <h1 className={styles.title}>Sigue tu saldo retenido y el avance de cada reserva</h1>
+        <div className={styles.heroMain}>
+          <p className={styles.eyebrow}>Mi billetera</p>
+          <h1 className={styles.title}>Tus ganancias</h1>
           <p className={styles.description}>
-            Esta vista separa tus fondos por etapa para que entiendas con claridad que monto
-            sigue retenido, cual esta en verificacion y que dinero ya se encuentra listo para retiro.
+            Revisa cuánto tienes retenido, en verificación o listo para retirar.
           </p>
-
-          <div className={styles.infoBanner}>
-            <strong>Mensaje de seguridad</strong>
-            <p>
-              Este saldo corresponde a servicios pagados que aun no han finalizado. Una vez
-              que marques el paseo como terminado, este monto iniciara su proceso de liberacion.
-            </p>
-          </div>
-
-          <div className={styles.heroHighlights}>
-            <article className={styles.highlightCard}>
-              <span>Fondo total monitoreado</span>
-              <strong>{formatMoney(totalWalletAmount)}</strong>
-              <p>Suma consolidada entre fondos retenidos, en verificacion y disponibles.</p>
-            </article>
-            <article className={styles.highlightCard}>
-              <span>Reservas con impacto en billetera</span>
-              <strong>{buckets.reduce((sum, bucket) => sum + bucket.reservas.length, 0)}</strong>
-              <p>Cada monto se puede abrir para revisar exactamente que reservas lo componen.</p>
-            </article>
-          </div>
         </div>
-
-        <aside className={styles.syncPanel}>
-          <span>Actualizacion de billetera</span>
-          <strong>{isRefreshing ? "Sincronizando..." : "Al dia"}</strong>
-          <p>Ultima revision: {lastUpdatedLabel}</p>
-          <button type="button" onClick={() => void reload()} disabled={isRefreshing}>
-            Actualizar ahora
+        <div className={styles.heroActions}>
+          <span className={styles.syncLabel}>
+            {isRefreshing ? "Actualizando…" : `Actualizado ${lastUpdatedLabel}`}
+          </span>
+          <button type="button" className={styles.refreshButton} onClick={() => void reload()} disabled={isRefreshing}>
+            Actualizar
           </button>
-        </aside>
+        </div>
       </section>
+
+      {withdrawalNotice ? (
+        <div className={styles.feedbackBanner} role="status">
+          <div>
+            <strong>Retiro registrado</strong>
+            <p>{withdrawalNotice}</p>
+          </div>
+          <button type="button" onClick={() => setWithdrawalNotice("")}>
+            Cerrar
+          </button>
+        </div>
+      ) : null}
 
       <section className={styles.balanceGrid}>
         {buckets.map((bucket, index) => (
@@ -204,36 +180,32 @@ export default function PaseadorBilletera() {
             onClick={() => setSelectedBucket(bucket.key)}
             extraLabel={
               bucket.key === "verificacion"
-                ? `Proxima liberacion: ${getProximaLiberacion(bucket.reservas)}`
+                ? (() => {
+                    const proxima = getProximaLiberacionCorta(bucket.reservas);
+                    return proxima !== "Sin fecha estimada" ? `Libera ~ ${proxima}` : undefined;
+                  })()
                 : bucket.key === "disponible"
-                  ? "Fondos ya listos para retiro"
-                  : "Servicios aun dentro del ciclo de resguardo"
+                  ? "Listo para retiro"
+                  : undefined
             }
           />
         ))}
       </section>
 
       {!isLoading && !error && data.proyeccionLiberacionesPorDia.length > 0 ? (
-        <section className={styles.proyeccionSection} aria-label="Proyección de liberación a saldo disponible">
+        <section className={styles.proyeccionSection} aria-label="Próximas liberaciones">
           <div className={styles.proyeccionHeader}>
-            <p className={styles.cardEyebrow}>Calendario de liberación</p>
-            <h2>Cuándo pasará a disponible lo que está en verificación</h2>
-            <p className={styles.proyeccionIntro}>
-              Agrupación según la misma regla N+2 del backend (día del fin del paseo más dos días calendario). Si hay
-              disputa activa en una reserva, la liberación puede quedar en pausa hasta que soporte la cierre.
-            </p>
+            <h2>Próximas liberaciones</h2>
+            <p className={styles.proyeccionIntro}>Montos en verificación que pasarán a saldo disponible.</p>
           </div>
           {data.proyeccionLiberacionesPorDia.map((grupo) => (
             <div key={grupo.fechaDisponibleDesde} className={styles.proyeccionGrupo}>
               <div className={styles.proyeccionGrupoHeader}>
-                <strong>Disponible desde: {formatDate(grupo.fechaDisponibleDesde)}</strong>
-                <span>Total neto: {formatMoney(grupo.totalNeto)}</span>
+                <strong>{formatDateShort(grupo.fechaDisponibleDesde)}</strong>
+                <span>{formatMoney(grupo.totalNeto)}</span>
               </div>
               {grupo.liberacionPausadaPorDisputa ? (
-                <p className={styles.proyeccionDisputa}>
-                  Hay al menos una reserva en este grupo con disputa activa: la liberación automática puede estar en
-                  pausa.
-                </p>
+                <p className={styles.proyeccionDisputa}>Hay un reclamo activo; la liberación puede demorarse.</p>
               ) : null}
               <div className={styles.proyeccionLista}>
                 {grupo.reservas.map((reserva) => (
@@ -255,27 +227,9 @@ export default function PaseadorBilletera() {
         }}
       />
 
-      <GananciasBreakdown bucket={currentBucket} />
-
-      {withdrawalNotice ? (
-        <div className={styles.feedbackBanner} role="status">
-          <span>{withdrawalNotice}</span>
-          <button type="button" onClick={() => setWithdrawalNotice("")}>
-            Cerrar
-          </button>
-        </div>
-      ) : null}
-
       <section className={styles.withdrawalsSection} aria-label="Historial de retiros">
         <div className={styles.withdrawalsHeader}>
-          <div>
-            <p className={styles.cardEyebrow}>Historial de retiros</p>
-            <h2>Solicitudes a tu cuenta bancaria</h2>
-            <p className={styles.sectionText}>
-              Cada retiro descuenta tu saldo disponible al momento de la solicitud. El estado refleja el procesamiento
-              simulado de la transferencia.
-            </p>
-          </div>
+          <h2>Retiros</h2>
         </div>
 
         {withdrawalHistoryError ? (
@@ -291,23 +245,22 @@ export default function PaseadorBilletera() {
                 className={styles.withdrawalCard}
               >
                 <div>
-                  <strong>{withdrawal.operationId}</strong>
-                  <p>{withdrawal.cuentaDestinoResumen ?? "Cuenta bancaria registrada"}</p>
-                  <p className={styles.withdrawalDate}>
-                    Solicitado: {formatWithdrawalDate(withdrawal.solicitadoEn)}
-                  </p>
-                </div>
-                <div className={styles.withdrawalCardSide}>
                   <strong>{formatMoney(withdrawal.monto)}</strong>
-                  <span>{withdrawal.estadoEtiqueta}</span>
+                  <p>{withdrawal.estadoEtiqueta}</p>
+                  {withdrawal.cuentaDestinoResumen ? (
+                    <p className={styles.withdrawalMeta}>{withdrawal.cuentaDestinoResumen}</p>
+                  ) : null}
+                  {withdrawal.solicitadoEn ? (
+                    <p className={styles.withdrawalDate}>{formatWithdrawalDate(withdrawal.solicitadoEn)}</p>
+                  ) : null}
                 </div>
               </article>
             ))}
           </div>
         ) : (
           <article className={styles.emptyState}>
-            <strong>Aun no tienes retiros registrados</strong>
-            <p>Cuando solicites un retiro desde tu saldo disponible, aparecera aqui con su numero de operacion.</p>
+            <strong>Sin retiros aún</strong>
+            <p>Cuando retires saldo disponible, lo verás aquí.</p>
           </article>
         )}
       </section>
@@ -315,24 +268,15 @@ export default function PaseadorBilletera() {
       <section className={styles.detailSection}>
         <div className={styles.detailHeader}>
           <div>
-            <p className={styles.cardEyebrow}>Desglose por reserva</p>
             <h2>{currentBucket.title}</h2>
-            <p className={styles.sectionText}>{currentBucket.helper}</p>
-          </div>
-          <div className={styles.detailSummary}>
-            <div className={styles.detailSummaryBlock}>
-              <span>Monto neto</span>
-              <strong>{formatMoney(currentBucket.amount)}</strong>
-            </div>
-            <div className={styles.detailSummaryBlock}>
-              <span>Reservas</span>
-              <strong>{currentBucket.reservas.length}</strong>
-            </div>
+            <p className={styles.detailCount}>
+              {formatPaseoCount(currentBucket.reservaCount)} · {formatMoney(currentBucket.amount)}
+            </p>
           </div>
         </div>
 
         {isLoading ? (
-          <div className={styles.loadingState}>Cargando billetera del paseador...</div>
+          <div className={styles.loadingState}>Cargando billetera…</div>
         ) : error ? (
           <article className={styles.errorState} role="alert">
             <strong>No pudimos cargar tu billetera</strong>
@@ -370,9 +314,9 @@ export default function PaseadorBilletera() {
           setWithdrawalError("");
           setIsWithdrawalModalOpen(false);
         }}
-        onSubmit={async (amount, bankAccountId, registro) => {
-          await withdrawAvailableBalance(amount, bankAccountId, registro);
-        }}
+        onSubmit={async (amount, bankAccountId, registro) =>
+          withdrawAvailableBalance(amount, bankAccountId, registro)
+        }
       />
     </main>
   );

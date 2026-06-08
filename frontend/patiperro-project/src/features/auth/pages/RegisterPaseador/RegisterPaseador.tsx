@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import RegisterAccessStep from "../../components/RegisterAccessStep";
 import RegisterLocationPhotoStep from "../../components/RegisterLocationPhotoStep";
 import RegisterProfileStep from "../../components/RegisterProfileStep";
+import { useRegisterCorreoCheck } from "../../hooks/useRegisterCorreoCheck";
 import { useRegisterForm } from "../../hooks/useRegisterForm";
 import { registerPaseador, uploadPaseadorProfilePhoto } from "../../services/authServices";
 import authStyles from "../../styles/auth.module.css";
@@ -51,7 +52,7 @@ const INITIAL_FORM: PaseadorRegisterForm = {
 const STEP_LABELS = [
   { title: "Paso 1", text: "Acceso" },
   { title: "Paso 2", text: "Perfil del paseador" },
-  { title: "Paso 3", text: "Ubicacion y foto" }
+  { title: "Paso 3", text: "Ubicación y foto" }
 ];
 
 function telefonoNumericoParaApi(raw: string): number {
@@ -74,7 +75,7 @@ function validatePaseadorField(
     }
 
     if (!isValidEmail(String(value))) {
-      return "Formato de correo invalido";
+      return "Formato de correo inválido";
     }
   }
 
@@ -84,11 +85,11 @@ function validatePaseadorField(
 
   if (name === "confirmar_contrasena") {
     if (!String(value)) {
-      return "Debes confirmar tu contrasena";
+      return "Debes confirmar tu contraseña";
     }
 
     if (String(value) !== form.contrasena) {
-      return "Las contrasenas no coinciden";
+      return "Las contraseñas no coinciden";
     }
   }
 
@@ -98,7 +99,7 @@ function validatePaseadorField(
     }
 
     if (!isValidRut(String(value))) {
-      return "Ingresa un RUT valido";
+      return "Ingresa un RUT válido";
     }
   }
 
@@ -128,16 +129,16 @@ function validatePaseadorField(
     const phone = String(value);
 
     if (!phone) {
-      return "El telefono es obligatorio";
+      return "El teléfono es obligatorio";
     }
 
     if (phone.length < 8 || phone.length > 11) {
-      return "Ingresa un telefono valido";
+      return "Ingresa un teléfono válido";
     }
   }
 
   if (name === "biografia" && !String(value).trim()) {
-    return "La biografia es obligatoria";
+    return "La biografía es obligatoria";
   }
 
   if (
@@ -152,7 +153,7 @@ function validatePaseadorField(
   }
 
   if (name === "numeracion" && !String(value).trim()) {
-    return "La numeracion es obligatoria";
+    return "La numeración es obligatoria";
   }
 
   if (name === "foto_perfil" && !value) {
@@ -185,6 +186,22 @@ export default function RegisterPaseador() {
     validateField: validatePaseadorField
   });
 
+  const { correoRemotoError, checkingCorreo, checkCorreoNow, verifyCorreoNow } = useRegisterCorreoCheck(
+    form.correo,
+    "paseador"
+  );
+
+  const accessErrors = useMemo(
+    () => ({
+      ...errors,
+      correo: errors.correo ?? correoRemotoError
+    }),
+    [errors, correoRemotoError]
+  );
+
+  const stepDisabled =
+    isCurrentStepDisabled || checkingCorreo || Boolean(correoRemotoError);
+
   const currentTitle = useMemo(() => STEP_LABELS[currentStep].text, [currentStep]);
 
   const handleChange = (
@@ -211,6 +228,25 @@ export default function RegisterPaseador() {
     }
 
     setFieldValue(name as keyof PaseadorRegisterForm, value as never);
+  };
+
+  const handleAccessBlur = (
+    event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    handleBlur(event);
+    if (event.target.name === "correo") {
+      checkCorreoNow();
+    }
+  };
+
+  const handleAccessNextStep = async () => {
+    if (currentStep === 0) {
+      const disponible = await verifyCorreoNow();
+      if (!disponible) {
+        return;
+      }
+    }
+    handleNextStep();
   };
 
   const buildRegisterPayload = (fotoPerfil: string) => {
@@ -254,7 +290,7 @@ export default function RegisterPaseador() {
 
     const telNum = telefonoNumericoParaApi(form.telefono);
     if (!Number.isFinite(telNum)) {
-      setSubmitError("Revisa el telefono: usa solo numeros.");
+      setSubmitError("Revisa el teléfono: usa solo números.");
       return;
     }
 
@@ -280,9 +316,10 @@ export default function RegisterPaseador() {
       return (
         <RegisterAccessStep
           form={form}
-          errors={errors}
+          errors={accessErrors}
           onChange={handleChange}
-          onBlur={handleBlur}
+          onBlur={handleAccessBlur}
+          correoHint={checkingCorreo ? "Verificando correo..." : undefined}
           styles={styles}
         />
       );
@@ -314,7 +351,7 @@ export default function RegisterPaseador() {
         styles={styles}
         roleLabel="paseador"
         uploadInputId="paseador-photo"
-        photoDescription="Sube una foto clara de perfil para completar el registro y generar una mejor presentacion de tu cuenta."
+        photoDescription="Sube una foto clara de perfil para completar el registro y generar una mejor presentación de tu cuenta."
       />
     );
   };
@@ -343,7 +380,7 @@ export default function RegisterPaseador() {
             <h2 className={authStyles.title}>Registro de paseador</h2>
             <p>
               Completa este flujo de 3 pasos para dejar lista tu cuenta
-              profesional de paseador con perfil, ubicacion y foto.
+              profesional de paseador con perfil, ubicación y foto.
             </p>
           </div>
 
@@ -386,8 +423,8 @@ export default function RegisterPaseador() {
                 <button
                   type="button"
                   className={styles.primaryButton}
-                  onClick={handleNextStep}
-                  disabled={isCurrentStepDisabled}
+                  onClick={handleAccessNextStep}
+                  disabled={stepDisabled}
                 >
                   Continuar
                 </button>
@@ -395,7 +432,7 @@ export default function RegisterPaseador() {
                 <button
                   type="submit"
                   className={styles.primaryButton}
-                  disabled={isCurrentStepDisabled}
+                  disabled={stepDisabled}
                 >
                   {isSubmitting ? "Creando cuenta..." : "Crear cuenta"}
                 </button>
@@ -404,7 +441,7 @@ export default function RegisterPaseador() {
           </form>
 
           <p className={styles.footerText}>
-            Ya tienes cuenta? <Link to="/login/paseador">Inicia sesion</Link>
+            ¿Ya tienes cuenta? <Link to="/login/paseador">Inicia sesión</Link>
           </p>
 
           <p className={styles.stepMeta}>Paso actual: {currentTitle}</p>

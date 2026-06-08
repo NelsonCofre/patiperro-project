@@ -26,9 +26,19 @@ public enum EstadoVerificacionIdentidad {
         return etiqueta;
     }
 
-    /** AC3: solo puede reenviar documentos si nunca envió o fue rechazado. */
+    /** Primera subida o reenvío tras rechazo. */
     public boolean puedeSubirDocumentos() {
         return this == SIN_ENVIAR || this == RECHAZADO;
+    }
+
+    /** Reemplazo del PDF ya verificado. */
+    public boolean puedeCambiarDocumento() {
+        return this == APROBADO;
+    }
+
+    /** POST /documento permitido salvo revisión admin pendiente. */
+    public boolean puedeEnviarDocumento() {
+        return this != EN_PROCESO;
     }
 
     public boolean esAprobado() {
@@ -44,7 +54,6 @@ public enum EstadoVerificacionIdentidad {
         return switch (this) {
             case EN_PROCESO -> Optional.of(
                     "Verificación en proceso: no puedes subir nuevos documentos hasta que un administrador responda");
-            case APROBADO -> Optional.of("Tu identidad ya está verificada");
             default -> Optional.empty();
         };
     }

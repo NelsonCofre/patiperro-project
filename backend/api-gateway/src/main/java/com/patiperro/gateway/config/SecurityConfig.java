@@ -33,8 +33,10 @@ public class SecurityConfig {
         }
 
         /**
-         * En Gateway WebMVC, {@code requestMatchers(String)} puede resolverse a {@code MvcRequestMatcher} y no
-         * coincidir con la ruta proxificada (login cae en {@code /api/**} → 403). Ignorar auth aquí evita esa capa.
+         * En Gateway WebMVC, {@code requestMatchers(String)} puede resolverse a
+         * {@code MvcRequestMatcher} y no
+         * coincidir con la ruta proxificada (login cae en {@code /api/**} → 403).
+         * Ignorar auth aquí evita esa capa.
          */
         @Bean
         public WebSecurityCustomizer gatewayPublicAuthPathsIgnored() {
@@ -43,10 +45,12 @@ public class SecurityConfig {
                                                 PathPatternRequestMatcher.pathPattern("/api/auth/**"),
                                                 PathPatternRequestMatcher.pathPattern("/api/paseadores/auth/**"),
                                                 PathPatternRequestMatcher.pathPattern("/api/tutores/auth/**"),
+                                                PathPatternRequestMatcher.pathPattern("/api/notificaciones/**"),
                                                 // Agenda valida JWT en agenda-service; evitar 403 espurios en el borde.
                                                 PathPatternRequestMatcher.pathPattern("/api/agenda/**"),
                                                 PathPatternRequestMatcher.pathPattern("/api/walker/**"),
-                                                // Reserva se protege en reserva-service; en gateway evitamos 403 espurios
+                                                // Reserva se protege en reserva-service; en gateway evitamos 403
+                                                // espurios
                                                 // por diferencias de matcher/chain en WebMVC.
                                                 PathPatternRequestMatcher.pathPattern("/api/reserva/**"),
                                                 PathPatternRequestMatcher.pathPattern("/api/reservas/**"),
@@ -62,8 +66,9 @@ public class SecurityConfig {
                 // front).
                 // - recursos bajo /api/paseadores/public/ (fotos servidas, catalogo tamanos)
                 // sin JWT.
-                // - GET /api/mascotas/public/** sin JWT; subida foto-perfil y CRUD mascotas con JWT
-                //   (mascotas no está en web.ignoring(), a diferencia de reserva/agenda).
+                // - GET /api/mascotas/public/** sin JWT; subida foto-perfil y CRUD mascotas con
+                // JWT
+                // (mascotas no está en web.ignoring(), a diferencia de reserva/agenda).
                 // - resto de /api/** requiere JWT valido.
                 http
                                 .csrf(csrf -> csrf.disable())
@@ -79,7 +84,8 @@ public class SecurityConfig {
                                                 // Preflight CORS solo sobre API proxied (reduce superficie frente a
                                                 // OPTIONS /**).
                                                 .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
-                                                // Auth pública: usar PathPattern (no strings → MvcRequestMatcher en SS7).
+                                                // Auth pública: usar PathPattern (no strings → MvcRequestMatcher en
+                                                // SS7).
                                                 .requestMatchers(
                                                                 PathPatternRequestMatcher.pathPattern("/api/auth/**"),
                                                                 PathPatternRequestMatcher
@@ -115,7 +121,8 @@ public class SecurityConfig {
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/tutores/interno/**"))
                                                 .denyAll()
-                                                // Mascotas S2S (portada/detalle con secreto): no exponer por el borde HTTP.
+                                                // Mascotas S2S (portada/detalle con secreto): no exponer por el borde
+                                                // HTTP.
                                                 .requestMatchers(PathPatternRequestMatcher
                                                                 .pathPattern("/api/mascotas/interno"))
                                                 .denyAll()
@@ -140,6 +147,8 @@ public class SecurityConfig {
                                                                                 .pathPattern("/api/tutores/public/**"),
                                                                 PathPatternRequestMatcher.pathPattern(
                                                                                 "/api/paseadores/public/**"),
+                                                                PathPatternRequestMatcher.pathPattern(
+                                                                                "/api/notificaciones/**"),
                                                                 PathPatternRequestMatcher.pathPattern("/api/resenas"), // <---
                                                                                                                        // LA
                                                                                                                        // RAÍZ
@@ -149,7 +158,8 @@ public class SecurityConfig {
                                                                 PathPatternRequestMatcher
                                                                                 .pathPattern("/api/resenas/**"))
                                                 .permitAll()
-                                                // Servir foto de mascota (GET); PATCH/POST .../foto-perfil exige JWT vía /api/**.
+                                                // Servir foto de mascota (GET); PATCH/POST .../foto-perfil exige JWT
+                                                // vía /api/**.
                                                 .requestMatchers(PathPatternRequestMatcher.pathPattern(
                                                                 HttpMethod.GET, "/api/mascotas/public/**"))
                                                 .permitAll()
@@ -160,9 +170,12 @@ public class SecurityConfig {
                                                 // Permitimos en el borde para evitar falsos 403 de gateway
                                                 // cuando hay desalineación temporal de validación en esta capa.
                                                 .requestMatchers(
-                                                                PathPatternRequestMatcher.pathPattern("/api/reserva/**"),
-                                                                PathPatternRequestMatcher.pathPattern("/api/reservas/**"),
-                                                                PathPatternRequestMatcher.pathPattern("/api/bookings/**"),
+                                                                PathPatternRequestMatcher
+                                                                                .pathPattern("/api/reserva/**"),
+                                                                PathPatternRequestMatcher
+                                                                                .pathPattern("/api/reservas/**"),
+                                                                PathPatternRequestMatcher
+                                                                                .pathPattern("/api/bookings/**"),
                                                                 PathPatternRequestMatcher.pathPattern("/api/tutor/**"))
                                                 .permitAll()
                                                 // JWT y rol PASEADOR los aplica pagos-service (@PreAuthorize). Exigir
@@ -192,8 +205,10 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
                 /*
-                 * Vite proxy hacia el gateway deja Origin en el host publico (p. ej. trycloudflare) pero el
-                 * Host suele ser 127.0.0.1:8080 → Spring trata la peticion como CORS. Solo localhost en la lista
+                 * Vite proxy hacia el gateway deja Origin en el host publico (p. ej.
+                 * trycloudflare) pero el
+                 * Host suele ser 127.0.0.1:8080 → Spring trata la peticion como CORS. Solo
+                 * localhost en la lista
                  * provoca 403 (DefaultCorsProcessor) aunque el JWT sea valido.
                  */
                 Set<String> patterns = new LinkedHashSet<>(List.of(

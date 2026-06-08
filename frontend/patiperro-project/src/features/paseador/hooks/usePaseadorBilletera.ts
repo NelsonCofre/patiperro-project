@@ -18,6 +18,34 @@ import {
 const REFRESH_MS = 15000;
 export const MIN_WITHDRAWAL_AMOUNT = 5000;
 
+function formatMoneyClp(value: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
+/** Mensaje visible cuando el paseador intenta retirar menos del mínimo permitido. */
+export function buildMinWithdrawalErrorMessage(
+  attemptedAmount: number,
+  minAmount: number = MIN_WITHDRAWAL_AMOUNT
+): string {
+  return `Ingresaste ${formatMoneyClp(attemptedAmount)}. El monto mínimo para retirar es ${formatMoneyClp(minAmount)}.`;
+}
+
+/** Mensaje de confirmación tras registrar un retiro exitoso. */
+export function buildWithdrawalSuccessMessage(
+  amount: number,
+  backendMessage?: string | null
+): string {
+  const detalle = backendMessage?.trim();
+  if (detalle) {
+    return `Retiro de ${formatMoneyClp(amount)} registrado. ${detalle}`;
+  }
+  return `Tu retiro de ${formatMoneyClp(amount)} fue registrado y se procesará en las próximas 48 horas hábiles.`;
+}
+
 export type PaseadorBankAccount = CuentaBancariaPaseador;
 
 export type { RegistroCuentaBancariaBody, CatalogoRegistroCuenta };
@@ -34,6 +62,7 @@ function createEmptyBucket(
     amount: 0,
     grossAmount: 0,
     commissionAmount: 0,
+    reservaCount: 0,
     reservas: []
   };
 }
@@ -41,27 +70,27 @@ function createEmptyBucket(
 const EMPTY_DATA: BilleteraPaseadorData = {
   retenido: createEmptyBucket(
     "retenido",
-    "Saldo Retenido",
-    "Servicios pagados que aun no han finalizado o siguen en curso."
+    "Retenido",
+    "Paseos pagados aún no finalizados."
   ),
   verificacion: createEmptyBucket(
     "verificacion",
-    "Saldo en Verificacion",
-    "Paseos finalizados que estan cumpliendo el periodo de liberacion N+2."
+    "En verificación",
+    "Paseos finalizados en confirmación."
   ),
   disponible: createEmptyBucket(
     "disponible",
-    "Saldo Disponible",
-    "Fondos liberados y listos para retiro desde tu billetera."
+    "Disponible",
+    "Listo para retirar."
   ),
   proyeccionLiberacionesPorDia: [],
   updatedAt: ""
 };
 
 function formatLastUpdated(value: string): string {
-  if (!value) return "Sin sincronizacion aun";
+  if (!value) return "Sin sincronización aún";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Sin sincronizacion aun";
+  if (Number.isNaN(date.getTime())) return "Sin sincronización aún";
   return new Intl.DateTimeFormat("es-CL", {
     dateStyle: "short",
     timeStyle: "short"
@@ -137,7 +166,7 @@ export function usePaseadorBilletera() {
         setCatalogoRegistroLoadError(
           catalogoError instanceof Error
             ? catalogoError.message
-            : "No se pudo cargar el catalogo de bancos."
+            : "No se pudo cargar el catálogo de bancos."
         );
       }
     } catch (loadError) {
@@ -182,13 +211,7 @@ export function usePaseadorBilletera() {
 
       try {
         if (amount < MIN_WITHDRAWAL_AMOUNT) {
-          throw new Error(
-            `El monto debe ser mayor o igual a ${new Intl.NumberFormat("es-CL", {
-              style: "currency",
-              currency: "CLP",
-              maximumFractionDigits: 0
-            }).format(MIN_WITHDRAWAL_AMOUNT)}.`
-          );
+          throw new Error(buildMinWithdrawalErrorMessage(amount));
         }
 
         const currentAvailable = data.disponible.amount;
@@ -204,7 +227,7 @@ export function usePaseadorBilletera() {
           setBankAccountsLoadError("");
         }
         if (!selectedAccount) {
-          throw new Error("Complete sus datos bancarios antes de solicitar el retiro.");
+          throw new Error("Completa tus datos bancarios antes de solicitar el retiro.");
         }
 
         const result = await solicitarRetiroPaseador(amount);
@@ -240,8 +263,12 @@ export function usePaseadorBilletera() {
           ]);
         }
 
-        setWithdrawalNotice(`${result.mensaje} Operacion ${operationId}.`);
-        return { operationId };
+        const successMessage = buildWithdrawalSuccessMessage(
+          result.montoRetirado || amount,
+          result.mensaje
+        );
+        setWithdrawalNotice(successMessage);
+        return { operationId, mensaje: successMessage };
       } catch (submitError) {
         const message =
           submitError instanceof Error

@@ -113,13 +113,13 @@ export default function RegisterProfileStep<TForm extends BaseRegisterForm>({
         />
 
         <p className={styles.fieldHint}>
-          Selecciona tu fecha desde el calendario y escribe el telefono solo con
-          numeros.
+          Selecciona tu fecha desde el calendario y escribe el teléfono solo con
+          números.
         </p>
 
         <div className={`${styles.textareaContainer} ${styles.fullWidth}`}>
           <label className={styles.textareaLabel} htmlFor="biografia">
-            Biografia
+            Biografía
           </label>
           <textarea
             id="biografia"

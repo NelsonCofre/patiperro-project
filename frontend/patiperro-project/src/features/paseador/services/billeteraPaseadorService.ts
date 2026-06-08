@@ -23,8 +23,15 @@ export type BilleteraBucket = {
   amount: number;
   grossAmount: number;
   commissionAmount: number;
+  /** Paseos asociados al monto del bucket (desde API o detalle mapeado). */
+  reservaCount: number;
   reservas: BilleteraReservaItem[];
 };
+
+export function formatPaseoCount(count: number): string {
+  if (count === 1) return "1 paseo";
+  return `${count} paseos`;
+}
 
 /** Saldo en verificación agrupado por día en que el neto puede pasar a disponible (regla N+2). */
 export type BilleteraProyeccionLiberacionGrupo = {
@@ -121,6 +128,7 @@ type DesgloseComisionApi = {
 
 type BilleteraReservaItemApi = {
   idReserva?: number | null;
+  idTransaccionPagos?: number | string | null;
   desgloseComision?: DesgloseComisionApi | null;
   montoBruto?: number | string | null;
   comision?: number | string | null;
@@ -131,6 +139,7 @@ type BilleteraReservaItemApi = {
   fechaAgenda?: string | null;
   horaInicio?: string | null;
   nombreEstadoReserva?: string | null;
+  disponibleParaRetiroEn?: string | null;
 };
 
 type BilleteraBucketApi = {
@@ -140,6 +149,7 @@ type BilleteraBucketApi = {
   amount?: number | string | null;
   grossAmount?: number | string | null;
   commissionAmount?: number | string | null;
+  cantidadReservas?: number | string | null;
   reservas?: BilleteraReservaItemApi[] | null;
 };
 
@@ -172,10 +182,20 @@ function readDesgloseMontos(item: BilleteraReservaItemApi): {
   };
 }
 
-function mapReservaItem(item: BilleteraReservaItemApi): BilleteraReservaItem {
+function hasReservaMonto(item: BilleteraReservaItem): boolean {
+  return item.montoNeto > 0 || item.montoBruto > 0;
+}
+
+function mapReservaItem(item: BilleteraReservaItemApi, index = 0): BilleteraReservaItem {
   const montos = readDesgloseMontos(item);
+  let idReserva = Number(item.idReserva ?? 0);
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    const txId = Number(item.idTransaccionPagos ?? 0);
+    idReserva = txId > 0 ? txId : index + 1;
+  }
+  const fechaLiberacion = (item.disponibleParaRetiroEn ?? "").trim();
   return {
-    idReserva: Number(item.idReserva ?? 0),
+    idReserva,
     mascotaNombre: (item.mascotaNombre ?? "").trim() || "Mascota no disponible",
     tutorNombre: (item.tutorNombre ?? "").trim() || "Tutor no disponible",
     fecha: (item.fechaAgenda ?? "").trim(),
@@ -183,13 +203,26 @@ function mapReservaItem(item: BilleteraReservaItemApi): BilleteraReservaItem {
     montoBruto: montos.montoBruto,
     comision: montos.comision,
     montoNeto: montos.montoNeto,
-    estado: (item.nombreEstadoReserva ?? item.estadoEtiqueta ?? "").trim() || "Sin estado"
+    estado: (item.nombreEstadoReserva ?? item.estadoEtiqueta ?? "").trim() || "Sin estado",
+    fechaLiberacionEstimada: fechaLiberacion || null
   };
 }
 
+function mapReservaItemsFromApi(items: BilleteraReservaItemApi[] | null | undefined): BilleteraReservaItem[] {
+  if (!items?.length) return [];
+  return items.map(mapReservaItem).filter(hasReservaMonto);
+}
+
+function readCantidadReservasApi(value: unknown, reservasLength: number): number {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return Math.max(Math.trunc(parsed), reservasLength);
+  }
+  return reservasLength;
+}
+
 function mapProyeccionGrupo(grupo: BilleteraProyeccionGrupoApi): BilleteraProyeccionLiberacionGrupo {
-  const reservas =
-    grupo.reservas?.map(mapReservaItem).filter((item) => item.idReserva > 0) ?? [];
+  const reservas = mapReservaItemsFromApi(grupo.reservas);
   return {
     fechaDisponibleDesde: (grupo.fechaDisponibleDesde ?? "").trim(),
     totalNeto: parseAmount(grupo.totalNeto),
@@ -202,8 +235,12 @@ function buildBucket(
   key: BilleteraBucketKey,
   title: string,
   helper: string,
-  reservas: BilleteraReservaItem[]
+  reservas: BilleteraReservaItem[],
+  reservaCount: number
 ): BilleteraBucket {
+  const sorted = [...reservas].sort(
+    (a, b) => getSortTime(b.fecha, b.horaInicio) - getSortTime(a.fecha, a.horaInicio)
+  );
   return {
     key,
     title,
@@ -211,9 +248,8 @@ function buildBucket(
     amount: 0,
     grossAmount: 0,
     commissionAmount: 0,
-    reservas: [...reservas].sort(
-      (a, b) => getSortTime(b.fecha, b.horaInicio) - getSortTime(a.fecha, a.horaInicio)
-    )
+    reservaCount: Math.max(reservaCount, sorted.length),
+    reservas: sorted
   };
 }
 
@@ -224,15 +260,17 @@ function mapBucket(
   bucket: BilleteraBucketApi | null | undefined,
   defaultReservas: BilleteraReservaItem[] = []
 ): BilleteraBucket {
-  const mapped = bucket?.reservas?.map(mapReservaItem).filter((item) => item.idReserva > 0) ?? [];
+  const mapped = mapReservaItemsFromApi(bucket?.reservas);
   // El backend envía disponible.reservas vacío y el detalle en historialLiberacionesDisponible;
-  // `[]` no activa `??`, así que si no hay filas mapeadas usamos el fallback (historial).
+  // `[]` no activa `??`, así que si no hay filas mapeadas usamos el fallback (historial / proyección).
   const reservas = mapped.length > 0 ? mapped : defaultReservas;
+  const reservaCount = readCantidadReservasApi(bucket?.cantidadReservas, reservas.length);
   const next = buildBucket(
     key,
     (bucket?.title ?? "").trim() || fallbackTitle,
     (bucket?.helper ?? "").trim() || fallbackHelper,
-    reservas
+    reservas,
+    reservaCount
   );
   let grossAmount = parseAmount(bucket?.grossAmount);
   let commissionAmount = parseAmount(bucket?.commissionAmount);
@@ -299,7 +337,7 @@ export async function fetchCatalogoRegistroCuentaPaseador(): Promise<CatalogoReg
   const data = await parseJsonSafe(response);
   if (!response.ok) {
     const detail = parseApiErrorMessage(data);
-    throw new Error(detail || `No se pudo cargar el catalogo bancario (HTTP ${response.status}).`);
+    throw new Error(detail || `No se pudo cargar el catálogo bancario (HTTP ${response.status}).`);
   }
   const dto = (data ?? {}) as CatalogoRegistroCuentaApi;
   const bancos =
@@ -366,31 +404,30 @@ export async function fetchBilleteraPaseador(): Promise<BilleteraPaseadorData> {
     throw new Error(detail || `No se pudo cargar la billetera (HTTP ${response.status}).`);
   }
   const dto = (data ?? {}) as BilleteraResumenApi;
-  const historialDisponible =
-    dto.historialLiberacionesDisponible
-      ?.map(mapReservaItem)
-      .filter((item) => item.idReserva > 0) ?? [];
+  const historialDisponible = mapReservaItemsFromApi(dto.historialLiberacionesDisponible);
 
   const proyeccionLiberacionesPorDia =
     dto.proyeccionLiberacionesPorDia?.map(mapProyeccionGrupo) ?? [];
+  const proyeccionReservasVerificacion = proyeccionLiberacionesPorDia.flatMap((grupo) => grupo.reservas);
 
   return {
     retenido: mapBucket(
       "retenido",
-      "Saldo Retenido",
-      "Servicios pagados que aun no han finalizado o siguen en curso.",
+      "Retenido",
+      "Paseos pagados aún no finalizados.",
       dto.retenido
     ),
     verificacion: mapBucket(
       "verificacion",
-      "Saldo en Verificacion",
-      "Paseos finalizados que estan cumpliendo el periodo de liberacion N+2.",
-      dto.verificacion
+      "En verificación",
+      "Paseos finalizados en confirmación.",
+      dto.verificacion,
+      proyeccionReservasVerificacion
     ),
     disponible: mapBucket(
       "disponible",
-      "Saldo Disponible",
-      "Fondos liberados y listos para retiro desde tu billetera.",
+      "Disponible",
+      "Listo para retirar.",
       dto.disponible,
       historialDisponible
     ),

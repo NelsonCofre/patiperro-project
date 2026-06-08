@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { SolicitudPendientePaseador } from "../../types/solicitudPaseador.types";
+import MascotaFotoView from "../MascotaFotoView/MascotaFotoView";
 import styles from "./TutorDetalleModal.module.css";
 
 type TutorDetalleModalProps = {
@@ -134,8 +135,8 @@ export default function TutorDetalleModal({ solicitud, onClose }: TutorDetalleMo
         <div className={styles.sectionBlock}>
           <h3>Información de la mascota</h3>
           <div className={styles.petDetail}>
-            <img
-              src={solicitud.mascotaFotoUrl}
+            <MascotaFotoView
+              url={solicitud.mascotaFotoUrl}
               alt={`Foto de ${solicitud.mascotaNombre}`}
               className={styles.petPhoto}
             />

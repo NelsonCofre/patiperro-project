@@ -1,8 +1,15 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { obtenerComprobantePagoTutor, type ComprobantePagoTutorResponse } from "../../services/pagoTutorApi";
+import { fetchMascotasTutor } from "../../services/reservaTutorApi";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
 import { formatReservaMoney } from "../../utils/reservaEstadoUtils";
+import {
+  isMascotaPlaceholderName,
+  referenciaTransaccionExterna,
+  resolveMascotaDisplayName,
+  slugParaArchivo
+} from "../../../shared/utils/displayLabels";
 import styles from "./PaymentSummaryModal.module.css";
 
 type Props = {
@@ -26,10 +33,9 @@ function formatDateTime(value?: string | null | unknown): string {
 }
 
 function getTransactionId(reserva: ReservaTutorDetalleDTO): string {
-  return (
-    reserva.paymentTransactionId?.trim() ||
-    reserva.paymentOrderId?.trim() ||
-    (reserva.idPago != null ? `TRX-${reserva.idPago}` : `TRX-${reserva.idReserva}`)
+  return referenciaTransaccionExterna(
+    reserva.paymentTransactionId,
+    reserva.paymentOrderId
   );
 }
 
@@ -45,13 +51,13 @@ function escapeHtml(value: string): string {
 function buildFallbackFromReserva(reserva: ReservaTutorDetalleDTO): ComprobantePagoTutorResponse {
   return {
     tipoDocumento: "RESUMEN_TRANSACCION",
-    disclaimerLegal: "Resumen de Transaccion (informativo). No constituye boleta o factura legal.",
+    disclaimerLegal: "Resumen de Transacción (informativo). No constituye boleta o factura legal.",
     idReserva: reserva.idReserva,
     idOrden: reserva.idPago ?? reserva.idReserva,
     idTransaccionExterna: getTransactionId(reserva),
     fechaHoraOperacion: reserva.paymentConfirmedAt ?? reserva.fechaAceptacion ?? reserva.fechaSolicitud ?? null,
     paseadorNombre: reserva.paseadorNombre,
-    mascotaNombre: reserva.mascotaNombre,
+    mascotaNombre: resolveMascotaDisplayName(reserva.mascotaNombre),
     fechaPaseo: reserva.fecha ?? null,
     horaInicio: reserva.horaInicio ?? null,
     horaFinal: reserva.horaFinal ?? null,
@@ -61,7 +67,7 @@ function buildFallbackFromReserva(reserva: ReservaTutorDetalleDTO): ComprobanteP
     comisionApp: 0,
     montoNeto: Number(reserva.montoTotal ?? 0),
     estadoFondos:
-      "Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio"
+      "Estado: Pago confirmado. Fondos retenidos en garantía por Patiperro hasta la finalización del servicio"
   };
 }
 
@@ -76,14 +82,19 @@ function formatServiceDetail(data: ComprobantePagoTutorResponse): string {
 }
 
 function downloadSummaryAsHtml(data: ComprobantePagoTutorResponse): void {
-  const transactionId = data.idTransaccionExterna || `TRX-${data.idOrden || data.idReserva}`;
+  const transactionId = referenciaTransaccionExterna(
+    null,
+    null,
+    data.idTransaccionExterna
+  );
   const operationDate = formatDateTime(data.fechaHoraOperacion);
   const total = formatReservaMoney(data.montoTotal);
+  const fileSlug = slugParaArchivo(data.mascotaNombre || "pago");
   const html = `<!doctype html>
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <title>Resumen de Transaccion ${escapeHtml(transactionId)}</title>
+    <title>Resumen de Transacción ${escapeHtml(transactionId)}</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 32px; color: #1f2937; }
       .wrap { max-width: 760px; margin: 0 auto; }
@@ -99,11 +110,11 @@ function downloadSummaryAsHtml(data: ComprobantePagoTutorResponse): void {
   </head>
   <body>
     <div class="wrap">
-      <span class="badge">Resumen de Transaccion</span>
+      <span class="badge">Resumen de Transacción</span>
       <h1>Pago confirmado</h1>
       <p>Comprobante informativo de la operacion realizada en Patiperro.</p>
       <div class="grid">
-        <div class="card"><span class="label">ID de transaccion</span><div class="value">${escapeHtml(transactionId)}</div></div>
+        <div class="card"><span class="label">Referencia de pago</span><div class="value">${escapeHtml(transactionId)}</div></div>
         <div class="card"><span class="label">Fecha y hora</span><div class="value">${escapeHtml(operationDate)}</div></div>
         <div class="card"><span class="label">Paseador</span><div class="value">${escapeHtml(data.paseadorNombre)}</div></div>
         <div class="card"><span class="label">Mascota</span><div class="value">${escapeHtml(data.mascotaNombre)}</div></div>
@@ -111,10 +122,10 @@ function downloadSummaryAsHtml(data: ComprobantePagoTutorResponse): void {
         <div class="card"><span class="label">Monto total pagado</span><div class="value">${escapeHtml(total)}</div></div>
       </div>
       <div class="note">
-        Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio.
+        Estado: Pago confirmado. Fondos retenidos en garantía por Patiperro hasta la finalización del servicio.
       </div>
       <div class="legal">
-        Este documento corresponde a un Resumen de Transaccion y no constituye una boleta o factura legal.
+        Este documento corresponde a un Resumen de Transacción y no constituye una boleta o factura legal.
       </div>
     </div>
   </body>
@@ -124,11 +135,31 @@ function downloadSummaryAsHtml(data: ComprobantePagoTutorResponse): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `resumen-transaccion-${transactionId}.html`;
+  link.download = `resumen-pago-${fileSlug}.html`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+async function resolveComprobanteMascotaNombre(
+  comprobante: ComprobantePagoTutorResponse,
+  reserva: ReservaTutorDetalleDTO
+): Promise<string> {
+  let nombre = resolveMascotaDisplayName(reserva.mascotaNombre, comprobante.mascotaNombre);
+  if (!isMascotaPlaceholderName(nombre) || !reserva.idMascota) {
+    return nombre;
+  }
+  try {
+    const mascotas = await fetchMascotasTutor();
+    const match = mascotas.find((m) => m.idMascota === reserva.idMascota);
+    if (match?.nombre?.trim()) {
+      return match.nombre.trim();
+    }
+  } catch {
+    // Mantener el mejor candidato disponible.
+  }
+  return nombre;
 }
 
 export default function PaymentSummaryModal({ reserva, onClose }: Props) {
@@ -148,11 +179,16 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
       try {
         const result = await obtenerComprobantePagoTutor(idReserva);
         if (cancelled) return;
-        setData(result);
+        const mascotaNombre = await resolveComprobanteMascotaNombre(result, reservaRef.current);
+        setData({ ...result, mascotaNombre });
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "No se pudo cargar el comprobante real.");
-        setData(buildFallbackFromReserva(reservaRef.current));
+        const fallback = buildFallbackFromReserva(reservaRef.current);
+        const mascotaNombre = await resolveComprobanteMascotaNombre(fallback, reservaRef.current);
+        if (!cancelled) {
+          setData({ ...fallback, mascotaNombre });
+        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -166,8 +202,8 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
   }, [reserva.idReserva]);
 
   const transactionId = useMemo(
-    () => data.idTransaccionExterna || `TRX-${data.idOrden || data.idReserva}`,
-    [data.idOrden, data.idReserva, data.idTransaccionExterna]
+    () => referenciaTransaccionExterna(null, null, data.idTransaccionExterna),
+    [data.idTransaccionExterna]
   );
 
   const { operationDate, serviceDetail } = useMemo(() => {
@@ -189,7 +225,7 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
       <section className={styles.modal} role="dialog" aria-modal="true">
         <div className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>Resumen de Transaccion</p>
+            <p className={styles.eyebrow}>Resumen de Transacción</p>
             <h2>Comprobante de pago</h2>
             <p className={styles.description}>
               Este documento es un respaldo informativo del pago confirmado en la plataforma.
@@ -202,7 +238,7 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
 
         <div className={styles.grid}>
           <article className={styles.card}>
-            <span>ID de transaccion</span>
+            <span>Referencia de pago</span>
             <strong>{transactionId}</strong>
           </article>
           <article className={styles.card}>
@@ -230,7 +266,7 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
         <div className={styles.noteBox}>
           {typeof data.estadoFondos === "string" && data.estadoFondos.trim()
             ? data.estadoFondos
-            : "Estado: Pago confirmado. Fondos retenidos en garantia por Patiperro hasta la finalizacion del servicio."}
+            : "Estado: Pago confirmado. Fondos retenidos en garantía por Patiperro hasta la finalización del servicio."}
         </div>
 
         <div className={styles.emailBox}>
@@ -242,7 +278,7 @@ export default function PaymentSummaryModal({ reserva, onClose }: Props) {
             data.disclaimerLegal
           ) : (
             <>
-              Este documento corresponde a un <strong>Resumen de Transaccion</strong> y no constituye una boleta o
+              Este documento corresponde a un <strong>Resumen de Transacción</strong> y no constituye una boleta o
               factura legal.
             </>
           )}

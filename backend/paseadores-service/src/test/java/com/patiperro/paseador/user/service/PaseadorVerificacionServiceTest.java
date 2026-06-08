@@ -70,7 +70,7 @@ class PaseadorVerificacionServiceTest {
     }
 
     @Test
-    void subirDocumento_rechazaSiYaAprobado() throws Exception {
+    void subirDocumento_permiteReemplazoSiAprobado() throws Exception {
         initStorage();
         Paseador paseador = Paseador.builder()
                 .id(4L)
@@ -80,13 +80,14 @@ class PaseadorVerificacionServiceTest {
                 .build();
         autenticar(paseador.getCorreo());
         when(paseadorRepository.findByCorreo(paseador.getCorreo())).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(paseador));
+        when(paseadorRepository.save(any(Paseador.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ResponseStatusException ex = assertThrows(
-                ResponseStatusException.class,
-                () -> verificacionService.subirDocumento(pdfFile("documento", "cedula.pdf")));
+        VerificacionIdentidadResponseDTO response = verificacionService.subirDocumento(
+                pdfFile("documento", "cedula.pdf"));
 
-        assertEquals(409, ex.getStatusCode().value());
-        verify(paseadorRepository, never()).save(any());
+        assertEquals(EstadoVerificacionIdentidad.APROBADO, response.getEstado());
+        verify(paseadorRepository).save(any(Paseador.class));
     }
 
     @Test

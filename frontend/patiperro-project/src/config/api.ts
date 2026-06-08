@@ -108,11 +108,13 @@ export const API_ENDPOINTS = {
     tutores: {
       register: `${API_BASE_URL}/api/auth/tutores/register`,
       login: `${API_BASE_URL}/api/auth/tutores/login`,
+      correoDisponible: `${API_BASE_URL}/api/auth/tutores/correo-disponible`,
       uploadFotoPerfil: `${API_BASE_URL}/api/tutores/auth/upload-foto-perfil`
     },
     paseadores: {
       register: `${API_BASE_URL}/api/paseadores/auth/register`,
       login: `${API_BASE_URL}/api/paseadores/auth/login`,
+      correoDisponible: `${API_BASE_URL}/api/paseadores/auth/correo-disponible`,
       uploadFotoPerfil: `${API_BASE_URL}/api/paseadores/auth/upload-foto-perfil`,
       /** Catálogo público (sin JWT). */
       publicTamanos: `${API_BASE_URL}/api/paseadores/public/tamanos`,
@@ -121,6 +123,9 @@ export const API_ENDPOINTS = {
       /** Verificación de identidad del paseador autenticado. */
       meVerificacion: `${API_BASE_URL}/api/paseadores/me/verificacion`,
       meVerificacionDocumento: `${API_BASE_URL}/api/paseadores/me/verificacion/documento`,
+      mePerfil: `${API_BASE_URL}/api/paseadores/me/perfil`,
+      meFotoPerfil: `${API_BASE_URL}/api/paseadores/me/foto-perfil`,
+      meContrasena: `${API_BASE_URL}/api/paseadores/me/contrasena`,
       /**
        * Búsqueda pública por proximidad (Haversine + radio de cobertura). Query params obligatorios:
        * latitudReferencia, longitudReferencia; opcionales: radioBusquedaMaxKm, limite, y filtro agenda
@@ -130,6 +135,8 @@ export const API_ENDPOINTS = {
       /** GET perfil público mínimo (solicitud paseo / tutor). */
       publicPerfil: (idPaseador: number) =>
         `${API_BASE_URL}/api/paseadores/public/${idPaseador}`,
+      publicResumen: (idPaseador: number) =>
+        `${API_BASE_URL}/api/paseadores/public/${idPaseador}/resumen`,
       publicConfiguracion: (idPaseador: number) =>
         `${API_BASE_URL}/api/paseadores/public/${idPaseador}/configuracion`
     }
@@ -139,6 +146,7 @@ export const API_ENDPOINTS = {
     base: `${API_BASE_URL}/api/mascotas`,
     mias: `${API_BASE_URL}/api/mascotas/mias`,
     byId: (idMascota: number) => `${API_BASE_URL}/api/mascotas/${idMascota}`,
+    fotoPerfil: (idMascota: number) => `${API_BASE_URL}/api/mascotas/${idMascota}/foto-perfil`,
     especies: `${API_BASE_URL}/api/mascotas/especies`,
     razas: (especieId?: number) =>
       especieId != null
@@ -166,6 +174,9 @@ export const API_ENDPOINTS = {
   /** Perfil tutor (JWT en cookie vía gateway). */
   tutores: {
     byId: (idTutor: number) => `${API_BASE_URL}/api/tutores/${idTutor}`,
+    mePerfil: `${API_BASE_URL}/api/tutores/me/perfil`,
+    meFotoPerfil: `${API_BASE_URL}/api/tutores/me/foto-perfil`,
+    meContrasena: `${API_BASE_URL}/api/tutores/me/contrasena`,
     bookings: `${API_BASE_URL}/api/tutor/bookings`
   },
   bookings: {
@@ -200,6 +211,7 @@ export const API_ENDPOINTS = {
   },
   /** Web Push del chat (notification-service vía gateway). */
   notificaciones: {
+    dispararEvento: `${API_BASE_URL}/api/notificaciones/disparar-evento`,
     push: {
       vapidPublicKey: `${API_BASE_URL}/api/notificaciones/push/vapid-public-key`,
       suscripciones: `${API_BASE_URL}/api/notificaciones/push/suscripciones`

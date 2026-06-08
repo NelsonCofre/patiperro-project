@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   max-width: 1180px;
   margin: 0 auto;
   padding: 18px 28px;
@@ -22,6 +22,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .brandIcon {
@@ -58,33 +59,46 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
 }
 
 .link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   color: #334155;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   text-decoration: none;
   transition:
     color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
     transform 160ms ease;
 }
 
 .link:hover {
   color: #2f7d35;
+  border-color: #d7ead9;
+  background: rgba(235, 248, 236, 0.72);
   transform: translateY(-1px);
 }
 
 .linkActive {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 44px;
+  padding: 0 14px;
   border-radius: 999px;
   color: #24512d;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 800;
   border: 1px solid #a8d8ae;
   background: #d7f0db;
@@ -93,18 +107,43 @@
 
 .linkActive:hover {
   color: #24512d;
-  transform: translateY(-2px);
+  background: #d7f0db;
+  transform: translateY(-1px);
+}
+
+.linkWithBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chatBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  background: #0f766e;
+  box-shadow: 0 6px 14px rgba(15, 118, 110, 0.24);
 }
 
 .logoutButton {
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 14px;
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 999px;
   color: #991b1b;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   background: #fff7f7;
   transition:
@@ -119,15 +158,14 @@
   transform: translateY(-1px);
 }
 
-@media (max-width: 840px) {
+@media (max-width: 960px) {
   .headerInner {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
   .nav {
-    width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 }
 
@@ -144,21 +182,17 @@
   .nav {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
   }
 
   .link,
   .linkActive,
   .logoutButton {
     width: 100%;
-    text-align: center;
+    justify-content: center;
   }
 
-  .link,
-  .logoutButton {
-    display: inline-flex;
-    align-items: center;
+  .linkWithBadge {
     justify-content: center;
-    min-height: 44px;
   }
 }

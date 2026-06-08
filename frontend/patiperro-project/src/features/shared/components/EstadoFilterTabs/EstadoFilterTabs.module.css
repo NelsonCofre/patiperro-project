@@ -1,0 +1,81 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #d8e7da;
+  border-radius: 999px;
+  color: #475569;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.92);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.tab:hover {
+  transform: translateY(-1px);
+  border-color: #a8d8ae;
+  box-shadow: 0 10px 20px rgba(47, 125, 53, 0.08);
+}
+
+.tabActive {
+  color: #163020;
+  border-color: #7bc384;
+  background: linear-gradient(180deg, #ecfdf3 0%, #d7f0db 100%);
+  box-shadow:
+    0 10px 22px rgba(47, 125, 53, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.tabLabel {
+  line-height: 1.2;
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #24512d;
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(126, 170, 129, 0.35);
+}
+
+.tabActive .tabCount {
+  color: #ffffff;
+  background: #2f7d35;
+  border-color: #2f7d35;
+}
+
+@media (max-width: 640px) {
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .tab {
+    flex-shrink: 0;
+  }
+}

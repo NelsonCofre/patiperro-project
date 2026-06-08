@@ -5,6 +5,8 @@ import com.patiperro.tutores.auth.dto.LoginRequestDTO;
 import com.patiperro.tutores.auth.dto.LoginResponseDTO;
 import com.patiperro.tutores.auth.dto.RegisterRequestDTO;
 import com.patiperro.tutores.auth.exception.InvalidCredentialsException;
+import com.patiperro.tutores.auth.support.CorreoRegistroSupport;
+import com.patiperro.tutores.auth.support.PaseadorCorreoRegistroClient;
 import com.patiperro.tutores.user.model.Direccion;
 import com.patiperro.tutores.user.model.Foto;
 import com.patiperro.tutores.user.model.Tutor;
@@ -30,13 +32,15 @@ public class AuthService {
     private final FotoRepository fotoRepository;
     private final PasswordEncoder passwordEncoder;
     private final NominatimGeocodingService nominatimGeocodingService;
+    private final PaseadorCorreoRegistroClient paseadorCorreoRegistroClient;
 
     // Flujo login:
     // 1) Buscar tutor por correo.
     // 2) Validar contrasena.
     // 3) Retornar respuesta de login.
     public LoginResponseDTO login(LoginRequestDTO request) {
-        Tutor tutor = tutorRepository.findByCorreo(request.getCorreo())
+        String correo = CorreoRegistroSupport.normalizar(request.getCorreo());
+        Tutor tutor = tutorRepository.findByCorreoIgnoreCase(correo)
                 .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.getContrasena(), tutor.getContrasena())) {
@@ -54,9 +58,8 @@ public class AuthService {
     @Transactional
     @SuppressWarnings("null")
     public LoginResponseDTO register(RegisterRequestDTO request) {
-        if (tutorRepository.existsByCorreo(request.getCorreo())) {
-            throw new IllegalArgumentException("El correo ya está registrado");
-        }
+        String correo = CorreoRegistroSupport.normalizar(request.getCorreo());
+        assertCorreoDisponibleParaRegistro(correo);
 
         Direccion direccion = null;
         if (hasDireccionData(request)) {
@@ -81,7 +84,7 @@ public class AuthService {
                 .apellidoMaterno(request.getApellidoMaterno())
                 .fechaNacimiento(request.getFechaNacimiento())
                 .telefono(request.getTelefono())
-                .correo(request.getCorreo())
+                .correo(correo)
                 .contrasena(passwordEncoder.encode(request.getContrasena()))
                 .fotoPerfil(request.getFotoPerfil())
                 .biografia(request.getBiografia())
@@ -102,6 +105,19 @@ public class AuthService {
         String nombreCompleto = tutor.getPrimerNombre() + " " + tutor.getApellidoPaterno();
 
         return new LoginResponseDTO("Registro exitoso", tutor.getCorreo(), tutor.getId(), null, nombreCompleto);
+    }
+
+    /** Comprueba tutor + paseador (integración interna). */
+    public boolean correoDisponible(String correoRaw) {
+        String correo = CorreoRegistroSupport.normalizar(correoRaw);
+        return !tutorRepository.existsByCorreoIgnoreCase(correo)
+                && !paseadorCorreoRegistroClient.existeCorreo(correo);
+    }
+
+    private void assertCorreoDisponibleParaRegistro(String correoNormalizado) {
+        if (!correoDisponible(correoNormalizado)) {
+            throw new IllegalArgumentException("El correo ya está registrado");
+        }
     }
 
     private Set<String> collectGaleriaUrls(RegisterRequestDTO request) {

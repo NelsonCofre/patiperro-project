@@ -1,7 +1,26 @@
-.imagePreviewPanel {
-  padding: 0 22px 12px;
-  border-top: 1px solid #eef2f7;
+.composerShell {
+  flex: 0 0 auto;
+  min-height: 0;
+  border-top: 1px solid #e2e8f0;
   background: #ffffff;
+}
+
+.composerShellWithPreview {
+  max-height: min(44dvh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composer {
+  display: grid;
+  gap: 8px;
+  padding: 14px 20px 16px;
+}
+
+.imagePreviewPanel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
 }
 
 .imagePreviewHeader {
@@ -9,15 +28,17 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
+  min-width: 0;
 }
 
 .imagePreviewHeader strong {
   color: #0f172a;
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .imagePreviewHeader button {
+  flex: 0 0 auto;
   min-height: 32px;
   padding: 0 12px;
   border: 1px solid #fecaca;
@@ -31,15 +52,32 @@
 
 .imagePreviewBody {
   display: grid;
-  gap: 10px;
+  grid-template-columns: min(112px, 24vw) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
 }
 
-.imagePreviewBody img {
-  width: min(220px, 100%);
+.imagePreviewThumb {
+  width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
   border-radius: 8px;
+  overflow: hidden;
   border: 1px solid #dbe4ee;
+  background: #f8fafc;
+}
+
+.imagePreviewThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePreviewFields {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .imageCommentLabel {
@@ -49,48 +87,43 @@
 }
 
 .imageCommentInput {
+  width: 100%;
   min-height: 72px;
+  max-height: 96px;
   resize: vertical;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #0f172a;
   font: inherit;
   line-height: 1.5;
   background: #ffffff;
-}
-
-.composer {
-  position: sticky;
-  bottom: 0;
-  display: grid;
-  gap: 10px;
-  padding: 18px 22px 20px;
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
+  box-sizing: border-box;
 }
 
 .composerTopRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .composerLabel {
   color: #0f172a;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 
 .cameraButton {
-  min-height: 34px;
+  flex: 0 0 auto;
+  min-height: 32px;
   padding: 0 12px;
   border: 1px solid #99f6e4;
   border-radius: 999px;
   color: #115e59;
   font: inherit;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
   background: #f0fdfa;
@@ -106,15 +139,18 @@
 }
 
 .textarea {
-  min-height: 104px;
+  width: 100%;
+  min-height: 72px;
+  max-height: 160px;
   resize: vertical;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #0f172a;
   font: inherit;
   line-height: 1.5;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 .textarea:focus {
@@ -126,19 +162,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .helperText {
+  flex: 1 1 180px;
+  min-width: 0;
   color: #64748b;
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .sendButton {
-  min-width: 120px;
-  min-height: 42px;
-  padding: 0 18px;
+  flex: 0 0 auto;
+  min-width: 112px;
+  min-height: 40px;
+  padding: 0 16px;
   border: none;
   border-radius: 8px;
   color: #ffffff;
@@ -153,13 +193,65 @@
   opacity: 0.55;
 }
 
-@media (max-width: 720px) {
-  .composer,
-  .imagePreviewPanel {
+@media (max-width: 1100px), (max-height: 860px) {
+  .composer {
     padding-left: 16px;
     padding-right: 16px;
   }
 
+  .composerShellWithPreview {
+    max-height: min(40dvh, 300px);
+  }
+
+  .textarea {
+    min-height: 64px;
+    max-height: 120px;
+  }
+
+  .helperText {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-height: 720px) {
+  .composer {
+    padding-top: 10px;
+    padding-bottom: 12px;
+    gap: 6px;
+  }
+
+  .composerShellWithPreview {
+    max-height: min(38dvh, 260px);
+  }
+
+  .textarea {
+    min-height: 56px;
+    max-height: 96px;
+  }
+
+  .imagePreviewBody {
+    grid-template-columns: min(96px, 22vw) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .imageCommentInput {
+    min-height: 56px;
+    max-height: 80px;
+  }
+}
+
+@media (max-width: 520px) {
+  .imagePreviewBody {
+    grid-template-columns: 1fr;
+  }
+
+  .imagePreviewThumb {
+    width: min(160px, 100%);
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
   .composerFooter {
     flex-direction: column;
     align-items: stretch;

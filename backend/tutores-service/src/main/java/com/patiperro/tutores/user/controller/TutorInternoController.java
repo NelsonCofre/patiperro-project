@@ -1,5 +1,7 @@
 package com.patiperro.tutores.user.controller;
 
+import com.patiperro.tutores.auth.support.CorreoRegistroSupport;
+import com.patiperro.tutores.user.repository.TutorRepository;
 import com.patiperro.tutores.user.service.TutorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Lecturas internas para otros microservicios (cabecera secreta, sin JWT). */
@@ -21,9 +24,27 @@ public class TutorInternoController {
     public static final String HEADER_INTERNO = "X-Patiperro-Interno-Secret";
 
     private final TutorService tutorService;
+    private final TutorRepository tutorRepository;
 
     @Value("${patiperro.tutores.interno.secret:}")
     private String internoSecret;
+
+    @GetMapping("/correo/existe")
+    public ResponseEntity<CorreoExisteResponse> correoExiste(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestParam("correo") String correo) {
+        if (!StringUtils.hasText(internoSecret)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        if (!internoSecret.equals(secretoHeader)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (!StringUtils.hasText(correo)) {
+            return ResponseEntity.badRequest().build();
+        }
+        String normalizado = CorreoRegistroSupport.normalizar(correo);
+        return ResponseEntity.ok(new CorreoExisteResponse(tutorRepository.existsByCorreoIgnoreCase(normalizado)));
+    }
 
     @GetMapping("/{id}/correo")
     public ResponseEntity<TutorCorreoResponse> obtenerCorreo(
@@ -45,5 +66,8 @@ public class TutorInternoController {
     }
 
     public record TutorCorreoResponse(String correo) {
+    }
+
+    public record CorreoExisteResponse(boolean existe) {
     }
 }

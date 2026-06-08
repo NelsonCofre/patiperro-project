@@ -60,7 +60,7 @@ export function validateAgendaBlockForm(
   }
 
   if (!form.endTime) {
-    errors.endTime = "Selecciona una hora de termino.";
+    errors.endTime = "Selecciona una hora de término.";
   }
 
   if (form.fecha && normalizeDate(form.fecha) < getTodayIsoDate()) {
@@ -69,7 +69,7 @@ export function validateAgendaBlockForm(
 
   if (form.startTime && form.endTime) {
     if (timeToMinutes(form.endTime) <= timeToMinutes(form.startTime)) {
-      errors.endTime = "La hora de termino debe ser posterior a la hora de inicio";
+      errors.endTime = "La hora de término debe ser posterior a la hora de inicio";
     }
   }
 
@@ -86,7 +86,7 @@ export function validateBlockRangeForm(
   }
 
   if (!form.fecha_fin) {
-    errors.fecha_fin = "Selecciona la fecha de termino.";
+    errors.fecha_fin = "Selecciona la fecha de término.";
   }
 
   if (form.fecha_inicio && normalizeDate(form.fecha_inicio) < getTodayIsoDate()) {
@@ -102,7 +102,7 @@ export function validateBlockRangeForm(
     form.fecha_fin &&
     normalizeDate(form.fecha_fin) < normalizeDate(form.fecha_inicio)
   ) {
-    errors.fecha_fin = "La fecha de termino debe ser igual o posterior a la fecha de inicio.";
+    errors.fecha_fin = "La fecha de término debe ser igual o posterior a la fecha de inicio.";
   }
 
   return errors;

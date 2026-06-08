@@ -18,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
@@ -67,14 +68,11 @@ public class ComprobantePagoService {
 
         Optional<ComprobantePagoResponse> desdeSnapshot = leerSnapshotSiCorresponde(idReserva, tutorId,
                 r.idTutorUsuario());
-        if (desdeSnapshot.isPresent()) {
-            return desdeSnapshot.get();
-        }
-
-        return construccionService
+        ComprobantePagoResponse dto = desdeSnapshot.orElseGet(() -> construccionService
                 .construirSiHayPagoAprobado(r, idReserva)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
-                        "No existe pago aprobado para esta reserva"));
+                        "No existe pago aprobado para esta reserva")));
+        return aplicarNombreMascotaDesdeReserva(dto, r);
     }
 
     public String obtenerHtmlParaTutor(Long idReserva, Authentication authentication) {
@@ -153,5 +151,41 @@ public class ComprobantePagoService {
             }
         }
         return null;
+    }
+
+    private static boolean esNombreMascotaPlaceholder(String nombre) {
+        if (!StringUtils.hasText(nombre)) {
+            return true;
+        }
+        return nombre.trim().matches("(?i)Mascota\\s*#\\d+");
+    }
+
+    private static ComprobantePagoResponse aplicarNombreMascotaDesdeReserva(
+            ComprobantePagoResponse dto, ReservaComprobanteDto reserva) {
+        if (dto == null || reserva == null || !esNombreMascotaPlaceholder(dto.mascotaNombre())) {
+            return dto;
+        }
+        String nombreReserva = reserva.mascotaNombre();
+        if (!StringUtils.hasText(nombreReserva) || esNombreMascotaPlaceholder(nombreReserva)) {
+            return dto;
+        }
+        return new ComprobantePagoResponse(
+                dto.tipoDocumento(),
+                dto.disclaimerLegal(),
+                dto.idReserva(),
+                dto.idOrden(),
+                dto.idTransaccionExterna(),
+                dto.fechaHoraOperacion(),
+                dto.paseadorNombre(),
+                nombreReserva.trim(),
+                dto.fechaPaseo(),
+                dto.horaInicio(),
+                dto.horaFinal(),
+                dto.duracionMinutos(),
+                dto.moneda(),
+                dto.montoTotal(),
+                dto.comisionApp(),
+                dto.montoNeto(),
+                dto.estadoFondos());
     }
 }

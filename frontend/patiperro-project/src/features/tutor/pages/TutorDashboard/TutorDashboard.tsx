@@ -64,7 +64,7 @@ export default function TutorDashboard() {
   if (!noFilterMatches) {
     return {
       title: "No hay paseadores en esta zona",
-      message: "Prueba ampliando el radio o ajustando los filtros de busqueda."
+      message: "Prueba ampliando el radio o ajustando los filtros de búsqueda."
     };
   }
 
@@ -93,7 +93,7 @@ export default function TutorDashboard() {
 
   return {
     title: "No encontramos paseadores disponibles",
-    message: "Intenta limpiar los filtros o ajustar tus criterios de busqueda."
+    message: "Intenta limpiar los filtros o ajustar tus criterios de búsqueda."
   };
 };
 
@@ -101,11 +101,11 @@ export default function TutorDashboard() {
 
   const locationMessage =
     locationStatus === "requesting"
-      ? "Solicitando ubicacion..."
+      ? "Solicitando ubicación..."
       : locationStatus === "granted" && coordinates
-        ? `Ubicacion detectada: ${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}`
+        ? `Ubicación detectada: ${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}`
         : locationStatus === "idle"
-          ? "Puedes usar tu ubicacion actual o ingresar una direccion manual."
+          ? "Puedes usar tu ubicación actual o ingresar una dirección manual."
           : locationError;
 
   return (
@@ -118,7 +118,7 @@ export default function TutorDashboard() {
           <p className={styles.eyebrow}>Home del Tutor</p>
           <h1 className={styles.title}>Encuentra paseadores disponibles cerca de tu perro</h1>
           <p className={styles.description}>
-            Revisa paseadores cercanos por distancia y biografia, y elige con mas confianza.
+            Revisa paseadores cercanos por distancia y biografía, y elige con más confianza.
           </p>
 
           <div className={styles.heroActions}>
@@ -132,8 +132,8 @@ export default function TutorDashboard() {
         </div>
 
         <aside className={styles.locationPanel}>
-          <span className={styles.locationLabel}>Ubicacion del tutor</span>
-          <strong>{locationStatus === "granted" ? "Buscando cerca de ti" : "Define tu ubicacion"}</strong>
+          <span className={styles.locationLabel}>Ubicación del tutor</span>
+          <strong>{locationStatus === "granted" ? "Buscando cerca de ti" : "Define tu ubicación"}</strong>
           <p>{locationMessage}</p>
           <div className={styles.locationActions}>
             <button
@@ -141,7 +141,7 @@ export default function TutorDashboard() {
               onClick={requestTutorLocation}
               disabled={locationStatus === "requesting"}
             >
-              {locationStatus === "requesting" ? "Solicitando..." : "Usar mi ubicacion"}
+              {locationStatus === "requesting" ? "Solicitando..." : "Usar mi ubicación"}
             </button>
           </div>
         </aside>
@@ -150,7 +150,7 @@ export default function TutorDashboard() {
       {/* --- RESUMEN RÁPIDO --- */}
       <section className={styles.summaryGrid}>
         <article className={styles.summaryCard}>
-          <span>Radio de busqueda</span>
+          <span>Radio de búsqueda</span>
           <strong>{needsReferencePoint ? "—" : `${searchRadiusKm} km`}</strong>
         </article>
         <article className={styles.summaryCard}>
@@ -237,9 +237,9 @@ export default function TutorDashboard() {
           <article className={styles.emptyState}>
             <div className={styles.emptyIllustration}>?</div>
             <div>
-              <h3>Activa tu ubicacion para ver el mapa</h3>
+              <h3>Activa tu ubicación para ver el mapa</h3>
               <button type="button" className={styles.primaryButton} onClick={requestTutorLocation}>
-                Usar mi ubicacion
+                Usar mi ubicación
               </button>
             </div>
           </article>
@@ -247,7 +247,7 @@ export default function TutorDashboard() {
           hasResults && hasMore && (
             <div className={styles.loadMoreRow}>
               <button type="button" className={styles.secondaryButton} onClick={loadMore}>
-                Cargar mas paseadores
+                Cargar más paseadores
               </button>
             </div>
           )

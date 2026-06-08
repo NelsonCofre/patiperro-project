@@ -6,6 +6,9 @@ import com.patiperro.reserva.model.EstadoReserva;
 import com.patiperro.reserva.model.EstadoReservaCatalogo;
 import com.patiperro.reserva.model.Reserva;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class ReservaDtoMapper {
 
     private ReservaDtoMapper() {}
@@ -64,6 +67,8 @@ public final class ReservaDtoMapper {
         EstadoReserva estado = r.getEstadoReserva();
         String nombreTutorUi = nombreTutorParaDetalle(tutor, r.getIdTutorUsuario());
         String correoTutorUi = tutor != null ? tutor.getCorreo() : "sin-correo@patiperro.cl";
+        String comuna = comunaTutor(tutor);
+        String direccionReferencia = direccionReferenciaTutor(tutor, r.getIdAgendaBloque());
         return new ReservaTutorDetalleResponseDTO(
                 r.getIdReserva(),
                 r.getIdTutorUsuario(),
@@ -89,7 +94,45 @@ public final class ReservaDtoMapper {
                 r.getCodigoEncuentroExpiraEn(),
                 r.getMotivoRechazo(),
                 r.getDetalleRechazo(),
-                puedeReintentarPago);
+                puedeReintentarPago,
+                comuna,
+                direccionReferencia,
+                paseador != null ? paseador.getFotoPerfil() : null);
+    }
+
+    private static String comunaTutor(TutorReservaClientDTO tutor) {
+        if (tutor == null || tutor.getDireccion() == null) {
+            return null;
+        }
+        String comuna = tutor.getDireccion().getComuna();
+        return comuna != null && !comuna.isBlank() ? comuna.trim() : null;
+    }
+
+    private static String direccionReferenciaTutor(TutorReservaClientDTO tutor, Integer idAgendaBloque) {
+        if (tutor != null && tutor.getDireccion() != null) {
+            String linea = lineaDireccionTutor(tutor.getDireccion());
+            if (!linea.isBlank()) {
+                return linea;
+            }
+        }
+        return idAgendaBloque != null ? "Bloque agenda #" + idAgendaBloque : null;
+    }
+
+    private static String lineaDireccionTutor(TutorReservaClientDTO.DireccionTutorClientDTO d) {
+        List<String> partes = new ArrayList<>();
+        if (d.getCalle() != null && !d.getCalle().isBlank()) {
+            partes.add(d.getCalle().trim());
+        }
+        if (d.getNumeracion() != null) {
+            partes.add(String.valueOf(d.getNumeracion()));
+        }
+        if (d.getCasaDepartamento() != null && !d.getCasaDepartamento().isBlank()) {
+            partes.add(d.getCasaDepartamento().trim());
+        }
+        if (d.getCiudad() != null && !d.getCiudad().isBlank()) {
+            partes.add(d.getCiudad().trim());
+        }
+        return String.join(", ", partes);
     }
 
     private static String nombreTutorParaDetalle(TutorReservaClientDTO tutor, Integer idTutorUsuario) {

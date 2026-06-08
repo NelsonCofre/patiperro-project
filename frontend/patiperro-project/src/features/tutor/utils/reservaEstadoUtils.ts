@@ -1,5 +1,14 @@
 import type { ReservaEstadoMeta, ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 
+export type ReservaEstadoKey = ReservaEstadoMeta["key"];
+
+export type TutorReservaFilterKey =
+  | "solicitadas"
+  | "aceptadas"
+  | "en_curso"
+  | "finalizadas"
+  | "cerradas";
+
 function normalizeEstadoName(nombre?: string | null): string {
   return (nombre ?? "")
     .trim()
@@ -9,15 +18,35 @@ function normalizeEstadoName(nombre?: string | null): string {
     .replace(/\s+/g, "_");
 }
 
-export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEstadoReserva" | "nombreEstado">): ReservaEstadoMeta {
+export function getReservaEstadoMeta(
+  reserva: Pick<ReservaTutorDetalleDTO, "idEstadoReserva" | "nombreEstado">
+): ReservaEstadoMeta {
   const normalized = normalizeEstadoName(reserva.nombreEstado);
   const id = reserva.idEstadoReserva;
+
+  if (id === 7 || normalized.includes("pendiente_pago") || normalized.includes("pending_payment")) {
+    return {
+      key: "pendiente_pago",
+      label: "Pendiente de pago",
+      helper: "Completa el checkout para confirmar la reserva",
+      className: "statusPendientePago"
+    };
+  }
+
+  if (id === 8 || (normalized.includes("pagad") && !normalized.includes("pendiente"))) {
+    return {
+      key: "pagada",
+      label: "Pagada",
+      helper: "Esperando respuesta del paseador",
+      className: "statusPagada"
+    };
+  }
 
   if (id === 1 || normalized.includes("solicit")) {
     return {
       key: "solicitada",
       label: "Solicitada",
-      helper: "Esperando respuesta",
+      helper: "Esperando respuesta del paseador",
       className: "statusSolicitada"
     };
   }
@@ -26,7 +55,7 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
     return {
       key: "aceptada",
       label: "Aceptada",
-      helper: "Pendiente de pago o ejecucion",
+      helper: "Lista para el encuentro o el paseo",
       className: "statusAceptada"
     };
   }
@@ -34,8 +63,8 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
   if (id === 4 || normalized.includes("curso")) {
     return {
       key: "en_curso",
-      label: "En Curso",
-      helper: "Paseo realizandose",
+      label: "En curso",
+      helper: "Paseo en progreso ahora",
       className: "statusEnCurso"
     };
   }
@@ -53,7 +82,7 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
     return {
       key: "rechazada",
       label: "Rechazada",
-      helper: "Solicitud no aceptada",
+      helper: "El paseador no aceptó la solicitud",
       className: "statusRechazada"
     };
   }
@@ -62,8 +91,17 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
     return {
       key: "cancelada",
       label: "Cancelada",
-      helper: "Solicitud retirada por ti",
+      helper: "Solicitud retirada",
       className: "statusRechazada"
+    };
+  }
+
+  if (id === 9 || normalized.includes("expir")) {
+    return {
+      key: "expirada",
+      label: "Expirada",
+      helper: "La reserva vencio sin completarse",
+      className: "statusExpirada"
     };
   }
 
@@ -75,8 +113,31 @@ export function getReservaEstadoMeta(reserva: Pick<ReservaTutorDetalleDTO, "idEs
   };
 }
 
+export function matchesTutorReservaFilter(
+  filter: TutorReservaFilterKey,
+  reserva: ReservaTutorDetalleDTO
+): boolean {
+  const key = getReservaEstadoMeta(reserva).key;
+
+  switch (filter) {
+    case "solicitadas":
+      return key === "solicitada" || key === "pendiente_pago" || key === "pagada";
+    case "aceptadas":
+      return key === "aceptada";
+    case "en_curso":
+      return key === "en_curso";
+    case "finalizadas":
+      return key === "finalizada";
+    case "cerradas":
+      return key === "rechazada" || key === "cancelada" || key === "expirada";
+    default:
+      return true;
+  }
+}
+
 export function isReservaSolicitada(reserva: ReservaTutorDetalleDTO): boolean {
-  return getReservaEstadoMeta(reserva).key === "solicitada";
+  const key = getReservaEstadoMeta(reserva).key;
+  return key === "solicitada" || key === "pendiente_pago" || key === "pagada";
 }
 
 export function isReservaFinalizada(reserva: ReservaTutorDetalleDTO): boolean {
@@ -111,4 +172,24 @@ export function formatReservaMoney(value?: number | null): string {
     currency: "CLP",
     maximumFractionDigits: 0
   }).format(value);
+}
+
+export function formatDireccionEncuentro(
+  comuna?: string | null,
+  direccionReferencia?: string | null
+): string {
+  const comunaLabel = comuna?.trim();
+  const direccion = direccionReferencia?.trim();
+
+  if (direccion && comunaLabel) {
+    return `${direccion}, ${comunaLabel}`;
+  }
+  return direccion || comunaLabel || "Dirección no disponible";
+}
+
+export function tieneDireccionEncuentro(
+  comuna?: string | null,
+  direccionReferencia?: string | null
+): boolean {
+  return Boolean(comuna?.trim() || direccionReferencia?.trim());
 }

@@ -59,10 +59,26 @@ class EstadoVerificacionIdentidadTest {
     }
 
     @Test
-    void mensajeBloqueoSubida_soloEnProcesoYAprobado() {
+    void mensajeBloqueoSubida_soloEnProceso() {
         assertTrue(EstadoVerificacionIdentidad.EN_PROCESO.mensajeBloqueoSubida().isPresent());
-        assertTrue(EstadoVerificacionIdentidad.APROBADO.mensajeBloqueoSubida().isPresent());
+        assertTrue(EstadoVerificacionIdentidad.APROBADO.mensajeBloqueoSubida().isEmpty());
         assertTrue(EstadoVerificacionIdentidad.SIN_ENVIAR.mensajeBloqueoSubida().isEmpty());
         assertTrue(EstadoVerificacionIdentidad.RECHAZADO.mensajeBloqueoSubida().isEmpty());
+    }
+
+    @Test
+    void puedeCambiarDocumento_soloAprobado() {
+        assertTrue(EstadoVerificacionIdentidad.APROBADO.puedeCambiarDocumento());
+        assertFalse(EstadoVerificacionIdentidad.SIN_ENVIAR.puedeCambiarDocumento());
+        assertFalse(EstadoVerificacionIdentidad.EN_PROCESO.puedeCambiarDocumento());
+        assertFalse(EstadoVerificacionIdentidad.RECHAZADO.puedeCambiarDocumento());
+    }
+
+    @Test
+    void puedeEnviarDocumento_bloqueaSoloEnProceso() {
+        assertFalse(EstadoVerificacionIdentidad.EN_PROCESO.puedeEnviarDocumento());
+        assertTrue(EstadoVerificacionIdentidad.SIN_ENVIAR.puedeEnviarDocumento());
+        assertTrue(EstadoVerificacionIdentidad.RECHAZADO.puedeEnviarDocumento());
+        assertTrue(EstadoVerificacionIdentidad.APROBADO.puedeEnviarDocumento());
     }
 }

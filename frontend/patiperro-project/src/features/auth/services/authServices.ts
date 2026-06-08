@@ -22,6 +22,46 @@ function readApiErrorMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+export type CorreoDisponibleResponse = {
+  disponible: boolean;
+  mensaje?: string;
+};
+
+async function parseCorreoDisponible(response: Response): Promise<CorreoDisponibleResponse> {
+  let data: unknown = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo validar el correo."));
+  }
+  const row = (data ?? {}) as { disponible?: boolean; mensaje?: string };
+  return {
+    disponible: row.disponible === true,
+    mensaje: row.mensaje?.trim() || undefined
+  };
+}
+
+export async function fetchCorreoDisponibleTutor(correo: string): Promise<CorreoDisponibleResponse> {
+  const params = new URLSearchParams({ correo: correo.trim() });
+  const response = await fetch(`${API_ENDPOINTS.auth.tutores.correoDisponible}?${params}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  return parseCorreoDisponible(response);
+}
+
+export async function fetchCorreoDisponiblePaseador(correo: string): Promise<CorreoDisponibleResponse> {
+  const params = new URLSearchParams({ correo: correo.trim() });
+  const response = await fetch(`${API_ENDPOINTS.auth.paseadores.correoDisponible}?${params}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  return parseCorreoDisponible(response);
+}
+
 export type RegisterTutorPayload = {
   rut: string;
   primerNombre: string;
@@ -232,6 +272,7 @@ export async function loginTutor(credentials: {
   correo: string;
   contrasena: string;
 }): Promise<AuthResponse> {
+  clearAuthSession();
   const response = await fetch(API_ENDPOINTS.auth.tutores.login, {
     method: "POST",
     headers: {
@@ -282,6 +323,7 @@ export async function loginPaseador(credentials: {
   correo: string;
   contrasena: string;
 }): Promise<AuthResponse> {
+  clearAuthSession();
   const response = await fetch(API_ENDPOINTS.auth.paseadores.login, {
     method: "POST",
     headers: {

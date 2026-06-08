@@ -8,7 +8,6 @@ import com.patiperro.mascota.model.Mascota;
 import com.patiperro.mascota.model.Raza;
 import com.patiperro.mascota.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -36,28 +35,32 @@ public class MascotaService {
     // =========================================================================
 
     @Transactional
-    public Mascota registrarMascota(@NonNull Mascota mascota, @NonNull Long idTutorSesion) {
+    public Mascota registrarMascota(Mascota mascota, Long idTutorSesion) {
         mascota.setIdMascota(null); // Vigilancia: Evita que el usuario fuerce un ID existente //
         mascota.setIdTutor(idTutorSesion); // Seguridad: Vincula la mascota al tutor logueado automáticamente //
         mascota.getFotos().clear(); // Integridad: El registro inicial no debe traer fotos previas //
         mascota.setFotoPerfil(null); // Foto solo vía PATCH/POST /foto-perfil (multipart validado) //
         enlazarCatalogo(mascota); // Validación: Cruza datos con las tablas maestras //
-        return mascotaRepository.save(mascota);
+        Mascota guardada = mascotaRepository.save(mascota);
+        return recargarPerfilParaRespuesta(guardada.getIdMascota());
     }
 
-    public List<Mascota> listarPorTutorAutorizado(Long idTutorEnUrl, @NonNull Long idTutorSesion) {
+    @Transactional(readOnly = true)
+    public List<Mascota> listarPorTutorAutorizado(Long idTutorEnUrl, Long idTutorSesion) {
         if (!idTutorEnUrl.equals(idTutorSesion)) { // Bloqueo de seguridad: Evita ver mascotas de otros tutores //
             throw new ForbiddenOperationException("Solo puede consultar sus propias mascotas");
         }
         return mascotaRepository.findByIdTutor(idTutorSesion);
     }
 
-    public List<Mascota> listarMisMascotas(@NonNull Long idTutorSesion) {
+    @Transactional(readOnly = true)
+    public List<Mascota> listarMisMascotas(Long idTutorSesion) {
         return mascotaRepository.findByIdTutor(idTutorSesion); // Recuperada: Obtiene la lista directa de la sesión //
     }
 
-    public Mascota obtenerPerfil(Long idMascota, @NonNull Long idTutorSesion) {
-        Mascota m = mascotaRepository.findById(idMascota)
+    @Transactional(readOnly = true)
+    public Mascota obtenerPerfil(Long idMascota, Long idTutorSesion) {
+        Mascota m = mascotaRepository.findPerfilById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(m, idTutorSesion); // Vigilancia: Valida que el solicitante sea el dueño real //
         return m;
@@ -68,7 +71,7 @@ public class MascotaService {
     // =========================================================================
 
     @Transactional
-    public Mascota actualizarMascota(Long idMascota, @NonNull Mascota body, @NonNull Long idTutorSesion) {
+    public Mascota actualizarMascota(Long idMascota, Mascota body, Long idTutorSesion) {
         Mascota existente = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(existente, idTutorSesion); // Vigilancia de integridad //
@@ -86,7 +89,8 @@ public class MascotaService {
         // fotoPerfil: no se actualiza por PUT; usar MascotaPerfilFotoController (multipart).
 
         enlazarCatalogoParaActualizar(existente, body); // Re-validación de integridad de catálogos //
-        return mascotaRepository.save(existente);
+        Mascota guardada = mascotaRepository.save(existente);
+        return recargarPerfilParaRespuesta(guardada.getIdMascota());
     }
 
     /**
@@ -94,7 +98,7 @@ public class MascotaService {
      * el archivo anterior solo si fue generado por este servicio.
      */
     @Transactional
-    public Mascota actualizarFotoPerfil(Long idMascota, MultipartFile file, @NonNull Long idTutorSesion)
+    public Mascota actualizarFotoPerfil(Long idMascota, MultipartFile file, Long idTutorSesion)
             throws IOException {
         Mascota mascota = obtenerPerfil(idMascota, idTutorSesion);
         String urlAnterior = mascota.getFotoPerfil();
@@ -106,7 +110,7 @@ public class MascotaService {
             Mascota guardada = mascotaRepository.save(mascota);
 
             registrarLimpiezaFotoTrasCommit(urlAnterior, filenameNuevo);
-            return guardada;
+            return recargarPerfilParaRespuesta(guardada.getIdMascota());
         } catch (RuntimeException ex) {
             mascotaFotoStorageService.deleteQuietly(filenameNuevo);
             throw ex;
@@ -114,7 +118,7 @@ public class MascotaService {
     }
 
     @Transactional
-    public void eliminarMascota(Long idMascota, @NonNull Long idTutorSesion) {
+    public void eliminarMascota(Long idMascota, Long idTutorSesion) {
         Mascota m = mascotaRepository.findById(idMascota)
                 .orElseThrow(() -> new IllegalArgumentException("Mascota no encontrada"));
         asegurarPropietario(m, idTutorSesion);
@@ -135,7 +139,7 @@ public class MascotaService {
     // =========================================================================
 
     @Transactional
-    public Foto agregarFoto(Long idMascota, String url, @NonNull Long idTutorSesion) {
+    public Foto agregarFoto(Long idMascota, String url, Long idTutorSesion) {
         Mascota mascota = obtenerPerfil(idMascota, idTutorSesion);
         Foto foto = new Foto();
         foto.setUrl(url);
@@ -145,13 +149,13 @@ public class MascotaService {
         return foto;
     }
 
-    public List<Foto> listarFotos(Long idMascota, @NonNull Long idTutorSesion) {
+    public List<Foto> listarFotos(Long idMascota, Long idTutorSesion) {
         obtenerPerfil(idMascota, idTutorSesion); // Validación de permiso de lectura //
         return fotoRepository.findByMascota_IdMascota(idMascota);
     }
 
     @Transactional
-    public void quitarFoto(Long idMascota, Long idFoto, @NonNull Long idTutorSesion) {
+    public void quitarFoto(Long idMascota, Long idFoto, Long idTutorSesion) {
         Mascota m = obtenerPerfil(idMascota, idTutorSesion);
         Foto foto = fotoRepository.findById(idFoto)
                 .orElseThrow(() -> new IllegalArgumentException("Foto no encontrada"));
@@ -167,6 +171,12 @@ public class MascotaService {
     // =========================================================================
     // MÉTODOS DE VIGILANCIA Y APOYO TÉCNICO
     // =========================================================================
+
+    /** Carga especie/raza/tamaño antes de serializar JSON (open-in-view=false). */
+    private Mascota recargarPerfilParaRespuesta(Long idMascota) {
+        return mascotaRepository.findPerfilById(idMascota)
+                .orElseThrow(() -> new IllegalStateException("Mascota no encontrada tras guardar"));
+    }
 
     private void asegurarPropietario(Mascota m, Long idTutorSesion) {
         if (!Objects.equals(m.getIdTutor(), idTutorSesion)) { // Bloqueo de seguridad preventivo //
@@ -280,7 +290,7 @@ public class MascotaService {
      */
     @Transactional(readOnly = true)
     public MascotaInternoDetalleResponse obtenerDetalleParaIntegracion(Long idMascota) {
-        Optional<Mascota> opt = mascotaRepository.findById(idMascota);
+        Optional<Mascota> opt = mascotaRepository.findPerfilById(idMascota);
         if (opt.isEmpty()) {
             return null;
         }

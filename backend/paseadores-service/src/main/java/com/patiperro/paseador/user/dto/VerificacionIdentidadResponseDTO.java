@@ -27,6 +27,10 @@ public class VerificacionIdentidadResponseDTO {
     private String estadoEtiqueta;
     /** false si el paseador debe esperar revisión admin o ya está aprobado. */
     private boolean puedeSubir;
+    /** true si puede reemplazar el PDF ya verificado. */
+    private boolean puedeCambiarDocumento;
+    /** true si el archivo registrado existe en almacenamiento. */
+    private boolean documentoAccesible;
     /**
      * Misma regla que el badge del tutor ({@code esVerificado} en APIs públicas):
      * {@code true} solo si {@code estado == APROBADO}.

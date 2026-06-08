@@ -77,6 +77,7 @@ class BilleteraPaseadorControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.retenido.key").value("retenido"))
                 .andExpect(jsonPath("$.disponible.key").value("disponible"))
+                .andExpect(jsonPath("$.retenido.cantidadReservas").value(0))
                 .andExpect(jsonPath("$.historialLiberacionesDisponible").isArray())
                 .andExpect(jsonPath("$.proyeccionLiberacionesPorDia").isArray());
     }

@@ -7,6 +7,7 @@ import type {
   MascotaForm,
   MascotaListItem
 } from "../types/mascota.types";
+import { validateMascotaPhoto } from "../utils/mascotaValidators";
 
 type ApiErrorBody = { message?: string; mensaje?: string };
 
@@ -260,4 +261,44 @@ export async function updateMascota(
     throw new Error(readApiErrorMessage(data, "No se pudo actualizar la mascota."));
   }
   return normalizeMascotaResponse(data);
+}
+
+export type MascotaFotoPerfilResponse = {
+  idMascota: number;
+  fotoPerfil: string;
+  message?: string;
+};
+
+export async function uploadMascotaFotoPerfil(
+  idMascota: number,
+  file: File
+): Promise<MascotaFotoPerfilResponse> {
+  const validationError = validateMascotaPhoto(file, { required: true });
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const body = new FormData();
+  body.append("file", file);
+
+  const response = await fetch(API_ENDPOINTS.mascotas.fotoPerfil(idMascota), {
+    method: "PATCH",
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() },
+    body
+  });
+  const data = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(readApiErrorMessage(data, "No se pudo actualizar la foto de la mascota."));
+  }
+  const row = (data ?? {}) as { idMascota?: number; fotoPerfil?: string; message?: string };
+  const fotoPerfil = String(row.fotoPerfil ?? "").trim();
+  if (!fotoPerfil) {
+    throw new Error("El servidor no devolvio la nueva foto.");
+  }
+  return {
+    idMascota: Number(row.idMascota ?? idMascota),
+    fotoPerfil,
+    message: typeof row.message === "string" ? row.message : undefined
+  };
 }

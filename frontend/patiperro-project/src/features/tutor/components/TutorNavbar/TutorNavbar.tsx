@@ -1,18 +1,28 @@
 // Navbar del espacio del tutor.
-// Ofrece navegacion directa al home y al flujo de creacion de mascota.
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useChatUnread } from "../../../chat/context/ChatUnreadContext";
 import { clearAuthSession } from "../../../auth/services/authServices";
 import styles from "./TutorNavbar.module.css";
 
-const NAV_ITEMS = [
+type NavItem = {
+  label: string;
+  to: string;
+  end?: boolean;
+  /** Marca activo en subrutas (p. ej. alta/edición de mascota). */
+  activePrefix?: string;
+};
+
+const NAV_ITEMS: NavItem[] = [
   { label: "Inicio", to: "/tutor/dashboard", end: true },
-  { label: "Mis Reservas", to: "/tutor/reservas" },
-  { label: "Mis Mascotas", to: "/tutor/mascotas" },
-  { label: "Anadir Mascota", to: "/tutor/mascota/nueva" }
+  { label: "Reservas", to: "/tutor/reservas" },
+  { label: "Mis mascotas", to: "/tutor/mascotas", activePrefix: "/tutor/mascota" },
+  { label: "Perfil", to: "/tutor/perfil" }
 ];
 
 export default function TutorNavbar() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { unreadCount } = useChatUnread();
 
   const handleLogout = () => {
     clearAuthSession();
@@ -36,15 +46,27 @@ export default function TutorNavbar() {
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) =>
-                `${styles.link} ${isActive ? styles.linkActive : ""}`
-              }
+              className={({ isActive }) => {
+                const active =
+                  isActive ||
+                  (item.activePrefix != null && location.pathname.startsWith(item.activePrefix));
+                return `${styles.link} ${active ? styles.linkActive : ""}`;
+              }}
             >
-              {item.label}
+              {item.label === "Reservas" && unreadCount > 0 ? (
+                <span className={styles.linkWithBadge}>
+                  <span>{item.label}</span>
+                  <span className={styles.chatBadge} aria-label={`${unreadCount} mensajes de chat sin leer`}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                </span>
+              ) : (
+                item.label
+              )}
             </NavLink>
           ))}
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </nav>
       </div>

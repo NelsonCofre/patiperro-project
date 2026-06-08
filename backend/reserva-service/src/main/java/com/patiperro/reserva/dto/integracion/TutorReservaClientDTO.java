@@ -29,5 +29,7 @@ public class TutorReservaClientDTO {
         private String calle;
         private Integer numeracion;
         private String casaDepartamento;
+        private Double latitud;
+        private Double longitud;
     }
 }

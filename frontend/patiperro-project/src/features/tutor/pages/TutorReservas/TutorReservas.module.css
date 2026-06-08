@@ -6,33 +6,16 @@
     linear-gradient(180deg, #f5f8f6 0%, #ffffff 44%, #eef6ee 100%);
 }
 
-.hero,
-.statsGrid,
 .reservasSection {
   max-width: 1180px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.38fr);
-  gap: 22px;
-  align-items: stretch;
-  margin-top: 28px;
-  margin-bottom: 22px;
-  padding: 30px;
+  margin: 28px auto 0;
+  padding: 24px;
   border: 1px solid #dce7dd;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(240, 193, 91, 0.12), transparent 42%),
-    rgba(255, 255, 255, 0.94);
-  box-shadow:
-    0 18px 44px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
 }
 
-.eyebrow,
 .cardEyebrow {
   display: inline-flex;
   width: fit-content;
@@ -50,34 +33,6 @@
   border: 1px solid #dce7dd;
 }
 
-.title {
-  max-width: 760px;
-  margin: 0;
-  color: #163020;
-  font-size: clamp(2.4rem, 4vw, 4.6rem);
-  line-height: 0.96;
-}
-
-.description {
-  max-width: 680px;
-  margin: 18px 0 0;
-  color: #576675;
-  font-size: 1.02rem;
-  line-height: 1.75;
-}
-
-.refreshPanel {
-  display: grid;
-  align-content: center;
-  gap: 10px;
-  padding: 22px;
-  border: 1px solid #d9eadb;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.refreshPanel span,
-.statsGrid span,
 .detailGrid span {
   color: #64748b;
   font-size: 0.82rem;
@@ -85,20 +40,9 @@
   text-transform: uppercase;
 }
 
-.refreshPanel strong {
-  color: #2f7d35;
-  font-size: 1.35rem;
-}
-
-.refreshPanel p {
-  margin: 0;
-  color: #576675;
-  line-height: 1.6;
-}
-
-.refreshPanel button,
 .notice button,
-.modalHeader button {
+.modalHeader button,
+.refreshButton {
   min-height: 40px;
   padding: 0 14px;
   border-radius: 8px;
@@ -109,39 +53,34 @@
   background: #ffffff;
 }
 
-.refreshPanel button:disabled {
+.refreshButton:disabled {
   cursor: wait;
   opacity: 0.62;
 }
 
-.statsGrid {
+.sectionActions {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: 10px;
+  justify-items: end;
 }
 
-.statsGrid article {
-  padding: 18px;
+.refreshMeta {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.modalChatButton {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 12px;
+  border: none;
   border-radius: 8px;
-  border: 1px solid #dce7dd;
-  background: rgba(255, 255, 255, 0.94);
-}
-
-.statsGrid strong {
-  display: block;
-  margin-top: 10px;
-  color: #183120;
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.reservasSection {
-  padding: 24px;
-  border: 1px solid #dce7dd;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  background: #2f7d35;
 }
 
 .sectionHeader,
@@ -193,6 +132,18 @@
 .emptyState p {
   margin: 10px 0 0;
   color: #64748b;
+}
+
+.emptyAction {
+  min-height: 40px;
+  margin-top: 16px;
+  padding: 0 16px;
+  border: 1px solid #d8e7da;
+  border-radius: 999px;
+  color: #2d4d38;
+  font-weight: 800;
+  cursor: pointer;
+  background: #ffffff;
 }
 
 .errorState {
@@ -454,11 +405,6 @@
 }
 
 @media (max-width: 980px) {
-  .hero,
-  .statsGrid {
-    grid-template-columns: 1fr;
-  }
-
   .detailGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -469,7 +415,6 @@
     padding: 24px 16px 40px;
   }
 
-  .hero,
   .reservasSection,
   .modalCard {
     padding: 20px;
@@ -477,6 +422,14 @@
 
   .sectionHeader,
   .modalHeader,
+  .sectionActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sectionActions {
+    justify-items: stretch;
+  }
   .paymentHeader {
     flex-direction: column;
   }

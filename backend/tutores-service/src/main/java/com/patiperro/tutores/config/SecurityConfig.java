@@ -35,10 +35,12 @@ public class SecurityConfig {
                     "/api/auth/tutores/register",
                     "/api/auth/tutores/login",
                     "/api/auth/tutores/logout",
+                    "/api/auth/tutores/correo-disponible",
                     "/api/tutores/auth/**",
                     "/api/tutores/public/**",
                     "/api/tutores/interno/**"
                 ).permitAll()
+                .requestMatchers("/api/tutores/me/**").authenticated()
                 
                 // CORRECCIÓN: Acceso permitido para que Resena-Service consulte el nombre del tutor
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tutores/{id}").permitAll()

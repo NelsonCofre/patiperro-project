@@ -1,0 +1,371 @@
+.page {
+  min-height: 100vh;
+  padding: 40px 28px 56px;
+  background:
+    radial-gradient(circle at top left, rgba(145, 197, 125, 0.22), transparent 28%),
+    radial-gradient(circle at top right, rgba(191, 219, 254, 0.18), transparent 24%),
+    linear-gradient(180deg, #f4fbf4 0%, #eef6ee 48%, #f8fbf8 100%);
+}
+
+.shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid rgba(126, 170, 129, 0.16);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 24px 56px rgba(31, 41, 55, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #2f7d35;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #163020;
+  font-size: clamp(1.9rem, 3vw, 2.5rem);
+}
+
+.description {
+  max-width: 640px;
+  margin: 14px 0 0;
+  color: #586673;
+  line-height: 1.75;
+}
+
+.alertStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.errorBanner,
+.successBanner {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.errorBanner {
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.successBanner {
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.profileHero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: center;
+  margin-bottom: 22px;
+  padding: 24px;
+  border: 1px solid #cde8d1;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(215, 240, 219, 0.9), transparent 42%),
+    linear-gradient(135deg, rgba(248, 252, 248, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+  box-shadow: 0 16px 34px rgba(47, 125, 53, 0.08);
+}
+
+.avatarWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatarRing {
+  display: grid;
+  place-items: center;
+  width: 118px;
+  height: 118px;
+  padding: 4px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #7bc384 0%, #2f7d35 100%);
+  box-shadow: 0 14px 28px rgba(47, 125, 53, 0.22);
+}
+
+.avatar,
+.avatarPlaceholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 3px solid #ffffff;
+}
+
+.avatarPlaceholder {
+  display: grid;
+  place-items: center;
+  color: #2f7d35;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: #eef7ef;
+}
+
+.roleBadge {
+  position: absolute;
+  right: -4px;
+  bottom: 4px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #46a04b 0%, #2f843c 100%);
+  box-shadow: 0 8px 16px rgba(47, 132, 60, 0.24);
+}
+
+.heroBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.heroName {
+  margin: 0;
+  color: #163020;
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+  line-height: 1.25;
+}
+
+.heroSubtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.heroActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.changePhotoButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #c9dccb;
+  border-radius: 12px;
+  color: #2f7d35;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(47, 125, 53, 0.08);
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.changePhotoButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.changePhotoButton:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #dce7dd;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.metaChipIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: #2f7d35;
+  font-size: 0.78rem;
+  background: #ebf8ec;
+}
+
+.sectionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 18px;
+  margin-bottom: 0;
+  padding: 22px;
+  border: 1px solid #dce7dd;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionEyebrow {
+  color: #2f7d35;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #163020;
+  font-size: 1.12rem;
+}
+
+.sectionHint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+  width: 100%;
+  border: none;
+  color: #ffffff;
+  background: linear-gradient(180deg, #46a04b 0%, #2f843c 100%);
+  box-shadow: 0 12px 24px rgba(47, 132, 60, 0.18);
+}
+
+.primaryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.primaryButton:disabled {
+  opacity: 0.72;
+  cursor: wait;
+  transform: none;
+}
+
+.passwordPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.fieldError {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.skeletonHero,
+.skeletonBlock {
+  border-radius: 18px;
+  background: linear-gradient(90deg, #eef7ef 25%, #f8fbf8 50%, #eef7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeletonHero {
+  height: 140px;
+  margin-bottom: 22px;
+}
+
+.skeletonBlock {
+  height: 320px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 24px 16px 40px;
+  }
+
+  .shell {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .profileHero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .heroBody {
+    align-items: center;
+  }
+
+  .metaRow,
+  .heroActions {
+    align-items: center;
+  }
+}

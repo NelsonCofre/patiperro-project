@@ -14,7 +14,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Seguridad HTTP del notification-service.
@@ -65,11 +68,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:5174"));
+        Set<String> patterns = new LinkedHashSet<>(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://*.trycloudflare.com",
+                "https://*.ngrok-free.dev",
+                "https://*.ngrok-free.app",
+                "https://*.ngrok.io"));
+        config.setAllowedOriginPatterns(new ArrayList<>(patterns));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(
                 "Authorization",
