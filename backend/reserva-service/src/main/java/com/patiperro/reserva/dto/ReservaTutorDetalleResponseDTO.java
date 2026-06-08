@@ -40,4 +40,10 @@ public class ReservaTutorDetalleResponseDTO {
     private String detalleRechazo;
     /** {@code true} si el tutor puede reintentar el pago (estado SOLICITADA / PENDIENTE_PAGO). */
     private Boolean puedeReintentarPago;
+    /** Comuna del tutor (punto de encuentro del paseo). */
+    private String comuna;
+    /** Calle, número y referencia del tutor para el encuentro. */
+    private String direccionReferencia;
+    /** Ruta relativa o URL de foto de perfil del paseador asignado. */
+    private String paseadorFotoPerfil;
 }

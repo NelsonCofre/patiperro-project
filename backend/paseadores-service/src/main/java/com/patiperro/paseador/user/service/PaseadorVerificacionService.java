@@ -37,7 +37,7 @@ public class PaseadorVerificacionService {
 
     @Transactional(readOnly = true)
     public VerificacionIdentidadResponseDTO obtenerEstadoAutenticado() {
-        return VerificacionIdentidadResponseDTO.from(findAuthenticatedPaseador());
+        return enriquecerEstado(findAuthenticatedPaseador());
     }
 
     /**
@@ -71,7 +71,7 @@ public class PaseadorVerificacionService {
             Paseador guardado = paseadorRepository.save(actual);
             storageService.deleteQuietly(anteriorFrontal);
             storageService.deleteQuietly(anteriorReverso);
-            return VerificacionIdentidadResponseDTO.from(guardado);
+            return enriquecerEstado(guardado);
         } catch (IOException ex) {
             storageService.deleteQuietly(nuevo);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar el documento");
@@ -163,13 +163,40 @@ public class PaseadorVerificacionService {
         paseador.setEsVerificado(estado != null && estado.esAprobado());
     }
 
+    private VerificacionIdentidadResponseDTO enriquecerEstado(Paseador paseador) {
+        VerificacionIdentidadResponseDTO dto = VerificacionIdentidadResponseDTO.from(paseador);
+        boolean accesible = documentoAccesible(paseador);
+        dto.setDocumentoAccesible(accesible);
+        EstadoVerificacionIdentidad estado = paseador.getEstadoVerificacionIdentidad() != null
+                ? paseador.getEstadoVerificacionIdentidad()
+                : EstadoVerificacionIdentidad.SIN_ENVIAR;
+        dto.setPuedeCambiarDocumento(estado.puedeCambiarDocumento() || (dto.isTieneDocumento() && !accesible));
+        return dto;
+    }
+
+    private boolean documentoAccesible(Paseador paseador) {
+        String filename = paseador.getArchivoCedulaFrontal();
+        if (filename == null || filename.isBlank()) {
+            return false;
+        }
+        return storageService.resolveExisting(filename) != null;
+    }
+
     private static void validarPuedeSubir(EstadoVerificacionIdentidad estado) {
         EstadoVerificacionIdentidad efectivo = estado != null
                 ? estado
                 : EstadoVerificacionIdentidad.SIN_ENVIAR;
-        efectivo.mensajeBloqueoSubida().ifPresent(msg -> {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, msg);
-        });
+        if (!efectivo.puedeEnviarDocumento()) {
+            efectivo.mensajeBloqueoSubida().ifPresentOrElse(
+                    msg -> {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, msg);
+                    },
+                    () -> {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "No puedes subir documentos en este momento");
+                    });
+        }
     }
 
     private static void validarMotivoRechazo(String motivo) {

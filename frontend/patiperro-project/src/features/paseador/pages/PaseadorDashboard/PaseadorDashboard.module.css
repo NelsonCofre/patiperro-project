@@ -279,6 +279,23 @@
   color: #355143;
   background: rgba(248, 252, 248, 0.95);
   border: 1px solid #dbe7dc;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.checkItem:hover {
+  border-color: #b8d4bb;
+  background: #f3faf4;
+}
+
+.checkItemDone {
+  opacity: 0.88;
+}
+
+.checkItemDone .checkIcon {
+  color: #ffffff;
+  background: #2f7d35;
+  border-color: #2f7d35;
 }
 
 .checkIcon {
@@ -393,6 +410,12 @@
   background: linear-gradient(180deg, #f8fbf8 0%, #eef6ee 100%);
   border: 1px solid #d9e7da;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.dayPillActive {
+  color: #1f5d28;
+  background: linear-gradient(180deg, #e8f6ea 0%, #d4edd8 100%);
+  border-color: #8fc996;
 }
 
 /* Seccion de metricas iniciales del paseador. */

@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Objects;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/paseadores/auth")
@@ -41,6 +42,24 @@ public class AuthController {
                 return ResponseEntity.ok()
                                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                                 .body(response);
+        }
+
+        @GetMapping("/correo-disponible")
+        public ResponseEntity<Map<String, Object>> correoDisponible(@RequestParam("correo") String correo) {
+                try {
+                        if (authService.correoDisponible(correo)) {
+                                return ResponseEntity.ok(Map.of("disponible", true));
+                        }
+                        return ResponseEntity.ok(Map.of(
+                                        "disponible", false,
+                                        "mensaje", "El correo ya está registrado"));
+                } catch (IllegalArgumentException ex) {
+                        String msg = ex.getMessage() != null ? ex.getMessage() : "Correo inválido";
+                        return ResponseEntity.badRequest().body(Map.of("disponible", false, "mensaje", msg));
+                } catch (IllegalStateException ex) {
+                        String msg = ex.getMessage() != null ? ex.getMessage() : "No se pudo validar el correo";
+                        return ResponseEntity.status(503).body(Map.of("disponible", false, "mensaje", msg));
+                }
         }
 
         @PostMapping("/register")

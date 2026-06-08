@@ -98,10 +98,10 @@ export default function FileUploader({
           </svg>
         </span>
         <span className={styles.uploadTitle}>
-          {selectedFile ? "Archivo listo para enviar" : title}
+          {selectedFile ? "Archivo seleccionado" : title}
         </span>
         <span className={styles.uploadHint}>
-          {selectedFile ? fileSummary : helperText}
+          {selectedFile ? `${fileSummary}. Revisa la vista previa abajo.` : helperText}
         </span>
       </button>
 

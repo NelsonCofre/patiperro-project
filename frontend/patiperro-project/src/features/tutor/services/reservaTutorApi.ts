@@ -1,8 +1,13 @@
 import { API_ENDPOINTS, TUTOR_ID_SESSION_KEY } from "../../../config/api";
 import { clearAuthSession } from "../../auth/services/authServices";
+import { resolveFotoPerfilUrl } from "../../auth/services/perfilCuentaService";
 import { bearerAuthHeaders } from "../../../config/authHeaders";
 import type { ReservaTutorDetalleDTO } from "../types/reservaTutor.types";
 import { resenaApi } from "./resenaApi";
+import { fetchPaseadorResumenPublico, fetchTutorPorId } from "./tutorCercanosApi";
+import { aplicarDireccionTutorAReserva } from "../utils/tutorDireccionUtils";
+import { tieneDireccionEncuentro } from "../utils/reservaEstadoUtils";
+import { FALLBACK_MASCOTA, FALLBACK_PASEADOR } from "../../shared/utils/displayLabels";
 
 type ApiErrorBody = { message?: string; mensaje?: string; error?: string; status?: number };
 
@@ -303,11 +308,60 @@ export async function iniciarCheckoutMercadoPagoReserva(idReserva: number): Prom
   };
 }
 
-function normalizeReservaDetalle(row: ReservaTutorDetalleDTO): ReservaTutorDetalleDTO {
+function normalizeReservaDetalle(row: ReservaTutorDetalleDTO & { paseadorFotoPerfil?: string | null }): ReservaTutorDetalleDTO {
+  const fotoRaw = row.paseadorFotoUrl ?? row.paseadorFotoPerfil;
+  const paseadorFotoUrl = resolveFotoPerfilUrl(fotoRaw) || null;
   return {
     ...row,
-    calificada: row.calificada === true
+    calificada: row.calificada === true,
+    paseadorFotoUrl
   };
+}
+
+async function enrichReservasConFotoPaseador(
+  reservas: ReservaTutorDetalleDTO[]
+): Promise<ReservaTutorDetalleDTO[]> {
+  const ids = [
+    ...new Set(
+      reservas
+        .map((reserva) => reserva.idPaseador)
+        .filter((id): id is number => id != null && Number.isFinite(id) && id > 0)
+    )
+  ];
+
+  if (ids.length === 0) {
+    return reservas;
+  }
+
+  const fotoPorPaseador = new Map<number, string>();
+  await Promise.all(
+    ids.map(async (idPaseador) => {
+      try {
+        const resumen = await fetchPaseadorResumenPublico(idPaseador);
+        const url = resolveFotoPerfilUrl(resumen.fotoPerfil);
+        if (url) {
+          fotoPorPaseador.set(idPaseador, url);
+        }
+      } catch {
+        /* Si falla el resumen público, se conserva la foto del detalle de reserva. */
+      }
+    })
+  );
+
+  if (fotoPorPaseador.size === 0) {
+    return reservas;
+  }
+
+  return reservas.map((reserva) => {
+    if (reserva.idPaseador == null) {
+      return reserva;
+    }
+    const fotoActualizada = fotoPorPaseador.get(reserva.idPaseador);
+    if (!fotoActualizada) {
+      return reserva;
+    }
+    return { ...reserva, paseadorFotoUrl: fotoActualizada };
+  });
 }
 
 async function enrichReservasConCalificacion(
@@ -321,14 +375,35 @@ async function enrichReservasConCalificacion(
   } catch {
     calificadasIds = [];
   }
-  if (calificadasIds.length === 0) {
-    return normalized;
+  const conCalificacion =
+    calificadasIds.length === 0
+      ? normalized
+      : normalized.map((reserva) => ({
+          ...reserva,
+          calificada: reserva.calificada || calificadasIds.includes(reserva.idReserva)
+        }));
+
+  const conFotoPaseador = await enrichReservasConFotoPaseador(conCalificacion);
+  return enrichReservasConDireccionTutor(conFotoPaseador, idTutor);
+}
+
+async function enrichReservasConDireccionTutor(
+  reservas: ReservaTutorDetalleDTO[],
+  idTutor: number
+): Promise<ReservaTutorDetalleDTO[]> {
+  const needsDireccion = reservas.some(
+    (reserva) => !tieneDireccionEncuentro(reserva.comuna, reserva.direccionReferencia)
+  );
+  if (!needsDireccion) {
+    return reservas;
   }
-  const calificadas = new Set(calificadasIds);
-  return normalized.map((reserva) => ({
-    ...reserva,
-    calificada: reserva.calificada || calificadas.has(reserva.idReserva)
-  }));
+
+  try {
+    const perfil = await fetchTutorPorId(idTutor);
+    return reservas.map((reserva) => aplicarDireccionTutorAReserva(reserva, perfil.direccion));
+  } catch {
+    return reservas;
+  }
 }
 
 export async function fetchReservasDetalleTutor(idTutor: number): Promise<ReservaTutorDetalleDTO[]> {
@@ -381,10 +456,10 @@ async function fetchReservasBasicasTutor(idTutor: number): Promise<ReservaTutorD
     idReserva: reserva.idReserva,
     idTutorUsuario: reserva.idTutorUsuario,
     idMascota: reserva.idMascota,
-    mascotaNombre: `Mascota #${reserva.idMascota}`,
+    mascotaNombre: FALLBACK_MASCOTA,
     idAgendaBloque: reserva.idAgendaBloque,
     idPaseador: null,
-    paseadorNombre: `Bloque agenda #${reserva.idAgendaBloque}`,
+    paseadorNombre: FALLBACK_PASEADOR,
     fecha: null,
     horaInicio: null,
     horaFinal: null,
@@ -412,6 +487,15 @@ export async function cancelarReservaTutor(idReserva: number): Promise<void> {
   const data = await parseJsonSafe(response);
   if (response.ok) return;
   throw buildApiRequestError(response, data, "No se pudo cancelar la solicitud.");
+}
+
+/** Si el checkout falla tras crear la solicitud, la anula para liberar el bloque de agenda. */
+export async function revertirReservaSinCheckout(idReserva: number): Promise<void> {
+  try {
+    await cancelarReservaTutor(idReserva);
+  } catch {
+    /* Si ya no existe o no se puede cancelar, no bloqueamos al usuario. */
+  }
 }
 
 export function isTutorAuthError(error: unknown): error is ApiRequestError {

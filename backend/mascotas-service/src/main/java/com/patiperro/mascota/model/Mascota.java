@@ -1,5 +1,7 @@
 package com.patiperro.mascota.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
@@ -60,16 +62,19 @@ public class Mascota {
     @NotNull(message = "La especie es obligatoria") // La especie es obligatoria //
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "especie_id_especie", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "razas"})
     private Especie especie;
 
     @NotNull(message = "La raza es obligatoria") // La raza es obligatoria //
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "raza_id_raza", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Raza raza;
 
     @NotNull(message = "El tamaño es obligatorio") // El tamano es obligatoria //
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "tamano_id_tamano", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Tamano tamano;
 
     // =========================================================================
@@ -100,8 +105,10 @@ public class Mascota {
     @Column(name = "foto_perfil", length = 150)
     private String fotoPerfil;
 
+    /** Galería aparte: {@code GET /api/mascotas/{id}/fotos}. No serializar en el JSON de la mascota. */
     @OneToMany(mappedBy = "mascota", cascade = CascadeType.ALL, orphanRemoval = true) // Relación con galería de fotos //
     @JsonManagedReference
+    @JsonIgnore
     private List<Foto> fotos = new ArrayList<>();
 
     // =========================================================================

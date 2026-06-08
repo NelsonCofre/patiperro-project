@@ -5,10 +5,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -55,7 +56,7 @@ public class MascotaFotoStorageService {
             throw new IllegalArgumentException(MSG_FORMATO);
         }
         try (var in = file.getInputStream()) {
-            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            copiarConLimiteDeTamano(in, target);
         }
         return filename;
     }
@@ -109,7 +110,8 @@ public class MascotaFotoStorageService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException(MSG_FORMATO);
         }
-        if (file.getSize() > maxBytes) {
+        long reportedSize = file.getSize();
+        if (reportedSize > maxBytes) {
             throw new IllegalArgumentException(MSG_PESO);
         }
         String ext = extensionOf(file.getOriginalFilename());
@@ -173,5 +175,29 @@ public class MascotaFotoStorageService {
             return null;
         }
         return originalName.substring(originalName.lastIndexOf('.'));
+    }
+
+    private void copiarConLimiteDeTamano(InputStream input, Path target) throws IOException {
+        long total = 0;
+        byte[] buffer = new byte[8192];
+
+        try (OutputStream output = Files.newOutputStream(target)) {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > maxBytes) {
+                    throw new IllegalArgumentException(MSG_PESO);
+                }
+                output.write(buffer, 0, read);
+            }
+        } catch (IllegalArgumentException ex) {
+            Files.deleteIfExists(target);
+            throw ex;
+        }
+
+        if (total == 0) {
+            Files.deleteIfExists(target);
+            throw new IllegalArgumentException(MSG_FORMATO);
+        }
     }
 }

@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +33,7 @@ public class MascotaController {
 
     /** Registro de datos; {@code fotoPerfil} se ignora en el body (multipart en /foto-perfil). */
     @PostMapping
-    public ResponseEntity<Mascota> crearMascota(@Valid @RequestBody @NonNull Mascota mascota) {
+    public ResponseEntity<Mascota> crearMascota(@Valid @RequestBody Mascota mascota) {
         long idTutor = TutorSecurity.requireTutor().tutorId();
         Mascota nuevaMascota = mascotaService.registrarMascota(mascota, idTutor);
         return new ResponseEntity<>(nuevaMascota, HttpStatus.CREATED);

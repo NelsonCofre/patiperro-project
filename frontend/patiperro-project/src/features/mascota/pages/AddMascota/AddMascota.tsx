@@ -6,7 +6,6 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { resolveApiUrl } from "../../../../config/api";
-import { uploadTutorProfilePhoto } from "../../../auth/services/authServices";
 import TutorNavbar from "../../../tutor/components/TutorNavbar/TutorNavbar";
 import { useMascotaForm } from "../../hooks/useMascotaForm";
 import {
@@ -17,6 +16,7 @@ import {
   fetchRazas,
   fetchTamanos,
   updateMascota,
+  uploadMascotaFotoPerfil,
   type EspecieDTO,
   type RazaDTO,
   type TamanoDTO
@@ -26,7 +26,8 @@ import {
   getMascotaAgeLabel,
   getTodayDate,
   keepDecimalWeight,
-  keepOnlyDigits
+  keepOnlyDigits,
+  validateMascotaPhoto
 } from "../../utils/mascotaValidators";
 import styles from "./AddMascota.module.css";
 
@@ -118,7 +119,7 @@ export default function AddMascota() {
       .catch((error: unknown) => {
         if (!cancelled) {
           setCatalogError(
-            error instanceof Error ? error.message : "No se pudieron cargar los catalogos."
+            error instanceof Error ? error.message : "No se pudieron cargar los catálogos."
           );
         }
       })
@@ -200,8 +201,8 @@ export default function AddMascota() {
     ? "Actualiza la ficha de tu mascota"
     : "Crea la ficha de tu mascota";
   const pageDescription = isEditMode
-    ? "Puedes reemplazar la foto principal o ajustar sus datos sin perder la informacion actual."
-    : "Este formulario esta organizado por pasos para que puedas registrar la informacion importante sin sentir el proceso pesado.";
+    ? "Puedes reemplazar la foto principal o ajustar sus datos sin perder la información actual."
+    : "Este formulario está organizado por pasos para que puedas registrar la información importante sin sentir el proceso pesado.";
 
   const fileMessage = useMemo(() => {
     if (form.foto) {
@@ -210,7 +211,7 @@ export default function AddMascota() {
     if (fotoActualPath) {
       return "Mantendras la foto actual hasta guardar una nueva.";
     }
-    return "Aun no has seleccionado una foto";
+    return "Aún no has seleccionado una foto";
   }, [form.foto, fotoActualPath]);
 
   const handleChange = (
@@ -257,37 +258,49 @@ export default function AddMascota() {
     setIsSubmitting(true);
 
     try {
-      let fotoPerfilPath = fotoActualPath || undefined;
       const isReplacingPhoto = Boolean(form.foto);
-
-      if (form.foto) {
-        fotoPerfilPath = await uploadTutorProfilePhoto(form.foto);
-      }
-
-      const payload = buildCreateMascotaPayload(form, fotoPerfilPath);
+      const payload = buildCreateMascotaPayload(form);
 
       if (isEditMode) {
         await updateMascota(mascotaId, payload);
-        setFotoActualPath(fotoPerfilPath ?? "");
-        setFotoActualUrl(fotoPerfilPath ? resolveApiUrl(fotoPerfilPath) : "");
+        if (form.foto) {
+          const photoError = validateMascotaPhoto(form.foto, { required: true });
+          if (photoError) {
+            setErrors((prev) => ({ ...prev, foto: photoError }));
+            setSubmitError(photoError);
+            return;
+          }
+          const fotoResult = await uploadMascotaFotoPerfil(mascotaId, form.foto);
+          setFotoActualPath(fotoResult.fotoPerfil);
+          setFotoActualUrl(resolveApiUrl(fotoResult.fotoPerfil));
+        }
         setSuccessState({
           eyebrow: isReplacingPhoto ? "Foto actualizada" : "Cambios guardados",
           title: isReplacingPhoto ? "Foto de mascota actualizada" : "Mascota actualizada",
           message: isReplacingPhoto
-            ? "La nueva foto quedo guardada y ya reemplaza la anterior en la ficha de tu mascota."
-            : "La informacion de tu mascota quedo actualizada correctamente.",
+            ? "La nueva foto quedó guardada y ya reemplaza la anterior en la ficha de tu mascota."
+            : "La información de tu mascota quedó actualizada correctamente.",
           buttonLabel: "Ver mis mascotas",
           redirectTo: "/tutor/mascotas"
         });
       } else {
-        await createMascota(payload);
+        const created = await createMascota(payload);
+        if (form.foto) {
+          const photoError = validateMascotaPhoto(form.foto, { required: true });
+          if (photoError) {
+            setErrors((prev) => ({ ...prev, foto: photoError }));
+            setSubmitError(photoError);
+            return;
+          }
+          await uploadMascotaFotoPerfil(created.idMascota, form.foto);
+        }
         resetForm();
         setFotoActualPath("");
         setFotoActualUrl("");
         setSuccessState({
           eyebrow: "Registro exitoso",
           title: "Mascota registrada exitosamente",
-          message: "Tu mascota quedo registrada en el sistema y su foto principal ya esta lista para futuras reservas.",
+          message: "Tu mascota quedó registrada en el sistema y su foto principal ya está lista para futuras reservas.",
           buttonLabel: "Ver mis mascotas",
           redirectTo: "/tutor/mascotas"
         });
@@ -295,7 +308,7 @@ export default function AddMascota() {
     } catch (err) {
       let msg = err instanceof Error ? err.message : "No se pudo guardar la mascota.";
       if (err instanceof Error && /401|403|sesi|autentic/i.test(msg)) {
-        msg += " Si perdiste la sesion, vuelve a iniciar sesion como tutor.";
+        msg += " Si perdiste la sesión, vuelve a iniciar sesión como tutor.";
       }
       setSubmitError(msg);
     } finally {
@@ -487,7 +500,7 @@ export default function AddMascota() {
                   />
                   {errors.peso ? <small>{errors.peso}</small> : null}
                   {!errors.peso ? (
-                    <p className={styles.fieldHint}>Ingresa un numero mayor a 0 kg.</p>
+                    <p className={styles.fieldHint}>Ingresa un número mayor a 0 kg.</p>
                   ) : null}
                 </label>
 
@@ -501,7 +514,7 @@ export default function AddMascota() {
                     disabled={catalogLoading || !!catalogError}
                   >
                     <option value="">
-                      {catalogLoading ? "Cargando..." : "Selecciona el tamano"}
+                      {catalogLoading ? "Cargando..." : "Selecciona el tamaño"}
                     </option>
                     {tamanos.map((tamano) => (
                       <option key={tamano.idTamano} value={String(tamano.idTamano)}>
@@ -567,7 +580,7 @@ export default function AddMascota() {
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
                   >
-                    <option value="">Selecciona una opcion</option>
+                    <option value="">Selecciona una opción</option>
                     {ESTERILIZADO_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
@@ -585,7 +598,7 @@ export default function AddMascota() {
                     onChange={handleChange}
                     onBlur={handleFieldBlur}
                     inputMode="numeric"
-                    placeholder="Solo numeros"
+                    placeholder="Solo números"
                   />
                   {errors.numero_chip ? <small>{errors.numero_chip}</small> : null}
                 </label>

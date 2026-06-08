@@ -1,12 +1,97 @@
 .card {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(170px, 0.34fr) minmax(0, 0.66fr);
   gap: 14px;
-  padding: 14px;
+  padding: 14px 14px 14px 18px;
+  overflow: hidden;
   border: 1px solid #dce9dd;
-  border-radius: 8px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 16px 34px rgba(31, 41, 55, 0.06);
+}
+
+.cardAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background: #cbd5e1;
+}
+
+.cardPendingTone .cardAccent {
+  background: linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
+}
+
+.cardAcceptedTone .cardAccent {
+  background: linear-gradient(180deg, #93c5fd 0%, #2563eb 100%);
+}
+
+.cardEnCurso {
+  border-color: #86efac;
+  box-shadow: 0 18px 36px rgba(34, 197, 94, 0.12);
+  grid-template-columns: minmax(210px, 0.38fr) minmax(0, 1fr);
+  align-items: stretch;
+  padding-left: 0;
+  gap: 12px;
+}
+
+.cardEnCurso .cardAccent {
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+}
+
+.cardProxima {
+  border-color: #3f9448;
+  box-shadow:
+    0 20px 40px rgba(63, 148, 72, 0.16),
+    inset 0 0 0 1px rgba(63, 148, 72, 0.22);
+}
+
+.cardProxima.cardEnCurso {
+  box-shadow:
+    0 22px 44px rgba(34, 197, 94, 0.18),
+    inset 0 0 0 1px rgba(63, 148, 72, 0.28);
+}
+
+.cardProxima .cardAccent {
+  width: 6px;
+}
+
+.proximaBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.photoColumn.photoColumnEnCurso {
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: unset;
+  border-left: none;
+  border-radius: 15px 0 0 15px;
+}
+
+.photoColumn.photoColumnEnCurso .petPhoto {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
 }
 
 .cardAccepted {
@@ -76,19 +161,18 @@
   line-height: 1.45;
 }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid #d8e7da;
-  border-radius: 8px;
-  color: #24512d;
-  font-size: 0.84rem;
-  font-weight: 900;
-  background: #eaf7ec;
-  white-space: nowrap;
+.statusWrap {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  text-align: right;
+}
+
+.statusHelper {
+  max-width: 180px;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .detailsGrid {
@@ -109,6 +193,87 @@
   margin-top: 6px;
   color: #183123;
   font-size: 0.98rem;
+}
+
+.detailsGridCompact {
+  gap: 8px;
+}
+
+.detailsGridCompact div {
+  padding: 8px 10px;
+}
+
+.detailsGridCompact strong {
+  margin-top: 4px;
+  font-size: 0.88rem;
+}
+
+.enCursoToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chatButtonOutline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #86efac;
+  color: #166534;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f0fdf4;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.chatButtonOutline:hover {
+  transform: translateY(-1px);
+  background: #dcfce7;
+}
+
+.finalizarButtonCompact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 900;
+  cursor: pointer;
+  color: #ffffff;
+  background: #1d6f4a;
+  box-shadow: 0 6px 14px rgba(29, 111, 74, 0.16);
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.finalizarButtonCompact:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.finalizarButtonCompact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.finalizarHintCompact {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .locationBox,
@@ -160,6 +325,14 @@
   min-height: 38px;
   min-width: 112px;
   padding: 0 14px;
+}
+
+.enCursoToolbar .tutorButton,
+.enCursoToolbar .mapButton {
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 12px;
+  font-size: 0.84rem;
 }
 
 .mapButton {
@@ -287,8 +460,32 @@
     grid-template-columns: 1fr;
   }
 
+  .cardEnCurso {
+    padding-left: 14px;
+  }
+
   .photoColumn {
     height: 220px;
+  }
+
+  .photoColumn.photoColumnEnCurso {
+    width: 100%;
+    height: 240px;
+    min-height: 240px;
+    aspect-ratio: unset;
+    border-left: 1px solid #e1ebe2;
+    border-radius: 8px;
+  }
+
+  .photoColumn.photoColumnEnCurso .petPhoto {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: cover;
+    object-position: center;
   }
 
   .photoColumnAccepted {
@@ -318,8 +515,15 @@
   .codeButton,
   .tutorButton,
   .mapButton,
-  .finalizarButton {
+  .finalizarButton,
+  .chatButtonOutline,
+  .finalizarButtonCompact {
     width: 100%;
+  }
+
+  .enCursoToolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .finalizarButton {

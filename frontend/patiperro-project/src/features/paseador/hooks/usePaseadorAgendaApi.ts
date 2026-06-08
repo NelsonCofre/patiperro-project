@@ -122,13 +122,13 @@ function validateForm(form: AgendaApiForm): AgendaApiFormErrors {
     errors.startTime = "Selecciona hora de inicio.";
   }
   if (!form.endTime) {
-    errors.endTime = "Selecciona hora de termino.";
+    errors.endTime = "Selecciona hora de término.";
   }
   if (form.fecha && form.fecha < getTodayIsoDate()) {
     errors.fecha = "No puedes bloquear fechas pasadas";
   }
   if (form.startTime && form.endTime && timeToMinutes(form.endTime) <= timeToMinutes(form.startTime)) {
-    errors.endTime = "La hora de termino debe ser posterior a la hora de inicio";
+    errors.endTime = "La hora de término debe ser posterior a la hora de inicio";
   }
   return errors;
 }
@@ -266,7 +266,7 @@ export function usePaseadorAgendaApi() {
     if (paseadorId == null) {
       setBloques([]);
       setBloquesError(
-        "No hay id de paseador en sesion. Vuelve a iniciar sesion para sincronizar la agenda."
+        "No hay id de paseador en sesión. Vuelve a iniciar sesión para sincronizar la agenda."
       );
       return;
     }
@@ -315,7 +315,7 @@ export function usePaseadorAgendaApi() {
   useEffect(() => {
     if (paseadorId == null) {
       setCatalogLoading(false);
-      setCatalogError("Inicia sesion como paseador para cargar catalogos.");
+      setCatalogError("Inicia sesión como paseador para continuar.");
       return;
     }
     let cancelado = false;
@@ -330,7 +330,7 @@ export function usePaseadorAgendaApi() {
         }
       } catch (e) {
         if (!cancelado) {
-          setCatalogError(e instanceof Error ? e.message : "Error al cargar catalogos.");
+          setCatalogError(e instanceof Error ? e.message : "No se pudo cargar la agenda. Intenta de nuevo.");
         }
       } finally {
         if (!cancelado) {
@@ -381,21 +381,21 @@ export function usePaseadorAgendaApi() {
 
   const addBlockDisabledReason = useMemo(() => {
     if (selectedDateBlocked) {
-      return "El dia seleccionado esta bloqueado por motivos personales.";
+      return "El día seleccionado está bloqueado por motivos personales.";
     }
-    if (catalogLoading) return "Cargando catalogos de agenda...";
+    if (catalogLoading) return "Cargando tu agenda...";
     if (paseadorId == null) {
-      return "Inicia sesion como paseador; falta el id en sesion.";
+      return "Inicia sesión como paseador para continuar.";
     }
     if (catalogError) return catalogError;
     if (!estadosBloque.length) {
-      return "No hay estados de bloque en el servidor.";
+      return "No se pudo cargar la configuración de bloques. Intenta de nuevo.";
     }
     if (!diasSemana.length) {
-      return "No hay dias de la semana en el servidor.";
+      return "No se pudo cargar el calendario. Intenta de nuevo.";
     }
     if (idEstadoDisponible == null) {
-      return "Los estados de bloque no tienen un id valido.";
+      return "No se pudo preparar la agenda. Intenta de nuevo.";
     }
     return null;
   }, [
@@ -430,7 +430,7 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "info",
         title: "Dia bloqueado",
-        message: "Quita el bloqueo del dia antes de crear nuevos bloques de disponibilidad."
+        message: "Quita el bloqueo del día antes de crear nuevos bloques de disponibilidad."
       });
       return;
     }
@@ -496,7 +496,7 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "error",
         title: "Dia no disponible",
-        message: "El dia seleccionado esta bloqueado por motivos personales."
+        message: "El día seleccionado está bloqueado por motivos personales."
       });
       return;
     }
@@ -504,15 +504,15 @@ export function usePaseadorAgendaApi() {
     if (paseadorId == null) {
       showToast({
         type: "error",
-        title: "Sesion",
-        message: "No hay id de paseador. Inicia sesion de nuevo."
+        title: "Sesión",
+        message: "Inicia sesión de nuevo para continuar."
       });
       return;
     }
     if (idEstadoDisponible == null) {
       showToast({
         type: "error",
-        title: "Catalogo",
+        title: "Agenda",
         message: "No se pudo determinar el estado disponible."
       });
       return;
@@ -523,8 +523,8 @@ export function usePaseadorAgendaApi() {
       if (idDiaParaUnSolo == null) {
         showToast({
           type: "error",
-          title: "Catalogo",
-          message: "No se pudo asignar el dia de la semana."
+          title: "Agenda",
+          message: "No se pudo asignar el día de la semana."
         });
         return;
       }
@@ -552,8 +552,15 @@ export function usePaseadorAgendaApi() {
         closeAddModal();
         showToast({
           type: "success",
-          title: "Serie mensual",
-          message: `Creados: ${res.creados}. Omitidos (fecha pasada): ${res.omitidosPasado}. Omitidos (solape): ${res.omitidosSolape}.`
+          title: "Bloques creados",
+          message:
+            res.creados > 0
+              ? `Se crearon ${res.creados} bloque(s) para el resto del mes.${
+                  res.omitidosPasado + res.omitidosSolape > 0
+                    ? ` ${res.omitidosPasado + res.omitidosSolape} fecha(s) se omitieron por estar en el pasado o solaparse con bloques existentes.`
+                    : ""
+                }`
+              : "No se crearon bloques nuevos; las fechas restantes del mes ya estaban ocupadas o en el pasado."
         });
       } else {
         await crearBloque({
@@ -569,7 +576,7 @@ export function usePaseadorAgendaApi() {
         showToast({
           type: "success",
           title: "Bloque creado",
-          message: "El bloque quedo guardado en el servidor."
+          message: "Tu bloque de disponibilidad quedó guardado."
         });
       }
     } catch (e) {
@@ -604,8 +611,8 @@ export function usePaseadorAgendaApi() {
     if (paseadorId == null) {
       showToast({
         type: "error",
-        title: "Sesion",
-        message: "No hay id de paseador. Inicia sesion nuevamente."
+        title: "Sesión",
+        message: "Inicia sesión de nuevo para continuar."
       });
       return;
     }
@@ -646,7 +653,7 @@ export function usePaseadorAgendaApi() {
         title: "Bloqueo aplicado",
         message:
           creadas > 0
-            ? `Bloqueo guardado en servidor. Dias creados: ${creadas}${omitidas > 0 ? `, omitidos: ${omitidas}` : ""}.`
+            ? `Se bloquearon ${creadas} dia(s)${omitidas > 0 ? `. ${omitidas} ya estaban bloqueados.` : "."}`
             : "No se crearon nuevos bloqueos; las fechas seleccionadas ya estaban bloqueadas."
       });
     } catch (e) {
@@ -667,7 +674,7 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "info",
         title: "Sin bloqueo",
-        message: "El dia seleccionado no tiene un bloqueo activo."
+        message: "El día seleccionado no tiene un bloqueo activo."
       });
       return;
     }
@@ -675,8 +682,8 @@ export function usePaseadorAgendaApi() {
     if (paseadorId == null) {
       showToast({
         type: "error",
-        title: "Sesion",
-        message: "No hay id de paseador. Inicia sesion nuevamente."
+        title: "Sesión",
+        message: "Inicia sesión de nuevo para continuar."
       });
       return;
     }
@@ -720,7 +727,7 @@ export function usePaseadorAgendaApi() {
       showToast({
         type: "success",
         title: "Bloque eliminado",
-        message: "El bloque se elimino del servidor."
+        message: "El bloque se elimino de tu agenda."
       });
     } catch (e) {
       showToast({
@@ -736,7 +743,7 @@ export function usePaseadorAgendaApi() {
   const textoEstadoServidor = () => {
     if (bloquesLoading) return "Cargando bloques...";
     if (bloquesError) return bloquesError;
-    if (bloques.length === 0) return "Sin bloques en el servidor.";
+    if (bloques.length === 0) return "Sin bloques en tu agenda.";
     return `${bloques.length} bloque${bloques.length === 1 ? "" : "s"} guardados`;
   };
 

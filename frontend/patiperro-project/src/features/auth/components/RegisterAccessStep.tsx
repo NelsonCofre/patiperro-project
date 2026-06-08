@@ -11,6 +11,7 @@ type Props<TForm extends BaseRegisterForm> = {
   errors: RegisterFormErrors<TForm>;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onBlur: (event: React.FocusEvent<HTMLInputElement>) => void;
+  correoHint?: string;
   styles: Record<string, string>;
 };
 
@@ -19,6 +20,7 @@ export default function RegisterAccessStep<TForm extends BaseRegisterForm>({
   errors,
   onChange,
   onBlur,
+  correoHint,
   styles
 }: Props<TForm>) {
   return (
@@ -38,10 +40,13 @@ export default function RegisterAccessStep<TForm extends BaseRegisterForm>({
             inputMode="email"
             autoComplete="email"
           />
+          {correoHint && !errors.correo ? (
+            <p className={styles.fieldHint}>{correoHint}</p>
+          ) : null}
         </div>
 
         <AuthInput
-          label="Contrasena"
+          label="Contraseña"
           name="contrasena"
           type="password"
           value={form.contrasena}
@@ -53,7 +58,7 @@ export default function RegisterAccessStep<TForm extends BaseRegisterForm>({
         />
 
         <AuthInput
-          label="Confirmar contrasena"
+          label="Confirmar contraseña"
           name="confirmar_contrasena"
           type="password"
           value={form.confirmar_contrasena}

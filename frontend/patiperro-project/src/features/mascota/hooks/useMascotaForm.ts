@@ -54,8 +54,16 @@ export function useMascotaForm({
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     const photoError = validateMascotaPhoto(file, { required: requirePhoto });
-    setForm((prev) => ({ ...prev, foto: photoError ? null : file }));
-    setErrors((prev) => ({ ...prev, foto: photoError }));
+
+    if (photoError) {
+      event.target.value = "";
+      setForm((prev) => ({ ...prev, foto: null }));
+      setErrors((prev) => ({ ...prev, foto: photoError }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, foto: file }));
+    setErrors((prev) => ({ ...prev, foto: undefined }));
   };
 
   const validateStep = useCallback(
@@ -114,7 +122,7 @@ export function useMascotaForm({
         Object.entries(nextErrors).filter(([, value]) => Boolean(value))
       ) as MascotaFormErrors;
     },
-    [form]
+    [form, requirePhoto]
   );
 
   const currentStepErrors = useMemo(

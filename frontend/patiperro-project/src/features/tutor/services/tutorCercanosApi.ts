@@ -17,6 +17,11 @@ function readError(data: unknown, fallback: string): string {
 }
 
 export type TutorDireccionApi = {
+  comuna?: string | null;
+  ciudad?: string | null;
+  calle?: string | null;
+  numeracion?: number | null;
+  casaDepartamento?: string | null;
   latitud?: number | null;
   longitud?: number | null;
 };
@@ -42,6 +47,32 @@ export type PaseadorCercanoApi = {
   /** @deprecated usar esVerificado; se acepta por compatibilidad temporal */
   verificado?: boolean;
 };
+
+export type PaseadorResumenPublicoApi = {
+  idPaseador?: number;
+  nombreCompleto?: string;
+  fotoPerfil?: string | null;
+};
+
+export async function fetchPaseadorResumenPublico(idPaseador: number): Promise<PaseadorResumenPublicoApi> {
+  const response = await fetch(API_ENDPOINTS.auth.paseadores.publicResumen(idPaseador), {
+    method: "GET",
+    credentials: "include"
+  });
+
+  let data: unknown = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(readError(data, "No se pudo cargar el resumen del paseador."));
+  }
+
+  return (data ?? {}) as PaseadorResumenPublicoApi;
+}
 
 export async function fetchTutorPorId(idTutor: number): Promise<TutorPerfilResponse> {
   const response = await fetch(API_ENDPOINTS.tutores.byId(idTutor), {

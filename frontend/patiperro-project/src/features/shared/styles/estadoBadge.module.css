@@ -1,0 +1,122 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusSolicitada {
+  color: #92400e;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+}
+
+.statusSolicitada .dot {
+  background: #f59e0b;
+}
+
+.statusPendientePago {
+  color: #9a3412;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border: 1px solid #fdba74;
+}
+
+.statusPendientePago .dot {
+  background: #f97316;
+}
+
+.statusPagada {
+  color: #1e40af;
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+}
+
+.statusPagada .dot {
+  background: #3b82f6;
+}
+
+.statusAceptada {
+  color: #1d4ed8;
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #93c5fd;
+}
+
+.statusAceptada .dot {
+  background: #2563eb;
+}
+
+.statusEnCurso {
+  color: #166534;
+  background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #86efac;
+}
+
+.statusEnCurso .dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.statusFinalizada {
+  color: #475569;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #cbd5e1;
+}
+
+.statusFinalizada .dot {
+  background: #64748b;
+}
+
+.statusRechazada {
+  color: #991b1b;
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #fecaca;
+}
+
+.statusRechazada .dot {
+  background: #ef4444;
+}
+
+.statusExpirada {
+  color: #57534e;
+  background: linear-gradient(180deg, #fafaf9 0%, #f5f5f4 100%);
+  border: 1px solid #d6d3d1;
+}
+
+.statusExpirada .dot {
+  background: #78716c;
+}
+
+.statusDesconocida {
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+
+.statusDesconocida .dot {
+  background: #94a3b8;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}

@@ -4,6 +4,7 @@ import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import {
   crearReservaTutor,
   iniciarCheckoutMercadoPagoReserva,
+  revertirReservaSinCheckout,
   nowLocalDateTimeISO,
   fetchAgendaOfertaPaseador,
   fetchEstadoSolicitadaId,
@@ -280,6 +281,7 @@ export default function SolicitudPaseo() {
     if (isSubmitting || !validateForm()) return;
 
     setIsSubmitting(true);
+    let reservaCreadaId: number | null = null;
     try {
       const idTutor = readTutorIdFromSession();
       const idEstadoSolicitada = await fetchEstadoSolicitadaId();
@@ -295,6 +297,10 @@ export default function SolicitudPaseo() {
         montoTotal: total,
         idEstadoReserva: idEstadoSolicitada
       });
+      reservaCreadaId = reservaCreada.idReserva;
+
+      const bloqueResumen = `${selectedBloque?.fecha ?? ""} ${selectedBloque?.horaInicio ?? ""}-${selectedBloque?.horaFinal ?? ""}`;
+      const pref = await iniciarCheckoutMercadoPagoReserva(reservaCreada.idReserva);
 
       try {
         await dispararNotificacion({
@@ -309,9 +315,7 @@ export default function SolicitudPaseo() {
           }
         });
       } catch (e) { console.error("Fallo notificación", e); }
-      
-      const bloqueResumen = `${selectedBloque?.fecha ?? ""} ${selectedBloque?.horaInicio ?? ""}-${selectedBloque?.horaFinal ?? ""}`;
-      const pref = await iniciarCheckoutMercadoPagoReserva(reservaCreada.idReserva);
+
       const query = new URLSearchParams({
         idReserva: String(reservaCreada.idReserva),
         total: String(total),
@@ -326,7 +330,17 @@ export default function SolicitudPaseo() {
       navigate(`/tutor/pago-reserva?${query.toString()}`);
 
     } catch (error) {
-      setErrors({ general: error instanceof Error ? error.message : "Error al crear reserva." });
+      if (reservaCreadaId != null) {
+        await revertirReservaSinCheckout(reservaCreadaId);
+      }
+      const message = error instanceof Error ? error.message : "Error al crear reserva.";
+      const checkoutFallo =
+        message.includes("preferencia de pago") || message.includes("checkout Mercado Pago");
+      setErrors({
+        general: checkoutFallo
+          ? `${message} No se guardó la solicitud: verifica que pagos-service esté activo en el puerto 8087.`
+          : message
+      });
     } finally {
       setIsSubmitting(false);
     }

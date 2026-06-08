@@ -16,14 +16,20 @@ function parseTourStartMs(tour: DailyScheduleItem): number {
   return Number.isFinite(fallback) ? fallback : Number.MAX_SAFE_INTEGER;
 }
 
-function findNextTourId(tours: DailyScheduleItem[]): number | null {
+function summarizeTodayTours(tours: DailyScheduleItem[]): {
+  nextTourId: number | null;
+  upcomingCount: number;
+} {
   const now = Date.now();
   const upcoming = tours
     .map((tour) => ({ tour, startMs: parseTourStartMs(tour) }))
     .filter(({ startMs }) => startMs >= now)
     .sort((a, b) => a.startMs - b.startMs);
 
-  return upcoming[0]?.tour.idReserva ?? null;
+  return {
+    nextTourId: upcoming[0]?.tour.idReserva ?? null,
+    upcomingCount: upcoming.length
+  };
 }
 
 function formatHourRange(start: string, end: string): string {
@@ -40,7 +46,7 @@ function formatAddress(tour: DailyScheduleItem): string {
   const direccion = tour.direccionReferencia.trim();
   const comuna = tour.comuna.trim();
   if (direccion && comuna) return `${direccion}, ${comuna}`;
-  return direccion || comuna || "Ubicacion por confirmar";
+  return direccion || comuna || "Ubicación por confirmar";
 }
 
 function getStatusClass(nombreEstado: string | null): string {
@@ -65,8 +71,7 @@ export default function DailySchedulePanel({
   onRetry,
   onOpenTour
 }: DailySchedulePanelProps) {
-  const nextTourId = findNextTourId(tours);
-  const upcomingCount = tours.filter((tour) => parseTourStartMs(tour) >= Date.now()).length;
+  const { nextTourId, upcomingCount } = summarizeTodayTours(tours);
 
   return (
     <section className={styles.panel} aria-labelledby="daily-schedule-title">
@@ -77,7 +82,7 @@ export default function DailySchedulePanel({
             Tu panel diario de servicios confirmados
           </h2>
           <p className={styles.description}>
-            Revisa tus paseos del dia en orden cronologico y entra rapido al flujo de gestion de cada reserva.
+            Revisa tus paseos del día en orden cronológico y entra rápido al flujo de gestión de cada reserva.
           </p>
         </div>
 
@@ -138,7 +143,7 @@ export default function DailySchedulePanel({
 
                 <div className={styles.cardBody}>
                   <div>
-                    <span className={styles.detailLabel}>Direccion o sector</span>
+                    <span className={styles.detailLabel}>Dirección o sector</span>
                     <span className={styles.detailValue}>{formatAddress(tour)}</span>
                   </div>
                   <div>
@@ -148,7 +153,7 @@ export default function DailySchedulePanel({
                   <div>
                     <span className={styles.detailLabel}>Gestion</span>
                     <span className={styles.detailValue}>
-                      Entra al detalle de la reserva para iniciar el paseo o revisar la ubicacion.
+                      Entra al detalle de la reserva para iniciar el paseo o revisar la ubicación.
                     </span>
                   </div>
                 </div>

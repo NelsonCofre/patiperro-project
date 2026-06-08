@@ -32,6 +32,8 @@ public class ReservaPaseadorSolicitudResponseDTO {
 
     private String comuna;
     private String direccionReferencia;
+    private Double latitud;
+    private Double longitud;
 
     private String tutorNombre;
     private String tutorTelefono;

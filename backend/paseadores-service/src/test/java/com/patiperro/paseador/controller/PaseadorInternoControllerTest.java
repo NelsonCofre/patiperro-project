@@ -115,6 +115,17 @@ class PaseadorInternoControllerTest {
     }
 
     @Test
+    void correoExiste_secretoValido_retorna200() throws Exception {
+        when(paseadorRepository.existsByCorreoIgnoreCase("duplicado@test.cl")).thenReturn(true);
+
+        mockMvc.perform(get("/api/paseadores/interno/correo/existe")
+                        .param("correo", "Duplicado@Test.CL")
+                        .header(PaseadorInternoController.HEADER_INTERNO, SECRETO_VALIDO))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.existe").value(true));
+    }
+
+    @Test
     void obtenerCorreo_secretoValido_retorna200() throws Exception {
         when(paseadorRepository.findById(4L)).thenReturn(Optional.of(
                 Paseador.builder().id(4L).correo("  paseador@test.cl  ").contrasena("hash").build()));

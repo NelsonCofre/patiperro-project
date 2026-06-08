@@ -29,18 +29,25 @@ type ReservaChatHandlers = {
   onMessage?: (message: ChatMessage) => void;
   onTyping?: (event: TypingEvent) => void;
   onConnected?: (state: ChatConnectionState) => void;
+  onReconnecting?: () => void;
   onDisconnected?: () => void;
   onError?: (message: string) => void;
 };
 
 type GlobalMessageListener = (message: ChatMessage) => void;
 
+type PendingConnect = {
+  resolve: (client: Client) => void;
+  reject: (error: Error) => void;
+};
+
 const TOPIC_MESSAGE_PREFIX = "/topic/reserva.";
 const TOPIC_TYPING_SUFFIX = ".typing";
+const CLIENT_WIRED_FLAG = "__patiperroChatWired";
 
 let stompClient: Client | null = null;
 let connectPromise: Promise<Client> | null = null;
-let connectGeneration = 0;
+let pendingConnects: PendingConnect[] = [];
 
 const reservaHandlers = new Map<number, Set<ReservaChatHandlers>>();
 const globalMessageListeners = new Set<GlobalMessageListener>();
@@ -98,20 +105,8 @@ function topicKey(reservaId: number, kind: "messages" | "typing"): string {
     : `${TOPIC_MESSAGE_PREFIX}${reservaId}${TOPIC_TYPING_SUFFIX}`;
 }
 
-function ensureClient(): Client {
-  if (!stompClient) {
-    stompClient = new Client({
-      brokerURL: CHAT_WS_BROKER_URL,
-      reconnectDelay: 4000,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
-      onStompError: (frame) => {
-        const detail = frame.body?.trim() || "Error STOMP en el chat.";
-        notifyConnectionError(detail);
-      }
-    });
-  }
-  return stompClient;
+function hasActiveConsumers(): boolean {
+  return reservaHandlers.size > 0 || globalMessageListeners.size > 0 || reservaInterest.size > 0;
 }
 
 function notifyConnectionError(message: string): void {
@@ -126,14 +121,43 @@ function notifyConnected(): void {
   });
 }
 
+function notifyReconnecting(): void {
+  reservaHandlers.forEach((set) => {
+    set.forEach((handler) => handler.onReconnecting?.());
+  });
+}
+
 function notifyDisconnected(): void {
   reservaHandlers.forEach((set) => {
     set.forEach((handler) => handler.onDisconnected?.());
   });
 }
 
+function resolvePendingConnects(client: Client): void {
+  const waiters = pendingConnects;
+  pendingConnects = [];
+  waiters.forEach(({ resolve }) => resolve(client));
+}
+
+function rejectPendingConnects(error: Error): void {
+  const waiters = pendingConnects;
+  pendingConnects = [];
+  waiters.forEach(({ reject }) => reject(error));
+}
+
+function clearTopicSubscriptions(): void {
+  topicSubscriptions.forEach((subscription) => {
+    try {
+      subscription.unsubscribe();
+    } catch {
+      // Suscripción STOMP ya inválida tras desconexión.
+    }
+  });
+  topicSubscriptions.clear();
+}
+
 function subscribeTopicIfNeeded(client: Client, destination: string): void {
-  if (topicSubscriptions.has(destination)) {
+  if (!client.connected || topicSubscriptions.has(destination)) {
     return;
   }
 
@@ -161,6 +185,9 @@ function subscribeTopicIfNeeded(client: Client, destination: string): void {
 }
 
 function syncTopicSubscriptions(client: Client): void {
+  if (!client.connected) {
+    return;
+  }
   reservaInterest.forEach((_count, reservaId) => {
     subscribeTopicIfNeeded(client, topicKey(reservaId, "messages"));
     subscribeTopicIfNeeded(client, topicKey(reservaId, "typing"));
@@ -198,54 +225,152 @@ function removeReservaInterest(reservaId: number): void {
   }
 }
 
-function teardownClientIfIdle(): void {
-  if (reservaHandlers.size > 0 || globalMessageListeners.size > 0 || reservaInterest.size > 0) {
+function wireClientCallbacks(client: Client): void {
+  const wiredClient = client as Client & { [CLIENT_WIRED_FLAG]?: boolean };
+  if (wiredClient[CLIENT_WIRED_FLAG]) {
     return;
   }
-  connectGeneration += 1;
+  wiredClient[CLIENT_WIRED_FLAG] = true;
+
+  client.onConnect = () => {
+    syncTopicSubscriptions(client);
+    notifyConnected();
+    resolvePendingConnects(client);
+    connectPromise = null;
+  };
+
+  client.onDisconnect = () => {
+    clearTopicSubscriptions();
+    connectPromise = null;
+    if (hasActiveConsumers()) {
+      notifyReconnecting();
+      return;
+    }
+    notifyDisconnected();
+  };
+
+  client.onWebSocketError = () => {
+    const message = "No se pudo conectar al chat en tiempo real.";
+    notifyConnectionError(message);
+    rejectPendingConnects(new Error(message));
+    connectPromise = null;
+    if (hasActiveConsumers()) {
+      notifyReconnecting();
+    }
+  };
+}
+
+function ensureClient(): Client {
+  if (!stompClient) {
+    stompClient = new Client({
+      brokerURL: CHAT_WS_BROKER_URL,
+      reconnectDelay: 2000,
+      heartbeatIncoming: 8000,
+      heartbeatOutgoing: 8000,
+      onStompError: (frame) => {
+        const detail = frame.body?.trim() || "Error STOMP en el chat.";
+        notifyConnectionError(detail);
+        if (hasActiveConsumers()) {
+          notifyReconnecting();
+        }
+      }
+    });
+    wireClientCallbacks(stompClient);
+  }
+  return stompClient;
+}
+
+function teardownClientIfIdle(): void {
+  if (hasActiveConsumers()) {
+    return;
+  }
   connectPromise = null;
+  rejectPendingConnects(new Error("Chat desconectado."));
+  pendingConnects = [];
+  clearTopicSubscriptions();
   stompClient?.deactivate();
   stompClient = null;
-  topicSubscriptions.clear();
 }
 
 async function ensureConnected(): Promise<Client> {
   const client = ensureClient();
   if (client.connected) {
+    syncTopicSubscriptions(client);
     return client;
   }
+
   if (connectPromise) {
     return connectPromise;
   }
 
-  const generation = ++connectGeneration;
   connectPromise = new Promise<Client>((resolve, reject) => {
-    client.onConnect = () => {
-      if (generation !== connectGeneration) {
-        return;
-      }
-      connectPromise = null;
-      syncTopicSubscriptions(client);
-      notifyConnected();
-      resolve(client);
-    };
-    client.onWebSocketError = () => {
-      if (generation !== connectGeneration) {
-        return;
-      }
-      connectPromise = null;
-      const message = "No se pudo conectar al chat en tiempo real.";
-      notifyConnectionError(message);
-      reject(new Error(message));
-    };
-    client.onDisconnect = () => {
-      topicSubscriptions.clear();
-      notifyDisconnected();
-    };
+    pendingConnects.push({ resolve, reject });
     client.activate();
+  }).finally(() => {
+    connectPromise = null;
   });
 
   return connectPromise;
+}
+
+function refreshConnectionAfterWake(): void {
+  if (!hasActiveConsumers()) {
+    return;
+  }
+
+  const client = stompClient;
+  if (!client) {
+    void ensureConnected().catch(() => undefined);
+    return;
+  }
+
+  if (!client.connected) {
+    notifyReconnecting();
+    void ensureConnected().catch(() => undefined);
+    return;
+  }
+
+  clearTopicSubscriptions();
+  syncTopicSubscriptions(client);
+  notifyConnected();
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      window.setTimeout(refreshConnectionAfterWake, 300);
+    }
+  });
+
+  window.addEventListener("online", () => {
+    window.setTimeout(refreshConnectionAfterWake, 300);
+  });
+}
+
+export function forceReconnectChat(): void {
+  if (!hasActiveConsumers()) {
+    return;
+  }
+
+  const client = stompClient;
+  clearTopicSubscriptions();
+  connectPromise = null;
+  rejectPendingConnects(new Error("Reconexion manual del chat."));
+
+  if (!client) {
+    void ensureConnected().catch(() => undefined);
+    return;
+  }
+
+  notifyReconnecting();
+
+  client.deactivate();
+  window.setTimeout(() => {
+    if (!hasActiveConsumers()) {
+      return;
+    }
+    void ensureConnected().catch(() => undefined);
+  }, 300);
 }
 
 export function subscribeReservaChat(
@@ -293,6 +418,9 @@ export function subscribeChatMessages(
 
 export async function sendReservaChatMessage(message: ChatMessage): Promise<void> {
   const client = await ensureConnected();
+  if (!client.connected) {
+    throw new Error("El chat se esta reconectando. Intenta de nuevo en unos segundos.");
+  }
   client.publish({
     destination: "/app/chat.send",
     body: JSON.stringify({
@@ -307,6 +435,9 @@ export async function sendReservaChatMessage(message: ChatMessage): Promise<void
 
 export async function sendTypingSignal(event: TypingEvent): Promise<void> {
   const client = await ensureConnected();
+  if (!client.connected) {
+    return;
+  }
   client.publish({
     destination: "/app/chat.typing",
     body: JSON.stringify({

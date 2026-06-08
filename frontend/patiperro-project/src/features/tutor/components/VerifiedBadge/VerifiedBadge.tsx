@@ -21,7 +21,7 @@ export default function VerifiedBadge({
       aria-label={
         verified
           ? "Paseador con identidad verificada"
-          : "Paseador sin verificacion de identidad"
+          : "Paseador sin verificación de identidad"
       }
     >
       {verified ? (

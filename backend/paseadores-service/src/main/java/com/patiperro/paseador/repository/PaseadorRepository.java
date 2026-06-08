@@ -15,6 +15,10 @@ public interface PaseadorRepository extends JpaRepository<Paseador, Long> {
 
     boolean existsByCorreo(String correo);
 
+    boolean existsByCorreoIgnoreCase(String correo);
+
+    Optional<Paseador> findByCorreoIgnoreCase(String correo);
+
     /** Evita doble subida concurrente mientras se actualiza el estado de verificación. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Paseador p WHERE p.id = :id")

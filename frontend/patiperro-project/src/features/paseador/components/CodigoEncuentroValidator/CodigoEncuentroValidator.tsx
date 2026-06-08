@@ -4,6 +4,7 @@ import {
   obtenerEstadoEncuentroReserva,
   validarCodigoEncuentroPaseador
 } from "../../services/solicitudesPaseadorService";
+import { formatFechaCorta } from "../../../shared/utils/displayLabels";
 import styles from "./CodigoEncuentroValidator.module.css";
 
 type Props = {
@@ -141,11 +142,11 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
   async function handleSubmit() {
     if (submitInFlightRef.current || isLocked || isSuccess || isValidating) return;
     if (!isComplete) {
-      triggerError("Ingresa los 4 digitos del codigo.");
+      triggerError("Ingresa los 4 dígitos del código.");
       return;
     }
     if (!/^\d{4}$/.test(code)) {
-      triggerError("El codigo debe tener 4 digitos.");
+      triggerError("El código debe tener 4 dígitos.");
       return;
     }
 
@@ -207,13 +208,13 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
           <p className={styles.eyebrow}>Encuentro confirmado</p>
           <h3>El paseo comenzo correctamente</h3>
           <p className={styles.successText}>
-            El backend confirmo el encuentro y la reserva ya quedo en estado EN_CURSO.
+            El backend confirmó el encuentro y la reserva ya quedó en estado EN_CURSO.
           </p>
         </div>
         <div className={styles.summaryGrid}>
           <div>
-            <span>Reserva</span>
-            <strong>#{solicitud.idReserva}</strong>
+            <span>Fecha del paseo</span>
+            <strong>{formatFechaCorta(solicitud.fecha)}</strong>
           </div>
           <div>
             <span>Mascota</span>
@@ -237,7 +238,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
       <div className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Validar encuentro</p>
-          <h3>Ingresa el codigo del tutor</h3>
+          <h3>Ingresa el código del tutor</h3>
         </div>
         <span className={styles.attempts}>
           {isLocked ? "Bloqueado" : `${Math.max(0, MAX_ATTEMPTS - attempts)} intentos`}
@@ -270,7 +271,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
         </p>
       ) : (
         <p className={styles.helper}>
-          Pide al tutor que muestre el codigo en pantalla e ingresalo antes de iniciar el paseo.
+          Pide al tutor que muestre el código en pantalla e ingrésalo antes de iniciar el paseo.
         </p>
       )}
 
@@ -282,7 +283,7 @@ export default function CodigoEncuentroValidator({ solicitud, onSuccess }: Props
       ) : null}
 
       <button type="button" className={styles.validateButton} onClick={() => void handleSubmit()} disabled={isLocked || isValidating}>
-        {isValidating ? "Validando..." : "Validar codigo"}
+        {isValidating ? "Validando..." : "Validar código"}
       </button>
     </section>
   );

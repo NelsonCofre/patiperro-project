@@ -2,6 +2,7 @@ import styles from "./CodigoEncuentro.module.css";
 
 type Props = {
   codigo: number | string | null;
+  embedded?: boolean;
 };
 
 function formatCodigo(codigo: Props["codigo"]): string | null {
@@ -13,11 +14,14 @@ function formatCodigo(codigo: Props["codigo"]): string | null {
   return digitsOnly.padStart(4, "0").slice(-4);
 }
 
-export default function CodigoEncuentro({ codigo }: Props) {
+export default function CodigoEncuentro({ codigo, embedded = false }: Props) {
   const formatted = formatCodigo(codigo);
 
   return (
-    <section className={styles.card} aria-label="Codigo de encuentro">
+    <section
+      className={`${styles.card} ${embedded ? styles.embedded : ""}`}
+      aria-label="Codigo de encuentro"
+    >
       <div className={styles.header}>
         <span className={styles.eyebrow}>Codigo de encuentro</span>
         <strong>Reserva aceptada</strong>

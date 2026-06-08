@@ -196,19 +196,20 @@ public class ReservaService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Pago con pasarela no disponible (configuración).");
         }
+        String titulo = "Reserva Patiperro #" + idReserva;
+        Optional<TutorCheckoutPreferenciaResponseDTO> pref = pagosCheckoutIntegracionClient.crearPreferenciaCheckout(
+                idReserva, r.getMontoTotal(), titulo, idempotencyKey);
+        TutorCheckoutPreferenciaResponseDTO dto = pref.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "No se pudo crear la preferencia de pago. Intente más tarde."));
         EstadoReserva est = r.getEstadoReserva();
         if (est != null && est.getIdEstadoReserva() != null
                 && est.getIdEstadoReserva().equals(EstadoReservaCatalogo.ID_SOLICITADA)) {
             EstadoReserva pendiente = estadoReservaService
                     .obtenerPorNombreIgnoreCase(EstadoReservaCatalogo.NOMBRE_PENDIENTE_PAGO);
             r.setEstadoReserva(pendiente);
-            r = reservaRepository.save(r);
+            reservaRepository.save(r);
         }
-        String titulo = "Reserva Patiperro #" + idReserva;
-        Optional<TutorCheckoutPreferenciaResponseDTO> pref = pagosCheckoutIntegracionClient.crearPreferenciaCheckout(
-                idReserva, r.getMontoTotal(), titulo, idempotencyKey);
-        return pref.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "No se pudo crear la preferencia de pago. Intente más tarde."));
+        return dto;
     }
 
     /**
@@ -978,7 +979,7 @@ public class ReservaService {
     /**
      * Reservas visibles en el panel del paseador cuyo bloque de agenda pertenece al
      * paseador
-     * (JWT {@code paseadorId}): SOLICITADA, ACEPTADA, EN_CURSO y RECHAZADA.
+     * (JWT {@code paseadorId}): SOLICITADA, ACEPTADA, EN_CURSO, RECHAZADA y FINALIZADA.
      */
     public List<ReservaPaseadorSolicitudResponseDTO> listarSolicitudesPendientesPaseador(
             Integer idPaseador, String rawJwt) {
@@ -1002,6 +1003,7 @@ public class ReservaService {
                 EstadoReservaCatalogo.ID_PAGADA,
                 EstadoReservaCatalogo.ID_ACEPTADA,
                 EstadoReservaCatalogo.ID_EN_CURSO,
+                EstadoReservaCatalogo.ID_FINALIZADA,
                 EstadoReservaCatalogo.ID_RECHAZADA,
                 EstadoReservaCatalogo.ID_EXPIRADA);
         List<Reserva> reservas = reservaRepository.findByIdAgendaBloqueInAndEstadoReserva_IdEstadoReservaIn(
@@ -1473,6 +1475,13 @@ public class ReservaService {
 
         MascotaEnriquecimientoPaseador m = cargarMascotaEnriquecimientoPaseador(r.getIdMascota());
 
+        Double latitudEncuentro = null;
+        Double longitudEncuentro = null;
+        if (tutor != null && tutor.getDireccion() != null) {
+            latitudEncuentro = tutor.getDireccion().getLatitud();
+            longitudEncuentro = tutor.getDireccion().getLongitud();
+        }
+
         return new ReservaPaseadorSolicitudResponseDTO(
                 r.getIdReserva(),
                 r.getIdTutorUsuario(),
@@ -1486,6 +1495,8 @@ public class ReservaService {
                 pa.horaFin(),
                 cd.comuna(),
                 cd.direccionReferencia(),
+                latitudEncuentro,
+                longitudEncuentro,
                 tutorNombre,
                 tutorTel,
                 tutorCorreo,
@@ -1674,6 +1685,13 @@ public class ReservaService {
                 && nuevo.getIdEstadoReserva() != null
                 && actual.getIdEstadoReserva().equals(nuevo.getIdEstadoReserva())) {
             return;
+        }
+        if (esExpirada(actual)) {
+            throw new IllegalArgumentException(
+                    "Esta solicitud expiró por plazo de aceptación y ya no puede modificarse");
+        }
+        if (esCancelada(actual)) {
+            throw new IllegalArgumentException("Esta solicitud fue cancelada por el tutor");
         }
         if (esSolicitada(actual) || esPendientePago(actual)) {
             if (esAceptada(nuevo) || esRechazada(nuevo)) {

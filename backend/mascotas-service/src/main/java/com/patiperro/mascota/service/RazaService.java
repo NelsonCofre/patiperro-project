@@ -16,11 +16,13 @@ public class RazaService {
     private final RazaRepository razaRepository;
     private final EspecieRepository especieRepository;
 
+    @Transactional(readOnly = true)
     public List<Raza> listarTodas() {
         return razaRepository.findAll();
     }
 
     /** Si {@code idEspecie} es null, lista todas; si no, solo razas de esa especie. */
+    @Transactional(readOnly = true)
     public List<Raza> listarPorEspecieOpcional(Long idEspecie) {
         if (idEspecie == null) {
             return razaRepository.findAll();

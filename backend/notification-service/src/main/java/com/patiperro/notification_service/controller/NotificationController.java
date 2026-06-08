@@ -5,7 +5,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import com.patiperro.notification_service.dto.CorreoAceptacionRequest;
@@ -29,7 +28,7 @@ public class NotificationController {
     // =========================================================================
 
     @PostMapping("/plantillas")
-    public ResponseEntity<PlantillaCorreo> crearPlantilla(@Valid @RequestBody @NonNull PlantillaCorreo plantilla) {
+    public ResponseEntity<PlantillaCorreo> crearPlantilla(@Valid @RequestBody PlantillaCorreo plantilla) {
         // Vigilancia: Registra una nueva configuración de correo en el catálogo //
         PlantillaCorreo nueva = notificationService.registrarPlantilla(plantilla);
         return new ResponseEntity<>(nueva, HttpStatus.CREATED);

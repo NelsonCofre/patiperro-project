@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchChatHistory, uploadChatImage } from "../services/chatApi";
 import {
+  forceReconnectChat,
   sendReservaChatMessage,
   sendTypingSignal,
   subscribeReservaChat
@@ -141,6 +142,11 @@ export function useReservaChat({
       onConnected: () => {
         if (!active) return;
         setConnectionState("connected");
+        setSendError(null);
+      },
+      onReconnecting: () => {
+        if (!active) return;
+        setConnectionState("reconnecting");
       },
       onDisconnected: () => {
         if (!active) return;
@@ -148,7 +154,7 @@ export function useReservaChat({
       },
       onError: (message) => {
         if (!active) return;
-        setConnectionState("error");
+        setConnectionState("reconnecting");
         setSendError(message);
       },
       onMessage: (message) => {
@@ -315,13 +321,20 @@ export function useReservaChat({
     }
   }
 
+  async function retryConnection(): Promise<void> {
+    setConnectionState("reconnecting");
+    setSendError(null);
+    forceReconnectChat();
+  }
+
   async function retryHistory(): Promise<void> {
     setConnectionState("loading-history");
     setHistoryError(null);
     try {
       const history = await fetchChatHistory(reservaId);
       setMessages(history.map(enrichMessage));
-      setConnectionState("connected");
+      setConnectionState("reconnecting");
+      forceReconnectChat();
     } catch (error) {
       setHistoryError(
         error instanceof Error ? error.message : "No se pudo cargar el historial."
@@ -347,6 +360,7 @@ export function useReservaChat({
     sendMessage,
     sendImage,
     retryHistory,
+    retryConnection,
     clearSendError
   };
 }

@@ -89,7 +89,7 @@ export default function PerfilPaseadorModal({
         const dEnd = String(until.getDate()).padStart(2, "0");
         const hasta = `${yEnd}-${mEnd}-${dEnd}`;
 
-        if (!Number.isFinite(idPaseadorNum)) throw new Error("ID de paseador no valido.");
+        if (!Number.isFinite(idPaseadorNum)) throw new Error("No se pudo cargar el perfil del paseador.");
 
         const [agenda, listaResenas, promedio] = await Promise.all([
           fetchAgendaOfertaPaseador(idPaseadorNum, desde, hasta),
@@ -362,7 +362,7 @@ export default function PerfilPaseadorModal({
           {loadingResenas ? (
             <p className={styles.emptyReviews}>Cargando opiniones...</p>
           ) : resenas.length === 0 ? (
-            <p className={styles.emptyReviews}>Este paseador aun no tiene resenas.</p>
+            <p className={styles.emptyReviews}>Este paseador aún no tiene reseñas.</p>
           ) : (
             <div className={styles.reviewList}>
               {resenas.slice(0, 5).map((resena) => (

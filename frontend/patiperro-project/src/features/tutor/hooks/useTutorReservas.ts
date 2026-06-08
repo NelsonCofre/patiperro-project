@@ -44,7 +44,7 @@ export function useTutorReservas() {
     } catch (e) {
       if (isTutorAuthError(e)) {
         handleTutorAuthFailure();
-        setError("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+        setError("Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.");
         window.location.replace("/login/tutor");
         return;
       }
@@ -98,7 +98,7 @@ export function useTutorReservas() {
     async (reserva: ReservaTutorDetalleDTO) => {
       const meta = getReservaEstadoMeta(reserva);
       if (meta.key !== "solicitada") {
-        setNotice("Solo puedes cancelar solicitudes que aun estan en estado Solicitada.");
+        setNotice("Solo puedes cancelar solicitudes que aún están en estado Solicitada.");
         return;
       }
 
@@ -109,7 +109,7 @@ export function useTutorReservas() {
       } catch (e) {
         if (isTutorAuthError(e)) {
           handleTutorAuthFailure();
-          setNotice("Tu sesion expiro o ya no es valida. Vuelve a iniciar sesion.");
+          setNotice("Tu sesión expiró o ya no es válida. Vuelve a iniciar sesión.");
           window.location.replace("/login/tutor");
           return;
         }
@@ -124,13 +124,14 @@ export function useTutorReservas() {
       (acc, reserva) => {
         const key = getReservaEstadoMeta(reserva).key;
         acc.total += 1;
-        if (key === "solicitada") acc.solicitadas += 1;
+        if (key === "solicitada" || key === "pendiente_pago" || key === "pagada") acc.solicitadas += 1;
         if (key === "aceptada") acc.aceptadas += 1;
         if (key === "en_curso") acc.enCurso += 1;
         if (key === "finalizada") acc.finalizadas += 1;
+        if (key === "rechazada" || key === "cancelada" || key === "expirada") acc.cerradas += 1;
         return acc;
       },
-      { total: 0, solicitadas: 0, aceptadas: 0, enCurso: 0, finalizadas: 0 }
+      { total: 0, solicitadas: 0, aceptadas: 0, enCurso: 0, finalizadas: 0, cerradas: 0 }
     );
   }, [reservas]);
 

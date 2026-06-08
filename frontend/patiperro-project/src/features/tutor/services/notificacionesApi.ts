@@ -1,4 +1,5 @@
 import { bearerAuthHeaders } from "../../../config/authHeaders";
+import { API_ENDPOINTS } from "../../../config/api";
 
 // 1. Definimos cómo luce nuestro DTO en TypeScript
 export interface NotificacionEventoRequest {
@@ -9,7 +10,7 @@ export interface NotificacionEventoRequest {
 
 // 2. Creamos la función que hace el POST
 export async function dispararNotificacion(datos: NotificacionEventoRequest): Promise<void> {
-  const url = "http://localhost:8086/api/notificaciones/disparar-evento"; 
+  const url = API_ENDPOINTS.notificaciones.dispararEvento;
 
   console.log("DEBUG: Enviando payload a notificaciones:", JSON.stringify(datos, null, 2));
 

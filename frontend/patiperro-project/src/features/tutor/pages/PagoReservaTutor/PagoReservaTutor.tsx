@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getMercadoPagoPublicKey } from "../../../../config/mercadopago";
 import TutorNavbar from "../../components/TutorNavbar/TutorNavbar";
 import { crearPreferenciaCheckoutProTutor } from "../../services/pagoTutorApi";
+import { tituloItemCheckout } from "../../../shared/utils/displayLabels";
 import styles from "./PagoReservaTutor.module.css";
 
 function formatCurrency(value: number) {
@@ -55,7 +56,7 @@ export default function PagoReservaTutor() {
       const dto = await crearPreferenciaCheckoutProTutor({
         idReserva,
         montoTotal: total,
-        tituloItem: `Reserva #${idReserva}`
+        tituloItem: tituloItemCheckout({ mascota, paseador })
       });
       if (!dto.preferenceId) {
         throw new Error("Mercado Pago no devolvió preferenceId.");
@@ -93,8 +94,8 @@ export default function PagoReservaTutor() {
         <article className={styles.card}>
           <div className={styles.list}>
             <div className={styles.row}>
-              <span>Reserva</span>
-              <strong>{idReserva ? `#${idReserva}` : "No disponible"}</strong>
+              <span>Paseo</span>
+              <strong>{`${mascota} · ${bloque}`}</strong>
             </div>
             <div className={styles.row}>
               <span>Paseador</span>

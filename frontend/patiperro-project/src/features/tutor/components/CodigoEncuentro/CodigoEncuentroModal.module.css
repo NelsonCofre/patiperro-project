@@ -1,0 +1,36 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.dialog {
+  position: relative;
+  width: min(100%, 480px);
+  padding: 20px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  color: #334155;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: #eef2f7;
+}

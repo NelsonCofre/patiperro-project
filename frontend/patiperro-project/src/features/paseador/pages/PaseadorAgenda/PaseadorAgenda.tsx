@@ -106,7 +106,7 @@ export default function PaseadorAgenda() {
             <span className={styles.modalEyebrow}>Agregar bloque</span>
             <h2 className={styles.modalTitle}>Franja de disponibilidad</h2>
             <p className={styles.modalText}>
-              Se guarda en el servidor como agenda-bloque con fecha y horario exactos.
+              Define la fecha y el horario en que podras recibir solicitudes de paseo.
             </p>
 
             <div className={styles.modalFields}>
@@ -133,7 +133,7 @@ export default function PaseadorAgenda() {
               </label>
 
               <label className={styles.modalField}>
-                <span>Hora de termino</span>
+                <span>Hora de término</span>
                 <input
                   type="time"
                   value={form.endTime}
@@ -192,8 +192,7 @@ export default function PaseadorAgenda() {
             <span className={styles.modalEyebrow}>Bloquear dias</span>
             <h2 className={styles.modalTitle}>Bloquea fechas por motivos personales</h2>
             <p className={styles.modalText}>
-              Este formulario ya queda preparado para enviar al backend un objeto con
-              <strong> fecha_inicio </strong>y<strong> fecha_fin</strong>.
+              Indica el rango de fechas en que no podras aceptar paseos por motivos personales.
             </p>
 
             <div className={styles.modalFields}>
@@ -268,14 +267,14 @@ export default function PaseadorAgenda() {
         </div>
 
         <div className={styles.heroBadge}>
-          <span className={styles.heroBadgeLabel}>Estado en servidor</span>
+          <span className={styles.heroBadgeLabel}>Resumen de agenda</span>
           <strong>{textoEstadoServidor()}</strong>
           <p className={styles.heroBadgeText}>
             {catalogLoading
-              ? "Cargando catalogos de agenda..."
+              ? "Cargando tu agenda..."
               : catalogError
                 ? catalogError
-                : `${allBlocks.length} bloque(s) reales - ${blockedRanges.length} bloqueo(s) locales por fecha`}
+                : `${allBlocks.length} bloque(s) disponibles · ${blockedRanges.length} dia(s) bloqueado(s)`}
           </p>
         </div>
       </section>
@@ -444,7 +443,7 @@ export default function PaseadorAgenda() {
 
           <div className={styles.summaryStack}>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Bloques reales</span>
+              <span className={styles.summaryLabel}>Bloques disponibles</span>
               <strong>{allBlocks.length}</strong>
             </div>
             <div className={styles.summaryCard}>
@@ -452,13 +451,13 @@ export default function PaseadorAgenda() {
               <strong>{selectedCell ? `${selectedCell.dayNumber} ${selectedCell.monthLabel}` : selectedISODate}</strong>
             </div>
             <div className={styles.summaryCard}>
-              <span className={styles.summaryLabel}>Bloqueos locales</span>
+              <span className={styles.summaryLabel}>Dias bloqueados</span>
               <strong>{blockedRanges.length}</strong>
             </div>
           </div>
 
           <button type="button" className={styles.primaryButton} onClick={openAddModal}>
-            Nuevo bloque (API)
+            Crear bloque
           </button>
 
           <button type="button" className={styles.secondaryButton} onClick={openBlockDaysModal}>

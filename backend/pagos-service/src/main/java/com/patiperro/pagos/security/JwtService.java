@@ -14,8 +14,13 @@ public class JwtService {
 
     private final SecretKey secretKey;
 
-    public JwtService(@Value("${jwt.secret}") String secret) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtService(
+            @Value("${jwt.secret:patiperro-dev-secret-key-should-be-long-and-random-2026}") String secret) {
+        String normalized = secret != null ? secret.trim() : "";
+        if (normalized.isEmpty()) {
+            normalized = "patiperro-dev-secret-key-should-be-long-and-random-2026";
+        }
+        this.secretKey = Keys.hmacShaKeyFor(normalized.getBytes(StandardCharsets.UTF_8));
     }
 
     public Claims parseClaims(String token) {

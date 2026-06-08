@@ -2,17 +2,20 @@
 // Usa NavLink para resaltar automaticamente la opcion activa.
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useChatUnread } from "../../../chat/context/ChatUnreadContext";
 import { clearAuthSession } from "../../../auth/services/authServices";
 import { fetchSolicitudesPendientesPaseador } from "../../services/solicitudesPaseadorService";
+import { esSolicitudPorResponder } from "../../utils/solicitudEstadoUtils";
 import styles from "./PaseadorNavbar.module.css";
 
 const NAV_ITEMS = [
   { label: "Inicio", to: "/paseador/dashboard", end: true },
   { label: "Solicitudes", to: "/paseador/dashboard/solicitudes" },
-  { label: "Mi Billetera", to: "/paseador/dashboard/billetera" },
+  { label: "Billetera", to: "/paseador/dashboard/billetera" },
   { label: "Verificación", to: "/paseador/dashboard/verificacion" },
-  { label: "Configurar mi Servicio", to: "/paseador/dashboard/configuracion" },
-  { label: "Mi Agenda", to: "/paseador/dashboard/agenda" }
+  { label: "Configuración", to: "/paseador/dashboard/configuracion" },
+  { label: "Agenda", to: "/paseador/dashboard/agenda" },
+  { label: "Perfil", to: "/paseador/dashboard/perfil" }
 ];
 
 const PASEADOR_SOLICITUDES_REVIEWED_AT_KEY = "patiperro_paseador_solicitudes_reviewed_at";
@@ -20,6 +23,7 @@ const PASEADOR_SOLICITUDES_REVIEWED_AT_KEY = "patiperro_paseador_solicitudes_rev
 export default function PaseadorNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { unreadCount: chatUnreadCount } = useChatUnread();
   const [pendingCount, setPendingCount] = useState(0);
   const [lastPendingUpdate, setLastPendingUpdate] = useState<number | null>(null);
 
@@ -37,7 +41,7 @@ export default function PaseadorNavbar() {
       try {
         const solicitudes = await fetchSolicitudesPendientesPaseador();
         if (!active) return;
-        setPendingCount(solicitudes.filter((solicitud) => solicitud.estado === "Solicitada").length);
+        setPendingCount(solicitudes.filter((solicitud) => esSolicitudPorResponder(solicitud.estado)).length);
         setLastPendingUpdate(Date.now());
       } catch {
         if (!active) return;
@@ -114,6 +118,14 @@ export default function PaseadorNavbar() {
                         {pendingCount > 99 ? "99+" : pendingCount}
                       </span>
                     ) : null}
+                    {chatUnreadCount > 0 ? (
+                      <span
+                        className={styles.chatBadge}
+                        aria-label={`${chatUnreadCount} mensajes de chat sin leer`}
+                      >
+                        {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                      </span>
+                    ) : null}
                   </span>
                 </span>
               ) : (
@@ -122,7 +134,7 @@ export default function PaseadorNavbar() {
             </NavLink>
           ))}
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
-            Cerrar sesion
+            Cerrar sesión
           </button>
         </nav>
       </div>

@@ -29,6 +29,7 @@ export type ChatConnectionState =
   | "idle"
   | "loading-history"
   | "connecting"
+  | "reconnecting"
   | "connected"
   | "error";
 

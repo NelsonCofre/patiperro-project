@@ -21,6 +21,7 @@ import PagoReservaTutor from "../features/tutor/pages/PagoReservaTutor/PagoReser
 import TutorCheckoutRetornoPage from "../features/tutor/pages/TutorCheckoutRetorno/TutorCheckoutRetornoPage";
 import TutorDashboard from "../features/tutor/pages/TutorDashboard/TutorDashboard";
 import TutorReservas from "../features/tutor/pages/TutorReservas/TutorReservas";
+import MiPerfilCuenta from "../features/shared/pages/MiPerfilCuenta/MiPerfilCuenta";
 
 function RequireTutorAuth({ children }: { children: ReactElement }) {
   const location = useLocation();
@@ -42,6 +43,18 @@ function RequireChatAuth({ children }: { children: ReactElement }) {
 
   if (!accessToken || (!tutorId && !paseadorId)) {
     return <Navigate to="/" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
+
+function RequirePaseadorAuth({ children }: { children: ReactElement }) {
+  const location = useLocation();
+  const accessToken = sessionStorage.getItem(ACCESS_TOKEN_SESSION_KEY)?.trim();
+  const paseadorId = sessionStorage.getItem(PASEADOR_ID_SESSION_KEY)?.trim();
+
+  if (!accessToken || !paseadorId) {
+    return <Navigate to="/login/paseador" replace state={{ from: location }} />;
   }
 
   return children;
@@ -70,9 +83,19 @@ export default function AppRoutes() {
       <Route path="/paseador/dashboard/solicitudes" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/aceptadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/en-curso" element={<PaseadorSolicitudes />} />
+      <Route path="/paseador/dashboard/solicitudes/finalizadas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/solicitudes/rechazadas" element={<PaseadorSolicitudes />} />
+      <Route path="/paseador/dashboard/solicitudes/expiradas" element={<PaseadorSolicitudes />} />
       <Route path="/paseador/dashboard/agenda" element={<PaseadorAgenda />} />
       <Route path="/paseador/dashboard/billetera" element={<PaseadorBilletera />} />
+      <Route
+        path="/paseador/dashboard/perfil"
+        element={
+          <RequirePaseadorAuth>
+            <MiPerfilCuenta role="paseador" />
+          </RequirePaseadorAuth>
+        }
+      />
       {/* Primeras rutas del espacio del tutor. */}
       <Route
         path="/tutor/dashboard"
@@ -133,6 +156,14 @@ export default function AppRoutes() {
       <Route
         path="/tutor/reservas/pago/pendiente"
         element={<TutorCheckoutRetornoPage tipo="pending" />}
+      />
+      <Route
+        path="/tutor/perfil"
+        element={
+          <RequireTutorAuth>
+            <MiPerfilCuenta role="tutor" />
+          </RequireTutorAuth>
+        }
       />
       <Route
         path="/tutor/reservas"

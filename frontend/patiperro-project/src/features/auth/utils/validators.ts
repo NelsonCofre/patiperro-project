@@ -11,7 +11,7 @@ export function isValidEmail(value: string): boolean {
 
 export function getPasswordSecurityError(value: string): string | null {
   if (!value) {
-    return "La contrasena es obligatoria.";
+    return "La contraseña es obligatoria.";
   }
 
   if (
@@ -20,7 +20,7 @@ export function getPasswordSecurityError(value: string): string | null {
     !PASSWORD_NUMBER_REGEX.test(value) ||
     !PASSWORD_SPECIAL_REGEX.test(value)
   ) {
-    return "Tu contrasena debe contener al menos 8 caracteres, incluyendo una mayuscula, un numero y un caracter especial.";
+    return "Tu contraseña debe contener al menos 8 caracteres, incluyendo una mayúscula, un número y un carácter especial.";
   }
 
   return null;
