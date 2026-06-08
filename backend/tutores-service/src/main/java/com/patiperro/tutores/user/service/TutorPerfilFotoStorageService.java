@@ -51,6 +51,42 @@ public class TutorPerfilFotoStorageService {
         return target;
     }
 
+    public static final String PUBLIC_URL_PREFIX = "/api/tutores/public/perfil/";
+
+    public String buildPublicUrl(String filename) {
+        return PUBLIC_URL_PREFIX + filename;
+    }
+
+    public void deleteQuietly(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return;
+        }
+        Path path = resolveExisting(filename);
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // Best effort: no interrumpir flujo principal.
+        }
+    }
+
+    public String extractFilenameFromPublicUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        int idx = trimmed.lastIndexOf(PUBLIC_URL_PREFIX);
+        if (idx >= 0) {
+            return trimmed.substring(idx + PUBLIC_URL_PREFIX.length());
+        }
+        if (trimmed.matches("^[a-fA-F0-9\\-]{36}\\.(jpg|jpeg|png|gif|webp)$")) {
+            return trimmed;
+        }
+        return null;
+    }
+
     private static String extensionOf(String originalName) {
         if (originalName == null || !originalName.contains(".")) {
             return null;

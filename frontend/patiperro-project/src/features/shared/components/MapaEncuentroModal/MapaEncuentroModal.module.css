@@ -1,0 +1,70 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.card {
+  position: relative;
+  width: min(100%, 700px);
+  padding: 20px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.header h3 {
+  margin: 0;
+  color: #163020;
+  font-size: 1.15rem;
+}
+
+.closeButton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  color: #334155;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: #eef2f7;
+}
+
+.mapWrap {
+  height: 450px;
+  overflow: hidden;
+  border: 1px solid #dce7dd;
+  border-radius: 8px;
+}
+
+.mapWrap :global(.leaflet-container) {
+  height: 100%;
+  width: 100%;
+}
+
+.address {
+  margin: 12px 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.address strong {
+  color: #163020;
+}

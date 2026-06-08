@@ -200,7 +200,7 @@ export async function crearBloqueoDia(
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
   if (!res.ok) {
-    throw new Error(readErrorMessage(data, "No se pudo bloquear el dia seleccionado."));
+    throw new Error(readErrorMessage(data, "No se pudo bloquear el día seleccionado."));
   }
   return data as AgendaBloqueoDiaDTO;
 }
@@ -217,7 +217,7 @@ export async function desbloquearDiaPorUsuario(
   if (res.status === 204) return;
   const data = await parseJson(res);
   await guardarSesionRequerida(res, data);
-  throw new Error(readErrorMessage(data, "No se pudo desbloquear el dia seleccionado."));
+  throw new Error(readErrorMessage(data, "No se pudo desbloquear el día seleccionado."));
 }
 
 export async function crearSerieMensualBloques(

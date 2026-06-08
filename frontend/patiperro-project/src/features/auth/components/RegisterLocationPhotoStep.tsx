@@ -33,7 +33,7 @@ export default function RegisterLocationPhotoStep<TForm extends BaseRegisterForm
 }: Props<TForm>) {
   return (
     <>
-      <h3 className={styles.sectionTitle}>Ubicacion y foto</h3>
+      <h3 className={styles.sectionTitle}>Ubicación y foto</h3>
 
       <div className={styles.fieldsGrid}>
         <AuthInput
@@ -87,7 +87,7 @@ export default function RegisterLocationPhotoStep<TForm extends BaseRegisterForm
         />
 
         <AuthInput
-          label="Numeracion"
+          label="Numeración"
           name="numeracion"
           value={form.numeracion}
           onChange={onChange}
@@ -136,7 +136,7 @@ export default function RegisterLocationPhotoStep<TForm extends BaseRegisterForm
         {form.foto_perfil ? (
           <p className={styles.fileName}>{form.foto_perfil.name}</p>
         ) : (
-          <p className={styles.fileName}>Aun no has seleccionado una imagen</p>
+          <p className={styles.fileName}>Aún no has seleccionado una imagen</p>
         )}
 
         {errors.foto_perfil ? (

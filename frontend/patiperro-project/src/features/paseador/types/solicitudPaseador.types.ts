@@ -38,11 +38,14 @@ export type SolicitudPendientePaseador = {
   montoTotal: number;
   estado:
     | "Solicitada"
+    | "Pendiente de pago"
+    | "Pagada"
     | "Aceptada"
     | "En Curso"
     | "Rechazada"
+    | "Expirada"
+    | "Cancelada"
     | "Finalizada"
-    | "Pagada"
     | "Disponible";
   codigoEncuentro?: number | null;
   comentarioTutor?: string;

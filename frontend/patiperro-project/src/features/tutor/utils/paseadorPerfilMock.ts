@@ -74,7 +74,7 @@ function buildResenas(paseadorId: string, seed: number): ResenaPaseador[] {
       id: `${paseadorId}-resena-5`,
       tutorNombre: "Valentina Soto",
       calificacion: 4.9,
-      comentario: "Se nota la experiencia, mi perrita quedo feliz.",
+      comentario: "Se nota la experiencia, mi perrita quedó feliz.",
       fecha: new Date(baseDate.getTime() - 8 * DAY_MS).toISOString()
     },
     {

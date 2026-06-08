@@ -1,13 +1,91 @@
 .card {
+  position: relative;
   display: grid;
-  gap: 18px;
-  padding: 20px;
+  gap: 16px;
+  padding: 20px 20px 20px 24px;
+  overflow: hidden;
   border: 1px solid #dce7dd;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
   box-shadow:
     0 14px 28px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.cardEnCursoLayout {
+  grid-template-columns: minmax(210px, 0.38fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding-left: 0;
+}
+
+.cardBody {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.photoColumn {
+  position: relative;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid #e1ebe2;
+  border-radius: 15px 0 0 15px;
+  background: #eef7ef;
+}
+
+.paseadorPhoto {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.photoFallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #166534;
+  font-size: 2rem;
+  font-weight: 900;
+  background: linear-gradient(180deg, #ecfdf3 0%, #dcfce7 100%);
+}
+
+.cardAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background: #cbd5e1;
+}
+
+.cardEnCurso {
+  border-color: #86efac;
+  box-shadow:
+    0 16px 34px rgba(34, 197, 94, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.cardEnCurso .cardAccent {
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+}
+
+.cardFinalizada .cardAccent {
+  background: #94a3b8;
+}
+
+.cardCerrada {
+  opacity: 0.92;
+}
+
+.cardCerrada .cardAccent {
+  background: #fca5a5;
 }
 
 .cardHeader,
@@ -18,57 +96,36 @@
   align-items: flex-start;
 }
 
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 900;
+.headerMain {
+  display: grid;
+  gap: 8px;
 }
 
-.statusSolicitada {
-  color: #7c4a03;
-  background: #fff3cf;
-  border: 1px solid #f2c45d;
-}
-
-.statusAceptada {
-  color: #1d4ed8;
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
-}
-
-.statusEnCurso {
-  color: #166534;
-  background: #dcfce7;
-  border: 1px solid #86efac;
-}
-
-.statusFinalizada {
-  color: #475569;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-}
-
-.statusRechazada {
-  color: #991b1b;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-}
-
-.statusDesconocida {
-  color: #334155;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
+.headerAside {
+  display: grid;
+  gap: 4px;
+  text-align: right;
 }
 
 .statusHelper,
 .reservaId {
-  margin: 8px 0 0;
+  margin: 0;
   color: #64748b;
   font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.reservaId {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.amount {
+  color: #163020;
+  font-size: 1.15rem;
+  font-weight: 900;
 }
 
 .mainInfo {
@@ -77,36 +134,71 @@
   gap: 12px;
 }
 
-.mainInfo div {
-  padding: 14px;
-  border: 1px solid #e1ebe2;
-  border-radius: 8px;
-  background: #f8fbf8;
+.mainInfoCompact {
+  gap: 8px;
 }
 
-.mainInfo span {
+.mainInfoCompact .infoTile {
+  padding: 10px 12px;
+}
+
+.mainInfoCompact .infoTile strong {
+  font-size: 0.88rem;
+}
+
+.enCursoToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chatButton {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f0fdf4;
+}
+
+.chatButton:hover {
+  background: #dcfce7;
+}
+
+.addressHint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.infoTile {
+  padding: 14px;
+  border: 1px solid #e1ebe2;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fcfefc 0%, #f4faf5 100%);
+}
+
+.infoTile span {
   display: block;
   margin-bottom: 8px;
   color: #64748b;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.mainInfo strong {
+.infoTile strong {
   color: #183120;
   font-size: 0.96rem;
   line-height: 1.4;
 }
 
-.footer > div:first-child > span {
-  color: #183120;
-  font-size: 1.05rem;
-  font-weight: 900;
-}
-
 .paymentHelper {
-  margin: 6px 0 0;
+  margin: 0;
   color: #64748b;
   font-size: 0.84rem;
   font-weight: 700;
@@ -121,10 +213,10 @@
 
 .primaryButton,
 .secondaryButton,
-.warningButton {
+.codeButton {
   min-height: 40px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-weight: 800;
   cursor: pointer;
   transition:
@@ -145,15 +237,16 @@
   background: #ffffff;
 }
 
-.warningButton {
-  color: #7c4a03;
-  border: 1px solid #f2c45d;
-  background: #fff8e6;
+.codeButton {
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+  background: #dbeafe;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
 }
 
 .primaryButton:hover,
 .secondaryButton:hover,
-.warningButton:hover {
+.codeButton:hover {
   transform: translateY(-1px);
 }
 
@@ -167,12 +260,10 @@
   border-radius: 999px;
   font-weight: 800;
   font-size: 0.88rem;
-  letter-spacing: 0.01em;
   cursor: default;
   color: #166534;
   background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
   border: 1px solid #86efac;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .ratedButton:disabled {
@@ -183,7 +274,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -191,11 +281,20 @@
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.35);
 }
 
 @media (max-width: 860px) {
+  .cardEnCursoLayout {
+    grid-template-columns: 1fr;
+    padding-left: 20px;
+  }
+
+  .photoColumn {
+    height: 240px;
+    border-right: none;
+    border-radius: 12px;
+  }
+
   .mainInfo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -207,8 +306,18 @@
     flex-direction: column;
   }
 
+  .headerAside {
+    width: 100%;
+    text-align: left;
+  }
+
   .mainInfo {
     grid-template-columns: 1fr;
+  }
+
+  .enCursoToolbar,
+  .enCursoToolbar button {
+    width: 100%;
   }
 
   .actions,

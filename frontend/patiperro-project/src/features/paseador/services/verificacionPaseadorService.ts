@@ -1,5 +1,6 @@
 // Verificacion de identidad del paseador (PDF unico, aprobacion automatica).
 import { API_ENDPOINTS } from "../../../config/api";
+import { bearerAuthHeaders } from "../../../config/authHeaders";
 
 export type EstadoVerificacionIdentidad =
   | "SIN_ENVIAR"
@@ -11,6 +12,8 @@ export type VerificacionIdentidadDTO = {
   estado: EstadoVerificacionIdentidad;
   estadoEtiqueta: string;
   puedeSubir: boolean;
+  puedeCambiarDocumento: boolean;
+  documentoAccesible: boolean;
   enviadoEn: string | null;
   revisadoEn: string | null;
   motivoRechazo: string | null;
@@ -37,7 +40,7 @@ function readErrorMessage(data: unknown, fallback: string): string {
 export function validarPdfVerificacion(file: File): string | null {
   if (!file) return "Selecciona un archivo PDF.";
   if (file.size > MAX_VERIFICACION_PDF_BYTES) {
-    return "El archivo supera el tamano maximo permitido (5 MB).";
+    return "El archivo supera el tamaño máximo permitido (5 MB).";
   }
   const name = file.name.toLowerCase();
   if (!name.endsWith(".pdf")) {
@@ -53,7 +56,8 @@ export function validarPdfVerificacion(file: File): string | null {
 export async function fetchVerificacionEstado(): Promise<VerificacionIdentidadDTO> {
   const res = await fetch(API_ENDPOINTS.auth.paseadores.meVerificacion, {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   let data: unknown = null;
   try {
@@ -62,10 +66,10 @@ export async function fetchVerificacionEstado(): Promise<VerificacionIdentidadDT
     data = null;
   }
   if (res.status === 401 || res.status === 403) {
-    throw new Error("Sesion requerida: inicia sesion como paseador.");
+    throw new Error("Sesión requerida: inicia sesión como paseador.");
   }
   if (!res.ok) {
-    throw new Error(readErrorMessage(data, "No se pudo cargar el estado de verificacion."));
+    throw new Error(readErrorMessage(data, "No se pudo cargar el estado de verificación."));
   }
   return data as VerificacionIdentidadDTO;
 }
@@ -86,6 +90,10 @@ export async function subirDocumentoVerificacion(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", API_ENDPOINTS.auth.paseadores.meVerificacionDocumento);
     xhr.withCredentials = true;
+    const authHeader = bearerAuthHeaders().Authorization;
+    if (authHeader) {
+      xhr.setRequestHeader("Authorization", authHeader);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
@@ -106,7 +114,7 @@ export async function subirDocumentoVerificacion(
       }
 
       if (xhr.status === 401 || xhr.status === 403) {
-        reject(new Error("Sesion expirada. Vuelve a iniciar sesion como paseador."));
+        reject(new Error("Sesión expirada. Vuelve a iniciar sesión como paseador."));
         return;
       }
       if (xhr.status < 200 || xhr.status >= 300) {
@@ -125,10 +133,11 @@ export async function subirDocumentoVerificacion(
 export async function descargarDocumentoVerificacion(): Promise<Blob> {
   const res = await fetch(API_ENDPOINTS.auth.paseadores.meVerificacionDocumento, {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers: { ...bearerAuthHeaders() }
   });
   if (res.status === 401 || res.status === 403) {
-    throw new Error("Sesion requerida para descargar el documento.");
+    throw new Error("Sesión requerida para descargar el documento.");
   }
   if (!res.ok) {
     let data: unknown = null;
@@ -139,5 +148,11 @@ export async function descargarDocumentoVerificacion(): Promise<Blob> {
     }
     throw new Error(readErrorMessage(data, "No se pudo descargar el documento."));
   }
-  return res.blob();
+  const raw = await res.blob();
+  if (raw.size === 0) {
+    throw new Error("El documento esta vacio o no esta disponible.");
+  }
+  const contentType = res.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  const type = contentType === "application/pdf" ? "application/pdf" : "application/pdf";
+  return raw.type === type ? raw : new Blob([raw], { type });
 }

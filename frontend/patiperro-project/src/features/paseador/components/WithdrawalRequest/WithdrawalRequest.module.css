@@ -163,6 +163,46 @@
   background: #fff7f7;
 }
 
+.successPanel {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid #bbf7d0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+}
+
+.successEyebrow {
+  margin: 0;
+  color: #15803d;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.successTitle {
+  margin: 0;
+  color: #14532d;
+  font-size: 1.35rem;
+}
+
+.successMessage {
+  margin: 0;
+  color: #166534;
+  line-height: 1.7;
+}
+
+.successHint {
+  margin: 0;
+  color: #5d6b79;
+  line-height: 1.6;
+}
+
+.successPanel .submitButton {
+  justify-self: start;
+}
+
 .footer {
   display: flex;
   justify-content: space-between;

@@ -168,7 +168,7 @@ export default function PaseadoresFilterBar({
 
       <div className={styles.head}>
         <div>
-          <p className={styles.kicker}>Refina tu busqueda</p>
+          <p className={styles.kicker}>Refina tu búsqueda</p>
           <h3 className={styles.title}>Filtros y orden</h3>
         </div>
         <div className={styles.counts} aria-live="polite">
@@ -199,7 +199,7 @@ export default function PaseadoresFilterBar({
         <input
           type="search"
           className={styles.searchInput}
-          placeholder="Buscar por nombre o palabras en la biografia..."
+          placeholder="Buscar por nombre o palabras en la biografía..."
           value={queryText}
           onChange={(e) => onQueryTextChange(e.target.value)}
           autoComplete="off"
@@ -229,7 +229,7 @@ export default function PaseadoresFilterBar({
         </label>
 
         <label className={styles.field}>
-          <span className={styles.label}>Hora de Termino</span>
+          <span className={styles.label}>Hora de término</span>
           <input
             type="time"
             className={styles.input}

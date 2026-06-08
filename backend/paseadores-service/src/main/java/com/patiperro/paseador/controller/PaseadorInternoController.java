@@ -1,5 +1,6 @@
 package com.patiperro.paseador.controller;
 
+import com.patiperro.paseador.auth.support.CorreoRegistroSupport;
 import com.patiperro.paseador.model.EstadoVerificacionIdentidad;
 import com.patiperro.paseador.repository.PaseadorRepository;
 import com.patiperro.paseador.user.dto.VerificacionIdentidadResponseDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -41,6 +43,21 @@ public class PaseadorInternoController {
 
     @Value("${patiperro.paseadores.interno.secret:}")
     private String internoSecret;
+
+    @GetMapping("/correo/existe")
+    public ResponseEntity<CorreoExisteResponse> correoExiste(
+            @RequestHeader(value = HEADER_INTERNO, required = false) String secretoHeader,
+            @RequestParam("correo") String correo) {
+        ResponseEntity<Void> forbidden = validarSecreto(secretoHeader);
+        if (forbidden != null) {
+            return ResponseEntity.status(forbidden.getStatusCode()).build();
+        }
+        if (!StringUtils.hasText(correo)) {
+            return ResponseEntity.badRequest().build();
+        }
+        String normalizado = CorreoRegistroSupport.normalizar(correo);
+        return ResponseEntity.ok(new CorreoExisteResponse(paseadorRepository.existsByCorreoIgnoreCase(normalizado)));
+    }
 
     @GetMapping("/{id}/correo")
     public ResponseEntity<PaseadorCorreoResponse> obtenerCorreo(
@@ -110,6 +127,8 @@ public class PaseadorInternoController {
     }
 
     public record PaseadorCorreoResponse(String correo) {}
+
+    public record CorreoExisteResponse(boolean existe) {}
 
     public record RevisarVerificacionIdentidadRequest(
             @NotNull EstadoVerificacionIdentidad estado,

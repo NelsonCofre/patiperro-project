@@ -2,8 +2,24 @@
 // Mantienen separadas las reglas de negocio del componente visual.
 import type { MascotaForm } from "../types/mascota.types";
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"];
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
+export const MAX_MASCOTA_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+export const MASCOTA_IMAGE_TOO_LARGE_MESSAGE =
+  "La imagen es demasiado pesada. El tamaño máximo permitido es 5MB.";
+export const MASCOTA_IMAGE_INVALID_FORMAT_MESSAGE =
+  "El archivo seleccionado no es válido. Por favor, sube una imagen en formato JPG, JPEG o PNG.";
+
+function hasAllowedImageExtension(fileName: string): boolean {
+  return /\.(jpe?g|png)$/i.test(fileName.trim());
+}
+
+function isAllowedMascotaImageFile(file: File): boolean {
+  const mime = file.type.trim().toLowerCase();
+  if (ALLOWED_IMAGE_TYPES.includes(mime)) {
+    return true;
+  }
+  return hasAllowedImageExtension(file.name);
+}
 
 export function keepOnlyDigits(value: string): string {
   return value.replace(/\D/g, "");
@@ -69,12 +85,12 @@ export function validateMascotaPhoto(
 
   if (!file) return required ? "Debes subir una foto de tu mascota" : undefined;
 
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return "El archivo seleccionado no es valido. Por favor, sube una imagen en formato JPG, JPEG o PNG.";
+  if (!isAllowedMascotaImageFile(file)) {
+    return MASCOTA_IMAGE_INVALID_FORMAT_MESSAGE;
   }
 
-  if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    return "La imagen es demasiado pesada. El tamano maximo permitido es 5MB.";
+  if (file.size > MAX_MASCOTA_IMAGE_SIZE_BYTES) {
+    return MASCOTA_IMAGE_TOO_LARGE_MESSAGE;
   }
 
   return undefined;
@@ -110,11 +126,11 @@ export function validateMascotaField(
     if (!stringValue) return "El peso es obligatorio";
 
     if (!/^\d+(\.\d{1,2})?$/.test(stringValue)) {
-      return "El peso debe ser un numero valido mayor a 0 kg";
+      return "El peso debe ser un número válido mayor a 0 kg";
     }
 
     if (Number.parseFloat(stringValue) <= 0) {
-      return "El peso debe ser un numero valido mayor a 0 kg";
+      return "El peso debe ser un número válido mayor a 0 kg";
     }
   }
 
@@ -126,9 +142,9 @@ export function validateMascotaField(
   }
 
   if (name === "numero_chip") {
-    if (!stringValue) return "El numero de chip es obligatorio";
+    if (!stringValue) return "El número de chip es obligatorio";
     if (!/^\d+$/.test(stringValue)) {
-      return "El numero de chip solo acepta numeros";
+      return "El número de chip solo acepta números";
     }
   }
 

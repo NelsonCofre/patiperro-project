@@ -12,4 +12,8 @@ public interface TutorRepository extends JpaRepository<Tutor, Long> {
 
     // Query derivada: valida existencia de correo (usada en register).
     boolean existsByCorreo(String correo);
+
+    boolean existsByCorreoIgnoreCase(String correo);
+
+    Optional<Tutor> findByCorreoIgnoreCase(String correo);
 }

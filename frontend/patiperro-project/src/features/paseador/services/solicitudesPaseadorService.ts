@@ -5,6 +5,7 @@ import type {
   DecisionSolicitudPayload,
   SolicitudPendientePaseador
 } from "../types/solicitudPaseador.types";
+import { FALLBACK_MASCOTA, FALLBACK_TUTOR } from "../../shared/utils/displayLabels";
 
 type EstadoEncuentroApiDTO = {
   idReserva?: number;
@@ -60,6 +61,8 @@ export type ReservaPaseadorSolicitudApiDTO = {
   horaFin: string;
   comuna: string;
   direccionReferencia: string;
+  latitud?: number | null;
+  longitud?: number | null;
   tutorNombre: string;
   tutorTelefono: string;
   tutorCorreo: string;
@@ -80,9 +83,12 @@ export type ReservaPaseadorSolicitudApiDTO = {
 };
 
 function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendientePaseador["estado"] {
-  const u = (nombre ?? "").toUpperCase();
-  if (u.includes("SOLICIT")) return "Solicitada";
+  const u = (nombre ?? "").toUpperCase().trim();
+  if (u.includes("EXPIR")) return "Expirada";
+  if (u.includes("CANCEL")) return "Cancelada";
+  if (u.includes("PENDIENTE") && u.includes("PAGO")) return "Pendiente de pago";
   if (u.includes("PAGAD")) return "Pagada";
+  if (u.includes("SOLICIT")) return "Solicitada";
   if (u.includes("ACEPT")) return "Aceptada";
   if (u.includes("CURSO")) return "En Curso";
   if (u.includes("FINAL")) return "Finalizada";
@@ -91,12 +97,9 @@ function mapNombreEstadoToUi(nombre: string | null | undefined): SolicitudPendie
   return "Solicitada";
 }
 
-const PLACEHOLDER_MASCOTA_FOTO =
-  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=400&q=60";
-
 function mascotaFotoDesdeApi(s: ReservaPaseadorSolicitudApiDTO): string {
   const raw = s.mascotaFotoUrl?.trim();
-  if (!raw) return PLACEHOLDER_MASCOTA_FOTO;
+  if (!raw) return "";
   return resolveApiUrl(raw);
 }
 
@@ -110,14 +113,14 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
   return {
     idReserva: s.idReserva,
     idTutorUsuario: s.idTutorUsuario,
-    tutorNombre: s.tutorNombre || `Tutor #${s.idTutorUsuario}`,
+    tutorNombre: s.tutorNombre || FALLBACK_TUTOR,
     tutorTelefono: s.tutorTelefono?.trim() || dash,
     tutorCorreo: s.tutorCorreo?.trim() || dash,
     tutorComuna: s.comuna?.trim() || dash,
     tutorDireccion: s.direccionReferencia?.trim() || dash,
     tutorFotoUrl: fotoTutor || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=60",
     tutorNotas: s.tutorNotas?.trim() || undefined,
-    mascotaNombre: s.mascotaNombre || `Mascota #${s.idMascota}`,
+    mascotaNombre: s.mascotaNombre || FALLBACK_MASCOTA,
     mascotaFotoUrl: mascotaFotoDesdeApi(s),
     mascotaRaza: s.mascotaRaza?.trim() || dash,
     mascotaTamano: s.mascotaTamano?.trim() || dash,
@@ -131,6 +134,8 @@ function mapApiToSolicitud(s: ReservaPaseadorSolicitudApiDTO): SolicitudPendient
     horaFin: s.horaFin?.trim() || "",
     comuna: s.comuna?.trim() || dash,
     direccionReferencia: s.direccionReferencia?.trim() || dash,
+    latitud: s.latitud ?? undefined,
+    longitud: s.longitud ?? undefined,
     montoTotal: Number(s.montoTotal) || 0,
     estado,
     codigoEncuentro: s.codigoEncuentro ?? null,
@@ -244,7 +249,7 @@ export async function validarCodigoEncuentroPaseador(
   });
   const data = await parseJsonSafe(response);
   if (!response.ok) {
-    throw new Error(readApiErrorMessage(data, `No se pudo validar el codigo (HTTP ${response.status}).`));
+    throw new Error(readApiErrorMessage(data, `No se pudo validar el código (HTTP ${response.status}).`));
   }
   const row = data as { idReserva: number; nombreEstado?: string; fechaInicioReal?: string | null };
   return {

@@ -3,15 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ChatInput from "../ChatInput/ChatInput";
 import ChatImageLightbox from "../ChatImageLightbox/ChatImageLightbox";
 import ImageMessage from "../ImageMessage/ImageMessage";
+import { useActiveChatReserva } from "../../context/ActiveChatContext";
+import { useChatUnread } from "../../context/ChatUnreadContext";
 import { useReservaChat } from "../../hooks/useReservaChat";
 import type { ChatMessage, ChatWindowProps } from "../../types/chat.types";
 import {
   formatChatTimestamp,
   isNearBottom
 } from "../../utils/chatFormatters";
-import {
-} from "../../utils/chatImageUtils";
 import { resolveChatSenderName } from "../../utils/chatDisplayNames";
+import { subtituloChatPaseo } from "../../../shared/utils/displayLabels";
 import styles from "./ChatWindow.module.css";
 
 const CHAT_VISIBILITY_EVENT = "chat-visibility";
@@ -19,6 +20,7 @@ const CHAT_VISIBILITY_EVENT = "chat-visibility";
 function getConnectionLabel(value: string): string {
   if (value === "loading-history") return "Cargando historial";
   if (value === "connecting") return "Conectando";
+  if (value === "reconnecting") return "Reconectando";
   if (value === "connected") return "Conectado";
   if (value === "error") return "Sin conexion";
   return "Inactivo";
@@ -70,6 +72,8 @@ export default function ChatWindow({
   canSendPhotos = false,
   onClose
 }: ChatWindowProps) {
+  const { setActiveChatReservaId } = useActiveChatReserva();
+  const { clearUnreadForReserva } = useChatUnread();
   const modalRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -91,6 +95,7 @@ export default function ChatWindow({
     sendMessage,
     sendImage,
     retryHistory,
+    retryConnection,
     clearSendError
   } = useReservaChat({
     isOpen,
@@ -129,6 +134,16 @@ export default function ChatWindow({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setActiveChatReservaId(reservaId);
+    clearUnreadForReserva(reservaId);
+    return () => setActiveChatReservaId(null);
+  }, [clearUnreadForReserva, isOpen, reservaId, setActiveChatReservaId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -269,7 +284,11 @@ export default function ChatWindow({
         key={message.id}
         className={`${styles.messageRow} ${isOwn ? styles.messageOwn : styles.messageOther}`}
       >
-        <div className={`${styles.bubble} ${isOwn ? styles.bubbleOwn : styles.bubbleOther}`}>
+        <div
+          className={`${styles.bubble} ${isOwn ? styles.bubbleOwn : styles.bubbleOther}${
+            isImage ? ` ${styles.bubbleMedia}` : ""
+          }`}
+        >
           <header className={styles.bubbleHeader}>
             <strong>{senderLabel}</strong>
             <span>{formatChatTimestamp(message.timestamp)}</span>
@@ -306,14 +325,14 @@ export default function ChatWindow({
           className={styles.modal}
           role="dialog"
           aria-modal="true"
-          aria-label={`Chat de la reserva ${reservaId}`}
+          aria-label={`Chat del paseo de ${mascotaNombre}`}
         >
           <header className={styles.header}>
-            <div>
+            <div className={styles.headerMain}>
               <p className={styles.eyebrow}>Coordinacion del encuentro</p>
               <h2>Chat del paseo</h2>
               <p className={styles.headerMeta}>
-                Reserva #{reservaId} - {mascotaNombre} con {counterpartName}
+                {subtituloChatPaseo({ mascotaNombre, counterpartName })}
               </p>
             </div>
             <div className={styles.headerActions}>
@@ -328,6 +347,17 @@ export default function ChatWindow({
               >
                 {getConnectionLabel(connectionState)}
               </span>
+              {connectionState === "reconnecting" ||
+              connectionState === "connecting" ||
+              connectionState === "error" ? (
+                <button
+                  type="button"
+                  className={styles.reconnectButton}
+                  onClick={() => void retryConnection()}
+                >
+                  Reconectar
+                </button>
+              ) : null}
               <button type="button" className={styles.closeButton} onClick={onClose}>
                 Cerrar
               </button>
@@ -354,12 +384,12 @@ export default function ChatWindow({
               </div>
             ) : sortedMessages.length === 0 && connectionState === "loading-history" ? (
               <div className={styles.stateCard}>
-                <strong>Cargando conversacion</strong>
+                <strong>Cargando conversación</strong>
                 <p>Estamos preparando el historial de este paseo.</p>
               </div>
             ) : sortedMessages.length === 0 ? (
               <div className={styles.stateCard}>
-                <strong>Aun no hay mensajes en esta conversacion</strong>
+                <strong>Aún no hay mensajes en esta conversación</strong>
                 <p>Usen este chat para coordinar el encuentro del paseo en tiempo real.</p>
               </div>
             ) : (
@@ -399,7 +429,7 @@ export default function ChatWindow({
                   setShowJumpToLatest(false);
                 }}
               >
-                Ir al ultimo mensaje
+                Ir al último mensaje
               </button>
             </div>
           ) : null}

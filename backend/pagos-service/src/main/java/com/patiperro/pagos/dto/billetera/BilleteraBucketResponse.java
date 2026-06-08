@@ -34,4 +34,8 @@ public record BilleteraBucketResponse(
          */
         List<BilleteraReservaItemResponse> reservas
 ) {
+    /** Cantidad de paseos incluidos en {@link #reservas()} (expuesto para badges en el frontend). */
+    public int cantidadReservas() {
+        return reservas == null ? 0 : reservas.size();
+    }
 }

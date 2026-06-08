@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { TUTOR_ID_SESSION_KEY } from "../../../../config/api";
+import EstadoFilterTabs from "../../../shared/components/EstadoFilterTabs/EstadoFilterTabs";
+import type { EstadoFilterTab } from "../../../shared/components/EstadoFilterTabs/EstadoFilterTabs";
 import ChatWindow from "../../../chat/components/ChatWindow/ChatWindow";
 import PaseoGaleria from "../../../chat/components/PaseoGaleria/PaseoGaleria";
 import { usePushNotifications } from "../../../chat/hooks/usePushNotifications";
-import { subscribeChatMessages } from "../../../chat/services/chatWs";
-import type { ChatToastPayload } from "../../../chat/types/chat.types";
-import { buildChatMessageSnippet } from "../../../chat/utils/chatFormatters";
 import CodigoEncuentro from "../../components/CodigoEncuentro/CodigoEncuentro";
 import PagoReservaButton from "../../components/PagoReservaButton/PagoReservaButton";
 import PaymentSummaryModal from "../../components/PaymentSummaryModal/PaymentSummaryModal";
@@ -18,14 +17,66 @@ import { useTutorReservas } from "../../hooks/useTutorReservas";
 import type { ReservaTutorDetalleDTO } from "../../types/reservaTutor.types";
 import PaseoEnCursoCard from "../../../shared/components/PaseoEnCursoCard/PaseoEnCursoCard";
 import { subscribeEncuentroTopic } from "../../../shared/services/encuentroWs";
+import { tituloPaseoReserva } from "../../../shared/utils/displayLabels";
 import { ResenaModal } from "../../components/ResenaForm/ResenaModal"; // Importación nueva
 import {
   formatReservaDate,
   formatReservaMoney,
   formatReservaTime,
-  getReservaEstadoMeta
+  getReservaEstadoMeta,
+  matchesTutorReservaFilter,
+  type TutorReservaFilterKey
 } from "../../utils/reservaEstadoUtils";
 import styles from "./TutorReservas.module.css";
+
+const TUTOR_FILTER_CONFIG: Record<
+  TutorReservaFilterKey,
+  { label: string; description: string; emptyTitle: string; emptyText: string }
+> = {
+  solicitadas: {
+    label: "Solicitadas",
+    description: "Reservas enviadas o pagadas que esperan respuesta del paseador.",
+    emptyTitle: "No tienes solicitudes pendientes",
+    emptyText: "Las reservas nuevas o pagadas aparecerán aquí hasta que el paseador responda."
+  },
+  aceptadas: {
+    label: "Aceptadas",
+    description: "Paseos confirmados listos para el encuentro.",
+    emptyTitle: "No tienes reservas aceptadas",
+    emptyText: "Cuando un paseador acepte tu solicitud, la verás aquí con el código de encuentro."
+  },
+  en_curso: {
+    label: "En curso",
+    description: "Paseos que se están realizando en este momento.",
+    emptyTitle: "No tienes paseos en curso",
+    emptyText: "Cuando el paseo comience, podrás seguirlo desde esta vista."
+  },
+  finalizadas: {
+    label: "Finalizadas",
+    description: "Servicios completados listos para calificar o revisar.",
+    emptyTitle: "No tienes paseos finalizados",
+    emptyText: "Los paseos completados quedarán aquí para consulta y reseñas."
+  },
+  cerradas: {
+    label: "Cerradas",
+    description: "Solicitudes rechazadas, canceladas o expiradas.",
+    emptyTitle: "No tienes reservas cerradas",
+    emptyText: "Las solicitudes que no siguieron adelante aparecerán en este historial."
+  }
+};
+
+function parseTutorFilter(value: string | null): TutorReservaFilterKey {
+  if (
+    value === "solicitadas" ||
+    value === "aceptadas" ||
+    value === "en_curso" ||
+    value === "finalizadas" ||
+    value === "cerradas"
+  ) {
+    return value;
+  }
+  return "solicitadas";
+}
 
 function normalizePaymentStatus(value?: string | null): string {
   return (value ?? "")
@@ -46,7 +97,7 @@ function getPaymentStatusMeta(reserva: ReservaTutorDetalleDTO): {
   if (normalized.includes("pagad") || reserva.idPago != null) {
     return {
       title: "Pagada",
-      helper: "La transaccion ya fue confirmada y el dinero sigue resguardado hasta el cierre del paseo.",
+      helper: "La transacción ya fue confirmada y el dinero sigue resguardado hasta el cierre del paseo.",
       tag: "statusPaid"
     };
   }
@@ -80,7 +131,6 @@ export default function TutorReservas() {
   const [reservaParaCalificar, setReservaParaCalificar] = useState<ReservaTutorDetalleDTO | null>(null); // Estado nuevo
   const [selectedReservaId, setSelectedReservaId] = useState<number | null>(null);
   const [activeChatReservaId, setActiveChatReservaId] = useState<number | null>(null);
-  const [chatToast, setChatToast] = useState<ChatToastPayload | null>(null);
   const [paymentSummaryReserva, setPaymentSummaryReserva] = useState<ReservaTutorDetalleDTO | null>(null);
   const [showRetencionInfo, setShowRetencionInfo] = useState(false);
   
@@ -96,6 +146,34 @@ export default function TutorReservas() {
     reload,
     cancelarReserva
   } = useTutorReservas();
+
+  const activeFilter = parseTutorFilter(searchParams.get("estado"));
+  const activeFilterMeta = TUTOR_FILTER_CONFIG[activeFilter];
+
+  const filterTabs: EstadoFilterTab[] = useMemo(
+    () => [
+      { key: "solicitadas", label: "Solicitadas", count: stats.solicitadas },
+      { key: "aceptadas", label: "Aceptadas", count: stats.aceptadas },
+      { key: "en_curso", label: "En curso", count: stats.enCurso },
+      { key: "finalizadas", label: "Finalizadas", count: stats.finalizadas },
+      { key: "cerradas", label: "Cerradas", count: stats.cerradas }
+    ],
+    [stats]
+  );
+
+  const visibleReservas = useMemo(
+    () => reservas.filter((reserva) => matchesTutorReservaFilter(activeFilter, reserva)),
+    [activeFilter, reservas]
+  );
+
+  function handleFilterChange(nextFilter: string) {
+    const parsed = parseTutorFilter(nextFilter);
+    if (parsed === "solicitadas") {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setSearchParams({ estado: parsed }, { replace: true });
+  }
 
   const selectedReserva =
     selectedReservaId == null
@@ -153,30 +231,6 @@ export default function TutorReservas() {
     });
   }, [reload, selectedReserva, setNotice]);
 
-  useEffect(() => {
-    const reservaIds = reservas.map((reserva) => reserva.idReserva);
-    return subscribeChatMessages(reservaIds, (message) => {
-      if (
-        message.senderUserId === currentTutorId ||
-        activeChatReservaId === message.idReserva
-      ) {
-        return;
-      }
-
-      setChatToast({
-        reservaId: message.idReserva,
-        senderName: message.senderName,
-        snippet: buildChatMessageSnippet(message)
-      });
-    });
-  }, [activeChatReservaId, currentTutorId, reservas]);
-
-  useEffect(() => {
-    if (!chatToast) return;
-    const timer = window.setTimeout(() => setChatToast(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [chatToast]);
-
   return (
     <main className={styles.page}>
       <TutorNavbar />
@@ -190,21 +244,6 @@ export default function TutorReservas() {
         </div>
       ) : null}
 
-      {chatToast ? (
-        <button
-          type="button"
-          className={styles.chatToast}
-          onClick={() => {
-            setSelectedReservaId(chatToast.reservaId);
-            handleOpenChat(chatToast.reservaId);
-            setChatToast(null);
-          }}
-        >
-          <strong>Nuevo mensaje de {chatToast.senderName}</strong>
-          <span>{chatToast.snippet}</span>
-        </button>
-      ) : null}
-
       {/* MODAL DE DETALLE (Existente) */}
       {selectedReserva ? (
         <div className={styles.modalOverlay}>
@@ -212,7 +251,7 @@ export default function TutorReservas() {
             <div className={styles.modalHeader}>
               <div>
                 <p className={styles.cardEyebrow}>Detalle de reserva</p>
-                <h2>Reserva #{selectedReserva.idReserva}</h2>
+                <h2>{tituloPaseoReserva(selectedReserva)}</h2>
               </div>
               <button type="button" onClick={() => setSelectedReservaId(null)}>
                 Cerrar
@@ -243,6 +282,29 @@ export default function TutorReservas() {
               </div>
             </div>
 
+            {selectedEstado?.key === "en_curso" ? (
+              <>
+                <PaseoEnCursoCard
+                  variant="compact"
+                  statusMessage="El paseo ha comenzado. Tu mascota esta en buenas manos"
+                  actorLabel="Paseador"
+                  actorNombre={selectedReserva.paseadorNombre}
+                  mascotaNombre={selectedReserva.mascotaNombre}
+                  horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
+                  comuna={selectedReserva.comuna}
+                  locationLabel="Tu dirección de encuentro"
+                  locationValue={selectedReserva.direccionReferencia}
+                />
+                <button
+                  type="button"
+                  className={styles.modalChatButton}
+                  onClick={() => handleOpenChat(selectedReserva.idReserva)}
+                >
+                  Abrir chat del paseo
+                </button>
+              </>
+            ) : null}
+
             {selectedPaymentMeta ? (
               <section className={styles.paymentSection}>
                 <div className={styles.paymentHeader}>
@@ -268,7 +330,7 @@ export default function TutorReservas() {
                   amountLabel={formatReservaMoney(selectedReserva.montoTotal)}
                   onUnavailable={() =>
                     setNotice(
-                      "El backend aun debe entregar el preferenceId o el enlace seguro de Mercado Pago para completar este checkout."
+                      "El backend aún debe entregar el preferenceId o el enlace seguro de Mercado Pago para completar este checkout."
                     )
                   }
                 />
@@ -287,23 +349,11 @@ export default function TutorReservas() {
                       className={styles.summaryButton}
                       onClick={() => setPaymentSummaryReserva(selectedReserva)}
                     >
-                      Ver resumen de transaccion
+                      Ver resumen de transacción
                     </button>
                   </div>
                 ) : null}
               </section>
-            ) : null}
-
-            {selectedEstado?.key === "en_curso" ? (
-              <PaseoEnCursoCard
-                statusMessage="El paseo ha comenzado. Tu mascota esta en buenas manos"
-                actorLabel="Paseador"
-                actorNombre={selectedReserva.paseadorNombre}
-                mascotaNombre={selectedReserva.mascotaNombre}
-                horaInicioRegistrada={selectedReserva.fechaInicioReal ?? selectedReserva.horaInicio}
-                chatLabel="Abrir chat del paseo"
-                onOpenChat={() => handleOpenChat(selectedReserva.idReserva)}
-              />
             ) : null}
 
             {selectedEstado?.key === "aceptada" ? (
@@ -326,76 +376,54 @@ export default function TutorReservas() {
         </div>
       ) : null}
 
-      <section className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>Mis Reservas</p>
-          <h1 className={styles.title}>Estado de tus paseos</h1>
-          <p className={styles.description}>
-            Revisa tus solicitudes pasadas y futuras, con estado actualizado automaticamente
-            durante la sesion.
-          </p>
-        </div>
-
-        <aside className={styles.refreshPanel}>
-          <span>Actualizacion automatica</span>
-          <strong>{isRefreshing ? "Sincronizando..." : "Activa"}</strong>
-          <p>Ultima revision: {lastUpdatedLabel}. Se consulta el servidor cada 15 segundos.</p>
-          <button type="button" onClick={() => void reload()} disabled={isRefreshing}>
-            Actualizar ahora
-          </button>
-        </aside>
-      </section>
-
-      <section className={styles.statsGrid}>
-        <article>
-          <span>Total</span>
-          <strong>{stats.total}</strong>
-        </article>
-        <article>
-          <span>Solicitadas</span>
-          <strong>{stats.solicitadas}</strong>
-        </article>
-        <article>
-          <span>Aceptadas</span>
-          <strong>{stats.aceptadas}</strong>
-        </article>
-        <article>
-          <span>En curso</span>
-          <strong>{stats.enCurso}</strong>
-        </article>
-        <article>
-          <span>Finalizadas</span>
-          <strong>{stats.finalizadas}</strong>
-        </article>
-      </section>
-
       <section className={styles.reservasSection}>
         <div className={styles.sectionHeader}>
           <div>
-            <p className={styles.cardEyebrow}>Listado cronologico</p>
-            <h2>Todas tus solicitudes</h2>
-            <p className={styles.sectionSubtext}>
-              El historial conserva tambien la referencia del pago y la politica de saldo retenido.
+            <p className={styles.cardEyebrow}>Mis reservas</p>
+            <h2>{activeFilterMeta.label}</h2>
+            <p className={styles.sectionSubtext}>{activeFilterMeta.description}</p>
+            <p className={styles.refreshMeta}>
+              Actualización automática {isRefreshing ? "sincronizando..." : "activa"} · Última revisión:{" "}
+              {lastUpdatedLabel}
             </p>
           </div>
-          {error ? <span className={styles.errorText}>{error}</span> : null}
+          <div className={styles.sectionActions}>
+            <button type="button" className={styles.refreshButton} onClick={() => void reload()} disabled={isRefreshing}>
+              Actualizar ahora
+            </button>
+            {error ? <span className={styles.errorText}>{error}</span> : null}
+          </div>
         </div>
+
+        <EstadoFilterTabs
+          tabs={filterTabs}
+          ariaLabel="Estados de reservas del tutor"
+          mode="button"
+          activeKey={activeFilter}
+          onSelect={handleFilterChange}
+        />
 
         {isLoading ? (
           <div className={styles.loadingState}>Cargando reservas...</div>
-        ) : reservas.length > 0 ? (
+        ) : visibleReservas.length > 0 ? (
           <div className={styles.reservasList}>
-            {reservas.map((reserva) => (
+            {visibleReservas.map((reserva) => (
               <ReservaCard
                 key={reserva.idReserva}
                 reserva={reserva}
                 onDetalle={(item) => setSelectedReservaId(item.idReserva)}
                 onCancelar={(item) => void cancelarReserva(item)}
                 onVerResumenPago={setPaymentSummaryReserva}
-                onCalificar={(item) => setReservaParaCalificar(item)} // Implementación nueva: abre el modal real
+                onCalificar={(item) => setReservaParaCalificar(item)}
+                onOpenChat={(item) => handleOpenChat(item.idReserva)}
               />
             ))}
           </div>
+        ) : reservas.length > 0 ? (
+          <article className={styles.emptyState}>
+            <strong>{activeFilterMeta.emptyTitle}</strong>
+            <p>{activeFilterMeta.emptyText}</p>
+          </article>
         ) : error ? (
           <article className={`${styles.emptyState} ${styles.errorState}`}>
             <strong>No se pudieron cargar tus reservas</strong>
@@ -406,8 +434,8 @@ export default function TutorReservas() {
           </article>
         ) : (
           <article className={styles.emptyState}>
-            <strong>Aun no tienes reservas</strong>
-            <p>Cuando solicites un paseo, aparecera en este listado con su estado actual.</p>
+            <strong>{activeFilterMeta.emptyTitle}</strong>
+            <p>{activeFilterMeta.emptyText}</p>
           </article>
         )}
       </section>

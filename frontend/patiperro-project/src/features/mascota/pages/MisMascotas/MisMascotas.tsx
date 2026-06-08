@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import TutorNavbar from "../../../tutor/components/TutorNavbar/TutorNavbar";
+import ReemplazarFotoMascotaButton from "../../components/ReemplazarFotoMascotaButton/ReemplazarFotoMascotaButton";
 import { fetchMisMascotas } from "../../services/mascotaService";
 import type { MascotaListItem } from "../../types/mascota.types";
 import styles from "./MisMascotas.module.css";
@@ -37,6 +38,16 @@ export default function MisMascotas() {
     };
   }, []);
 
+  function handlePhotoUpdated(idMascota: number, fotoPerfilPath: string, fotoPerfilUrl: string) {
+    setMascotas((current) =>
+      current.map((mascota) =>
+        mascota.idMascota === idMascota
+          ? { ...mascota, fotoPerfilPath, fotoPerfilUrl }
+          : mascota
+      )
+    );
+  }
+
   return (
     <main className={styles.page}>
       <TutorNavbar />
@@ -47,8 +58,8 @@ export default function MisMascotas() {
             <p className={styles.eyebrow}>Mis mascotas</p>
             <h1 className={styles.title}>Revisa y actualiza la ficha de tus companeros</h1>
             <p className={styles.description}>
-              Desde aqui puedes confirmar su foto principal, revisar sus datos y editar la
-              informacion cuando cambie.
+              Desde aquí puedes confirmar su foto principal, revisar sus datos y editar la
+              información cuando cambie.
             </p>
           </div>
 
@@ -75,9 +86,9 @@ export default function MisMascotas() {
           </div>
         ) : mascotas.length === 0 ? (
           <article className={styles.emptyState}>
-            <h2>Aun no has registrado mascotas</h2>
+            <h2>Aún no has registrado mascotas</h2>
             <p>
-              Cuando agregues una ficha aqui podras reemplazar su foto rapidamente antes de
+              Cuando agregues una ficha aquí podrás reemplazar su foto rápidamente antes de
               reservar un paseo.
             </p>
             <Link to="/tutor/mascota/nueva" className={styles.secondaryButton}>
@@ -113,7 +124,7 @@ export default function MisMascotas() {
                   </p>
 
                   <p className={styles.metaMuted}>
-                    {mascota.sexo ? `Sexo: ${mascota.sexo}` : "Completa la ficha para ver mas detalles."}
+                    {mascota.sexo ? `Sexo: ${mascota.sexo}` : "Completa la ficha para ver más detalles."}
                   </p>
 
                   <div className={styles.actions}>
@@ -123,12 +134,10 @@ export default function MisMascotas() {
                     >
                       Editar ficha
                     </Link>
-                    <Link
-                      to={`/tutor/mascotas/${mascota.idMascota}/editar`}
-                      className={styles.secondaryButton}
-                    >
-                      Reemplazar foto
-                    </Link>
+                    <ReemplazarFotoMascotaButton
+                      mascota={mascota}
+                      onPhotoUpdated={handlePhotoUpdated}
+                    />
                   </div>
                 </div>
               </article>

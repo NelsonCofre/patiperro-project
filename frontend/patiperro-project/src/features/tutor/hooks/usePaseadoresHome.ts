@@ -61,7 +61,7 @@ function mapCercanoToHome(dto: PaseadorCercanoApi): PaseadorHome {
     tieneTarifaConfigurada: true,
     radioCoberturaKm: radio,
     proximoBloque: "-",
-    bio: (dto.biografia ?? "").trim() || "Sin biografia por ahora.",
+    bio: (dto.biografia ?? "").trim() || "Sin biografía por ahora.",
     latitud: dto.latitud,
     longitud: dto.longitud,
     verificado: Boolean(dto.esVerificado ?? dto.verificado),
@@ -125,7 +125,7 @@ export function usePaseadoresHome() {
       return {
         hasAny,
         isComplete: false,
-        error: "Para filtrar por horario debes seleccionar fecha, hora de inicio y hora de termino.",
+        error: "Para filtrar por horario debes seleccionar fecha, hora de inicio y hora de término.",
         params: null
       };
     }
@@ -134,7 +134,7 @@ export function usePaseadoresHome() {
       return {
         hasAny,
         isComplete: false,
-        error: "La hora de termino debe ser posterior a la hora de inicio.",
+        error: "La hora de término debe ser posterior a la hora de inicio.",
         params: null
       };
     }
@@ -406,11 +406,11 @@ export function usePaseadoresHome() {
         setCoordinates(null);
         if (error.code === error.PERMISSION_DENIED) {
           setLocationStatus("denied");
-          setLocationError("No pudimos acceder a tu ubicacion.");
+          setLocationError("No pudimos acceder a tu ubicación.");
           return;
         }
         setLocationStatus("error");
-        setLocationError("No pudimos obtener tu ubicacion.");
+        setLocationError("No pudimos obtener tu ubicación.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );

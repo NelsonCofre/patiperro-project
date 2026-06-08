@@ -86,7 +86,7 @@ function startTimeMs(item: DailyScheduleItem): number {
 export async function fetchDailySchedulePanel(): Promise<DailyScheduleItem[]> {
   const idPaseador = readStoredPaseadorId();
   if (idPaseador == null) {
-    throw new Error("No se encontro el id del paseador en sesion. Vuelve a iniciar sesion.");
+    throw new Error("No se encontró el id del paseador en sesión. Vuelve a iniciar sesión.");
   }
 
   const response = await fetch(API_ENDPOINTS.reserva.paseadorAgendaHoyPanel(idPaseador), {

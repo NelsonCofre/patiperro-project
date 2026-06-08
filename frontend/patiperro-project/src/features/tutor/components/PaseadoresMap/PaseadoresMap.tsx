@@ -97,7 +97,7 @@ export default function PaseadoresMap({
   paseadores,
   onVerPerfil,
   emptyTitle = "No hay paseadores en esta zona",
-  emptyMessage = "Prueba ampliando el radio o limpiando los filtros de busqueda."
+  emptyMessage = "Prueba ampliando el radio o limpiando los filtros de búsqueda."
 }: PaseadoresMapProps) {
   const [currentZoom, setCurrentZoom] = useState(14);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export default function PaseadoresMap({
           <MapController lat={centroLat} lng={centroLng} onZoomChange={setCurrentZoom} />
 
           <Marker position={[centroLat, centroLng]}>
-            <Popup>Estas aqui</Popup>
+            <Popup>Estás aquí</Popup>
           </Marker>
 
           {paseadores.map((p) => (

@@ -2,6 +2,9 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./app/App";
+import GlobalChatNotifications from "./features/chat/components/GlobalChatNotifications/GlobalChatNotifications";
+import { ActiveChatProvider } from "./features/chat/context/ActiveChatContext";
+import { ChatUnreadProvider } from "./features/chat/context/ChatUnreadContext";
 import { installNgrokFetchBypass } from "./config/installNgrokFetchBypass";
 import { registerServiceWorker } from "./config/registerServiceWorker";
 import "leaflet/dist/leaflet.css";
@@ -12,6 +15,11 @@ void registerServiceWorker();
 // BrowserRouter habilita la navegacion por rutas sin recargar toda la pagina.
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
-    <App />
+    <ActiveChatProvider>
+      <ChatUnreadProvider>
+        <App />
+        <GlobalChatNotifications />
+      </ChatUnreadProvider>
+    </ActiveChatProvider>
   </BrowserRouter>
 );
