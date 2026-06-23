@@ -1,324 +1,231 @@
-# Patiperro - Documentacion Operativa y Arquitectura Backend
+# Patiperro
 
-Este documento resume dos puntos clave del proyecto:
-
-1. Que datos base debes tener en BD antes de usar la aplicacion.
-2. Que patron(es) de diseno se usan en el backend y como se reflejan en el codigo.
+Plataforma web que conecta **tutores** (dueños de mascotas) con **paseadores** para reservar, pagar y gestionar paseos de perros y gatos en Chile.
 
 ---
 
-## 1) Datos base obligatorios (seed inicial)
+## Enlaces de documentación
 
-Antes de probar flujos completos (registro, agenda, reservas, mapa, etc.), valida estos catalogos minimos.
-
-### 1.1 `reserva_db`
-
-Tabla: `estado_reserva`
-
-- 1: `SOLICITADA`
-- 2: `ACEPTADA`
-- 3: `RECHAZADA`
-- 4: `EN CURSO`
-- 5: `FINALIZADA`
-- 6: `CANCELADA`
-- 7: `PENDIENTE_PAGO`
-- 8: `PAGADA`
-- 9: `EXPIRADA`
-
-> Importante: el backend asume el catálogo completo con ids fijos (`CANCELADA = 6`, `PENDIENTE_PAGO = 7`, `PAGADA = 8`, `EXPIRADA = 9`).
-
-Query sugerida:
-
-```sql
-INSERT INTO estado_reserva (id_estado_reserva, nombre_estado) VALUES
-(1, 'SOLICITADA'),
-(2, 'ACEPTADA'),
-(3, 'RECHAZADA'),
-(4, 'EN CURSO'),
-(5, 'FINALIZADA'),
-(6, 'CANCELADA'),
-(7, 'PENDIENTE_PAGO'),
-(8, 'PAGADA'),
-(9, 'EXPIRADA')
-ON CONFLICT (id_estado_reserva) DO UPDATE
-SET nombre_estado = EXCLUDED.nombre_estado;
-```
-
-### 1.2 `agenda_db`
-
-Tablas:
-
-- `estado_bloque` (minimo `Disponible` y `Reservado`)
-- `dia_semana` (`Lunes` a `Domingo`)
-
-Sin estos catalogos, la creacion/listado de bloques de agenda puede fallar.
-
-Queries sugeridas:
-
-```sql
-INSERT INTO estado_bloque (id_estado, nombre) VALUES
-(1, 'Disponible'),
-(2, 'Reservado')
-ON CONFLICT (id_estado) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-```sql
-INSERT INTO dia_semana (id_dia, nombre) VALUES
-(1, 'Lunes'),
-(2, 'Martes'),
-(3, 'Miercoles'),
-(4, 'Jueves'),
-(5, 'Viernes'),
-(6, 'Sabado'),
-(7, 'Domingo')
-ON CONFLICT (id_dia) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-### 1.3 `mascotas_db`
-
-Tablas:
-
-- `tamano`
-- `especie`
-- `raza` (relacionada a `especie`)
-
-Sin estos registros, el flujo de registro/edicion de mascotas no funciona correctamente.
-
-Queries sugeridas:
-
-```sql
-INSERT INTO tamano (id_tamano, nombre) VALUES
-(1, 'Pequeno'),
-(2, 'Mediano'),
-(3, 'Grande')
-ON CONFLICT (id_tamano) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-```sql
-INSERT INTO especie (id_especie, nombre) VALUES
-(1, 'Perro'),
-(2, 'Gato')
-ON CONFLICT (id_especie) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-```sql
-INSERT INTO raza (id_raza, nombre, especie_id_especie) VALUES
-(1, 'Mestizo', 1),
-(2, 'Labrador', 1),
-(3, 'Poodle', 1),
-(4, 'Siames', 2),
-(5, 'Persa', 2)
-ON CONFLICT (id_raza) DO UPDATE
-SET nombre = EXCLUDED.nombre,
-    especie_id_especie = EXCLUDED.especie_id_especie;
-```
-
-### 1.4 `paseadores_db`
-
-Tabla:
-
-- `tamano`
-
-Se usa para validar tarifas por tamano en la configuracion del paseador.
-
-Query sugerida:
-
-```sql
-INSERT INTO tamano (id_tamano, nombre) VALUES
-(1, 'Pequeno'),
-(2, 'Mediano'),
-(3, 'Grande')
-ON CONFLICT (id_tamano) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-### 1.5 `notification_db` (segun alcance)
-
-Tabla recomendada:
-
-- `plantilla_correo` (si quieres notificaciones por plantilla reales desde el inicio)
-
-`log_envio` se puebla automaticamente con el uso.
-
-Query sugerida (opcional):
-
-```sql
-INSERT INTO plantilla_correo (id_plantilla, tipo_evento, asunto, cuerpo_html, activo) VALUES
-(1, 'RESERVA_ACEPTADA', 'Tu reserva fue aceptada', '<p>Hola {{nombreTutor}}, tu reserva fue aceptada.</p>', true),
-(2, 'RESERVA_RECHAZADA', 'Tu reserva fue rechazada', '<p>Hola {{nombreTutor}}, tu reserva fue rechazada.</p>', true),
-(3, 'SOLICITUD_PASEO', 'Nueva solicitud de paseo', '<p>Tienes una nueva solicitud de paseo.</p>', true)
-ON CONFLICT (id_plantilla) DO UPDATE
-SET tipo_evento = EXCLUDED.tipo_evento,
-    asunto = EXCLUDED.asunto,
-    cuerpo_html = EXCLUDED.cuerpo_html,
-    activo = EXCLUDED.activo;
-```
-
-### 1.6 `pagos_db`
-
-Tablas de catálogo para datos bancarios del paseador (cuenta de abono / retiros). Son **datos ficticios de ejemplo** inspirados en Chile; los nombres coinciden con productos comunes (Cuenta RUT, Cuenta Vista, etc.).
-
-**`tipo_cuenta`** (ejecutar primero si `cuenta` tiene FK a esta tabla; si la BD está vacía, el orden no importa entre estas dos):
-
-```sql
-INSERT INTO tipo_cuenta (id_tipo_cuenta, nombre) VALUES
-(1, 'Cuenta corriente'),
-(2, 'Cuenta vista'),
-(3, 'Cuenta de ahorro'),
-(4, 'Cuenta RUT')
-ON CONFLICT (id_tipo_cuenta) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-**`banco`** (bancos típicos en Chile; solo `nombre` en el esquema JPA):
-
-```sql
-INSERT INTO banco (id_banco, nombre) VALUES
-(1, 'Banco de Chile'),
-(2, 'Banco Estado'),
-(3, 'Banco Santander Chile'),
-(4, 'Banco BCI'),
-(5, 'Scotiabank Chile'),
-(6, 'Itaú Chile'),
-(7, 'Banco Security'),
-(8, 'Coopeuch')
-ON CONFLICT (id_banco) DO UPDATE
-SET nombre = EXCLUDED.nombre;
-```
-
-> Si ya existen filas con otros `id_*`, podés omitir la columna de id y usar solo `INSERT INTO banco (nombre) VALUES (...)` por cada fila, o ajustar los números para no chocar con datos reales de tu entorno.
+| Documento | Contenido |
+|-----------|-----------|
+| [docs/guia-arranque.md](docs/guia-arranque.md) | **Pasos para correr la aplicación (10 pasos)** |
+| [docs/enlaces.md](docs/enlaces.md) | Tablero Jira y presentación |
+| [docs/datos-iniciales-bd.md](docs/datos-iniciales-bd.md) | Catálogos SQL (seeds manuales) |
+| [docs/arquitectura-backend.md](docs/arquitectura-backend.md) | Microservicios y arquitectura |
 
 ---
 
-## 2) Patrones de diseno usados en backend
+## 1. Cómo ejecutar la aplicación
 
-La arquitectura backend esta basada en microservicios Spring Boot y combina varios patrones.
-
-## 2.1 Layered Architecture (Arquitectura por capas)
-
-Patron principal del proyecto:
-
-- **Controller**: expone endpoints HTTP (`@RestController`).
-- **Service**: concentra reglas de negocio.
-- **Repository**: acceso a datos con Spring Data JPA.
-- **Model/Entity**: mapeo de tablas.
-
-Ventaja: separa responsabilidades y facilita testing/mantenimiento.
-
-## 2.2 Repository Pattern
-
-Implementado con interfaces `JpaRepository`.
-
-- Encapsula consultas a BD.
-- Permite metodos declarativos (`findBy...`) y queries custom.
-
-Ejemplo: repositorios en `reserva-service`, `agenda-service`, `mascotas-service`, etc.
-
-## 2.3 DTO Pattern (Data Transfer Object)
-
-Uso intensivo de DTOs para desacoplar contrato API de entidades internas.
-
-- Request DTOs (`...RequestDTO`)
-- Response DTOs (`...ResponseDTO`)
-- DTOs de integracion entre microservicios (`dto.integracion`)
-
-Ventaja: evita exponer entidades JPA directamente y estabiliza contratos frontend/backend.
-
-## 2.4 Adapter / Gateway Pattern para integraciones internas
-
-Cada microservicio consumidor encapsula llamadas HTTP a otros servicios en clientes dedicados.
-
-Ejemplos:
-
-- `AgendaIntegracionClient`
-- `TutorIntegracionClient`
-- `MascotaIntegracionClient`
-
-Estos componentes actuan como adaptadores de infraestructura para no mezclar `RestClient` con logica de negocio.
-
-## 2.5 Event-Driven / Observer (publicacion-suscripcion)
-
-En `reserva-service` se publica evento de dominio al confirmar inicio de paseo (PIN valido), y luego se ejecutan side effects:
-
-- cambio de estado
-- notificaciones websocket
-- activaciones asociadas
-
-Esto separa el caso de uso principal de efectos secundarios.
-
-## 2.6 Strategy-like rules via estado/decision
-
-Flujos como `ACEPTAR`, `RECHAZAR`, `INICIAR_PASEO`, `FINALIZAR_PASEO` usan logica de decision por estado actual + estado destino en servicio.
-
-No es una estrategia clasica por clase, pero si una estrategia de transicion centralizada por reglas de negocio.
+Sigue la guía paso a paso: **[docs/guia-arranque.md](docs/guia-arranque.md)**
 
 ---
 
-## 3) Notas operativas importantes
+## 2. Contexto del proyecto
 
-### 3.1 Puertos HTTP del backend
+**Problema:** Los tutores necesitan encontrar paseadores confiables, ver disponibilidad real, reservar un horario y pagar de forma segura. Los paseadores necesitan gestionar agenda, recibir solicitudes pagadas y cobrar a través de la plataforma.
 
-Mantener esta tabla alineada entre `application.properties`, `api-gateway` y los launchers del IDE:
+**Solución:** Aplicación full-stack con dos perfiles de usuario:
 
-- `api-gateway`: `8080`
-- `tutores-service`: `8081`
-- `paseadores-service`: `8082`
-- `mascotas-service`: `8083`
-- `agenda-service`: `8084`
-- `notification-service`: `8086`
-- `pagos-service`: `8087`
-- `resena-service`: `8088`
-- `reserva-service`: `8090`
+- **Tutor:** busca paseadores en mapa, registra mascotas, solicita paseos, paga con Mercado Pago, chatea durante el paseo y deja reseñas.
+- **Paseador:** configura tarifas y agenda, verifica identidad, acepta/rechaza reservas, valida encuentro con PIN, gestiona billetera y retiros.
 
-Si cambias un puerto HTTP, actualiza al mismo tiempo:
+**Stack:**
 
-- el `application.properties` del servicio
-- las rutas del gateway
-- cualquier `base-url` o `*_SERVICE_URI` que lo referencie
-- los launchers del IDE si llevan flags o entorno asociado
-
-### 3.2 Puertos de tooling y arranque local
-
-No mezclar puertos HTTP del servicio con puertos de tooling como JMX, RMI o debug.
-
-- El error `java.rmi.server.ExportException: Port already in use: 64188` corresponde a un puerto JMX/RMI del launcher de VS Code, no al `server.port` HTTP de `notification-service`.
-- Para desarrollo local, los launchers de `.vscode/launch.json` arrancan los microservicios con `spring.jmx.enabled=false` y `spring.application.admin.enabled=false` para evitar colisiones intermitentes al lanzar varias sesiones desde el IDE.
-- Esta politica aplica tambien a `paseadores-service`: si aparece un error sobre `50184` u otro puerto alto similar, el conflicto es de tooling del IDE/JMX y no del `server.port=8082`.
-- Si el equipo decide volver a habilitar JMX en local, cada servicio debe usar un puerto JMX unico y documentado, distinto de su `server.port`.
-
-### 3.3 Diagnostico rapido cuando falle un microservicio por puertos
-
-Si vuelve a aparecer un error de tipo `ExportException` o `Address already in use`:
-
-1. Verifica si el puerto mencionado pertenece al `server.port` HTTP o a un flag JVM del launcher.
-2. Revisa si ya existe otra instancia Java del mismo servicio corriendo en segundo plano.
-3. Si el error menciona un puerto alto como `50184`, `55951`, `62027`, `54603`, `56225` o `64188`, sospecha primero de JMX/RMI y revisa `.vscode/launch.json`.
-4. Si el error menciona el puerto funcional del servicio, por ejemplo `8082` para `paseadores-service` o `8086` para `notification-service`, entonces si corresponde al puerto HTTP del microservicio.
-5. Si arrancas por Maven o `java -jar` y el error desaparece, el problema esta en el launcher del IDE y no en el codigo del servicio.
-6. Si el error aparece solo al depurar, revisa tambien el puerto de debug del IDE; ese choque es distinto del de JMX/RMI y no se corrige cambiando `server.port`.
-
-### 3.4 Notas operativas
-
-- En frontend, cuando hay cambios de UI (mockups, formato, etc.), normalmente basta reiniciar/refrescar Vite.
-- Cuando hay cambios de contratos DTO o servicios Java, reiniciar el microservicio afectado.
-
-### 3.5 Geocodificacion
-
-- La geocodificacion (latitud/longitud) en registro de tutor/paseador es **best-effort**:
-  - si Nominatim falla, la direccion puede guardarse sin coordenadas.
-- Para mapa de tutor, el paseador debe tener `direccion.latitud` y `direccion.longitud` no nulas.
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React 19, TypeScript, Vite, React Router, Leaflet, Mercado Pago SDK |
+| Backend | Spring Boot 4, Java 21, Spring Data JPA, Spring Cloud Gateway |
+| Base de datos | PostgreSQL (una BD por microservicio) |
+| Pagos | Mercado Pago (Checkout Pro + Bricks, sandbox) |
+| Tiempo real | WebSocket STOMP (inicio de paseo, chat) |
 
 ---
 
-## 4) Recomendacion de evolucion
+## 3. Arquitectura (resumen)
 
-Para reducir incidencias en geolocalizacion:
+El sistema sigue una **arquitectura de microservicios**. El frontend solo consume el **api-gateway** (`http://localhost:8080`). Cada dominio de negocio tiene su propio servicio y base de datos.
 
-- aceptar `latitud/longitud` desde frontend en registro,
-- mantener geocodificacion backend como fallback,
-- y agregar reintento asincrono para direcciones pendientes.
+```
+Frontend (React :5173)
+        │
+        ▼
+  api-gateway (:8080)
+        │
+        ├── tutores-service      (:8081)  tutores_db
+        ├── paseadores-service   (:8082)  paseadores_db
+        ├── mascotas-service     (:8083)  mascotas_db
+        ├── agenda-service       (:8084)  agenda_db
+        ├── reserva-service      (:8090)  reservas_db   ← orquestador principal
+        ├── notification-service (:8086)  notification_db
+        ├── pagos-service        (:8087)  pagos_db
+        ├── resena-service       (:8088)  resenas_db
+        └── chat-service         (:8089)  chat_db
+```
 
+El servicio más conectado es **`reserva-service`**: coordina agenda, usuarios, mascotas, pagos y notificaciones. Detalle completo en [docs/arquitectura-backend.md](docs/arquitectura-backend.md).
+
+---
+
+## 4. Requisitos adicionales
+
+### Software necesario
+
+| Herramienta | Versión sugerida | Para qué |
+|-------------|------------------|----------|
+| [Java JDK](https://adoptium.net/) | 21 | Microservicios Spring Boot |
+| [Maven](https://maven.apache.org/) | 3.9+ | Compilar y ejecutar backend (incluye wrapper `./mvnw`) |
+| [Node.js](https://nodejs.org/) | 20+ | Frontend (Vite) |
+| [PostgreSQL](https://www.postgresql.org/) | 15+ | Bases de datos locales |
+| IDE | VS Code / IntelliJ | Launchers en `.vscode/launch.json` |
+
+### Bases de datos — crear antes de arrancar
+
+> **Importante:** Hay que **crear las 9 bases de datos en PostgreSQL antes** de levantar cualquier microservicio. Si no existen, Spring Boot fallará al conectar (`FATAL: database "..." does not exist`).
+
+Orden obligatorio de preparación:
+
+| Paso | Acción | Quién lo hace |
+|------|--------|---------------|
+| 1 | Crear las 9 bases vacías (`CREATE DATABASE`) | Manual (pgAdmin / DBeaver / `psql`) |
+| 2 | Levantar microservicios al menos una vez | Spring Boot + Hibernate |
+| 3 | Hibernate crea las **tablas** en cada BD | Automático al arrancar |
+| 4 | Ejecutar los **seeds** (`INSERT` de catálogos) | **Manual** — solo cuando las tablas ya existen |
+
+> Los seeds **no se cargan solos**. Hay que copiar y ejecutar cada `INSERT` de [docs/datos-iniciales-bd.md](docs/datos-iniciales-bd.md) a mano en la BD correspondiente. Si corres los seeds antes de que existan las tablas, PostgreSQL devolverá error (`relation "..." does not exist`).
+
+Nombres requeridos (una BD por microservicio):
+
+| Base de datos | Microservicio |
+|---------------|--------------|
+| `tutores_db` | tutores-service |
+| `paseadores_db` | paseadores-service |
+| `mascotas_db` | mascotas-service |
+| `agenda_db` | agenda-service |
+| `reservas_db` | reserva-service |
+| `pagos_db` | pagos-service |
+| `notification_db` | notification-service |
+| `resenas_db` | resena-service |
+| `chat_db` | chat-service |
+
+Script en pgAdmin, DBeaver o `psql` (como superusuario, p. ej. `postgres`):
+
+```sql
+CREATE DATABASE tutores_db;
+CREATE DATABASE paseadores_db;
+CREATE DATABASE mascotas_db;
+CREATE DATABASE agenda_db;
+CREATE DATABASE reservas_db;
+CREATE DATABASE pagos_db;
+CREATE DATABASE notification_db;
+CREATE DATABASE resenas_db;
+CREATE DATABASE chat_db;
+```
+
+Credenciales por defecto en dev: usuario `postgres`, contraseña `12345` (ver `application.properties` de cada servicio).
+
+### Catálogos iniciales (seeds — carga manual)
+
+Los seeds son datos de catálogo (`estado_reserva`, `especie`, `tamano`, etc.) que el proyecto **no inserta automáticamente**. Debes ejecutarlos **manualmente** en pgAdmin, DBeaver o `psql`, **después** de que Hibernate haya creado las tablas (es decir, tras el primer arranque de los microservicios).
+
+Consulta las queries en [docs/datos-iniciales-bd.md](docs/datos-iniciales-bd.md). Sin ellos, fallan flujos de mascotas, agenda, reservas y pagos bancarios.
+
+---
+
+## 5. Credenciales de prueba — Mercado Pago (sandbox)
+
+La aplicación usa credenciales de **cuenta de prueba** de Mercado Pago Chile.
+
+> Sigue [docs/guia-arranque.md](docs/guia-arranque.md) con túneles Cloudflare + ngrok activos.
+
+### Credenciales de la aplicación
+
+| Uso | Valor | Dónde se configura |
+|-----|-------|-------------------|
+| **Public Key** (frontend, Bricks/Wallet) | `APP_USR-76e22f21-12a1-418c-b02c-c03c8f25d7d9` | `frontend/.../src/config/mercadopago.ts` o env `VITE_MERCADOPAGO_PUBLIC_KEY` |
+| **Access Token** (backend, API MP) | `APP_USR-6514616507944830-050513-11d4559886689fd290f65bee57f10ce3-3379090418` | `backend/pagos-service/.../application.properties` o env `MERCADOPAGO_ACCESS_TOKEN` |
+| Modo sandbox | Activado (`use-sandbox=true`) | `pagos-service` dev |
+
+### Tarjetas de prueba (Checkout)
+
+Usar datos de [usuarios de prueba de Mercado Pago](https://www.mercadopago.cl/developers/es/docs/your-integrations/test/accounts). Regla importante: el **comprador de prueba debe ser distinto** al vendedor asociado al Access Token.
+
+Tarjetas de prueba estándar (Chile):
+
+| Campo | Valor de ejemplo |
+|-------|------------------|
+| Número | `5031 7557 3453 0604` (Mastercard) |
+| CVV | `123` |
+| Vencimiento | `11/30` |
+| Titular | `APRO` → pago aprobado; `OTHE` → rechazado |
+
+### Rutas útiles de pago en la app
+
+| Ruta | Descripción |
+|------|-------------|
+| Flujo tutor normal | Solicitud de paseo → pago embebido (Bricks) |
+| `/labs/checkout-pro` | Sandbox aislado de Checkout Pro (solo desarrollo) |
+
+---
+
+## 6. Microservicios y entidades
+
+Cada servicio persiste en su propia base PostgreSQL. Entidades JPA principales:
+
+| Microservicio | BD | Entidades principales |
+|--------------|-----|------------------------|
+| **tutores-service** | `tutores_db` | `Tutor`, `Direccion`, `Foto` |
+| **paseadores-service** | `paseadores_db` | `Paseador`, `Direccion`, `Foto`, `Configuracion`, `TarifaPaseador`, `Tamano` |
+| **mascotas-service** | `mascotas_db` | `Mascota`, `Foto`, `Especie`, `Raza`, `Tamano` |
+| **agenda-service** | `agenda_db` | `AgendaBloque`, `AgendaBloqueoDia`, `EstadoBloque`, `DiaSemana` |
+| **reserva-service** | `reservas_db` | `Reserva`, `EstadoReserva` |
+| **pagos-service** | `pagos_db` | `Transaccion`, `PagoExterno`, `Billetera`, `BilleteraReservaTracking`, `ComprobantePago`, `Cuenta`, `Banco`, `TipoCuenta`, `RetiroFondo`, `RecaudacionPlataformaLog` |
+| **notification-service** | `notification_db` | `PlantillaCorreo`, `LogEnvio`, `PushSuscripcion` |
+| **resena-service** | `resenas_db` | `Resena` |
+| **chat-service** | `chat_db` | `Conversacion`, `Mensaje`, `EstadoChat`, `EstadoMensaje`, `TipoMensaje` |
+
+Estados de reserva relevantes: `SOLICITADA`, `PENDIENTE_PAGO`, `PAGADA`, `ACEPTADA`, `EN CURSO`, `FINALIZADA`, `CANCELADA`, `EXPIRADA`.
+
+---
+
+## 7. Estructura del repositorio
+
+```
+patiperro-project/
+├── backend/           # Microservicios Spring Boot
+│   ├── api-gateway/
+│   ├── tutores-service/
+│   ├── paseadores-service/
+│   ├── mascotas-service/
+│   ├── agenda-service/
+│   ├── reserva-service/
+│   ├── pagos-service/
+│   ├── notification-service/
+│   ├── resena-service/
+│   └── chat-service/
+├── frontend/
+│   └── patiperro-project/   # App React (Vite)
+├── docs/              # Documentación para evaluadores
+└── test-assets/       # Fixtures manuales QA (>5 MB)
+```
+
+---
+
+## 8. Checklist para evaluadores
+
+1. [docs/enlaces.md](docs/enlaces.md) (Jira + presentación).
+2. [docs/guia-arranque.md](docs/guia-arranque.md) — **10 pasos de arranque**.
+3. BD + seeds: [sección 4](#4-requisitos-adicionales) y [datos-iniciales-bd.md](docs/datos-iniciales-bd.md).
+4. Probar pago sandbox.
+
+---
+
+## 9. Notas operativas
+
+- Tras cambios de **UI**, basta refrescar Vite; tras cambios de **DTOs Java**, reiniciar el microservicio afectado.
+- El puerto de `reserva-service` es **8090** (no 8085); debe coincidir con `api-gateway` y `pagos-service`.
+- Geocodificación es opcional: si Nominatim falla, la dirección se guarda sin coordenadas; el mapa requiere lat/lng del paseador.
+
+---
+
+**Equipo Patiperro** · Entrega académica · Junio 2025
