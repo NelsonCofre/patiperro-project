@@ -228,4 +228,4 @@ patiperro-project/
 
 ---
 
-**Equipo Patiperro** · Entrega académica · Junio 2025
+**Equipo Patiperro** · Entrega académica · Junio 2026
