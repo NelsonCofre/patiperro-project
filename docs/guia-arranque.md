@@ -27,12 +27,18 @@ VITE_PUBLIC_APP_URL=
 
 ```powershell
 cd frontend\patiperro-project
+npm install
 npm run dev
 ```
 
 ---
 
-## Paso 3 — Túnel Cloudflare
+## Paso 3 — Túnel Cloudflared
+
+Antes se debe de instalar el "ejecutable" de Cloudflared: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/
+y guardarlo en una carpeta llamado "cloudflared".
+
+Luego se abre esa carpeta en la terminal y se ejecuta:
 
 Carpeta de `cloudflared.exe` → clic derecho → **Abrir en terminal**:
 
@@ -90,9 +96,22 @@ GATEWAY_EXTRA_CORS_ORIGINS=patiperro.mercadopago.checkout.public-front-base-url=
 
 ## Paso 8 — ngrok
 
+Antes se debe de descargar Ngrok en tu sistema operativo: https://ngrok.com/download/windows?tab=download
+
+![alt text](image.png)
+
+
+Luego se ejecuta el archivo dentro de la carpeta descargada que te entrega el sitio al descargarlo:
+
+![alt text](image-1.png)
+
+Y después se abre la terminal de ngrok y se ejecuta el siguiente comando:
+
 ```powershell
 ngrok http 8080
 ```
+
+Luego la URL que te proporciona se tiene que pegar en las siguientes ubicaciones:
 
 En `application-dev.properties`, webhook (URL ngrok + path):
 
